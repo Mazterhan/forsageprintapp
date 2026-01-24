@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Tariffs;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreTariffClientPriceRequest;
+use App\Models\Client;
 use App\Models\PricingHistory;
 use App\Models\PricingItem;
 use App\Models\PurchaseItem;
 use App\Models\Subcontractor;
 use App\Models\Tariff;
+use App\Models\TariffClientPrice;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -22,12 +25,19 @@ class TariffController extends Controller
             ->get();
 
         $subcontractorIds = array_filter((array) $request->query('subcontractors', []));
+        $clientCategoryFilters = array_filter((array) $request->query('client_categories', []), fn ($value) => $value !== '');
         $category = (string) $request->query('category', '');
         $search = (string) $request->query('search', '');
         $priceFrom = $request->query('price_from');
         $priceTo = $request->query('price_to');
 
         $categories = Tariff::query()
+            ->whereNotNull('category')
+            ->distinct()
+            ->orderBy('category')
+            ->pluck('category');
+
+        $clientCategories = Client::query()
             ->whereNotNull('category')
             ->distinct()
             ->orderBy('category')
@@ -51,30 +61,54 @@ class TariffController extends Controller
             ->when($priceTo !== null && $priceTo !== '', function ($query) use ($priceTo) {
                 $query->where('sale_price', '<=', (float) $priceTo);
             })
+            ->when(! empty($clientCategoryFilters), function ($query) use ($clientCategoryFilters) {
+                $query->with(['clientPrices' => function ($clientPrices) use ($clientCategoryFilters) {
+                    $clientPrices->whereIn('client_category', $clientCategoryFilters);
+                }]);
+            })
             ->orderBy('name')
             ->paginate(20)
             ->withQueryString();
+
+        $title = empty($clientCategoryFilters)
+            ? __('Tariffs. Retail price')
+            : __('Tariffs. Retail + Client category price');
 
         return view('tariffs.index', [
             'tariffs' => $tariffs,
             'subcontractors' => $subcontractors,
             'categories' => $categories,
+            'clientCategories' => $clientCategories,
+            'selectedClientCategories' => $clientCategoryFilters,
+            'title' => $title,
             'filters' => [
                 'subcontractors' => $subcontractorIds,
                 'category' => $category,
                 'search' => $search,
                 'price_from' => $priceFrom,
                 'price_to' => $priceTo,
+                'client_categories' => $clientCategoryFilters,
             ],
         ]);
     }
 
     public function show(Tariff $tariff): View
     {
+        $tariff->load('clientPrices');
+
         $subcontractors = Subcontractor::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
+
+        $clientCategories = Client::query()
+            ->whereNotNull('category')
+            ->distinct()
+            ->orderBy('category')
+            ->pluck('category')
+            ->merge($tariff->clientPrices->pluck('client_category'))
+            ->unique()
+            ->values();
 
         $history = PricingHistory::query()
             ->where('internal_code', $tariff->internal_code)
@@ -84,8 +118,28 @@ class TariffController extends Controller
         return view('tariffs.show', [
             'tariff' => $tariff,
             'subcontractors' => $subcontractors,
+            'clientCategories' => $clientCategories,
             'history' => $history,
         ]);
+    }
+
+    public function storeClientPrice(StoreTariffClientPriceRequest $request, Tariff $tariff): RedirectResponse
+    {
+        $data = $request->validated();
+
+        TariffClientPrice::updateOrCreate(
+            [
+                'tariff_id' => $tariff->id,
+                'client_category' => $data['client_category'],
+            ],
+            [
+                'price' => round((float) $data['price'], 2),
+            ]
+        );
+
+        return redirect()
+            ->route('tariffs.show', $tariff)
+            ->with('status', __('Client category price updated.'));
     }
 
     public function update(Request $request, Tariff $tariff): RedirectResponse

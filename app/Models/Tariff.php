@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Tariff extends Model
 {
@@ -29,5 +30,10 @@ class Tariff extends Model
     public function subcontractor(): BelongsTo
     {
         return $this->belongsTo(Subcontractor::class);
+    }
+
+    public function clientPrices(): HasMany
+    {
+        return $this->hasMany(TariffClientPrice::class);
     }
 }

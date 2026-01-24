@@ -83,6 +83,7 @@ Route::middleware('auth')
         Route::get('/', [TariffController::class, 'index'])->name('index');
         Route::get('/{tariff}', [TariffController::class, 'show'])->name('show');
         Route::patch('/{tariff}', [TariffController::class, 'update'])->name('update');
+        Route::post('/{tariff}/client-prices', [TariffController::class, 'storeClientPrice'])->name('client-prices.store');
         Route::patch('/{tariff}/deactivate', [TariffController::class, 'deactivate'])->name('deactivate');
     });
 

@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Tariffs') }}
+            {{ $title }}
         </h2>
     </x-slot>
 
@@ -39,6 +39,29 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="flex-[0.75] min-w-[180px]" x-data="{ open: false }">
+                            <x-input-label :value="__('Show price for category')" />
+                            <div class="relative mt-1">
+                                <button type="button" @click="open = !open" class="block w-full border border-gray-300 rounded-md shadow-sm bg-white text-sm text-gray-700 text-left px-3 py-2 pr-8">
+                                    {{ __('Select categories') }}
+                                </button>
+                                <svg class="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                </svg>
+                                <div x-show="open" @click.outside="open = false" class="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-sm max-h-60 overflow-y-auto">
+                                    @forelse ($clientCategories as $clientCategory)
+                                        <label class="flex items-center gap-2 px-3 py-2 text-sm text-gray-700">
+                                            <input type="checkbox" name="client_categories[]" value="{{ $clientCategory }}" class="rounded border-gray-300" @checked(in_array($clientCategory, $selectedClientCategories, true))>
+                                            <span>{{ $clientCategory }}</span>
+                                        </label>
+                                    @empty
+                                        <div class="px-3 py-2 text-sm text-gray-500">
+                                            {{ __('No client category prices.') }}
+                                        </div>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
                         <div class="flex-[0.75] min-w-[180px]">
                             <x-input-label for="category" :value="__('Category')" />
                             <select id="category" name="category" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
@@ -71,6 +94,11 @@
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
                                     <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Price</th>
+                                    @foreach ($selectedClientCategories as $clientCategory)
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                                            {{ __('Price.') }}{{ $clientCategory }}
+                                        </th>
+                                    @endforeach
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Subcontractor</th>
                                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -84,6 +112,14 @@
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $tariff->name }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700 text-right">{{ $tariff->category }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700 text-center">{{ number_format((float) $tariff->sale_price, 2, '.', '') }}</td>
+                                        @foreach ($selectedClientCategories as $clientCategory)
+                                            @php
+                                                $clientPrice = $tariff->clientPrices?->firstWhere('client_category', $clientCategory);
+                                            @endphp
+                                            <td class="px-4 py-2 text-sm text-gray-700 text-center">
+                                                {{ $clientPrice?->price !== null ? number_format((float) $clientPrice->price, 2, '.', '') : '' }}
+                                            </td>
+                                        @endforeach
                                         <td class="px-4 py-2 text-sm text-gray-700 text-right">{{ $tariff->subcontractor?->name }}</td>
                                         @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                                             <td class="px-4 py-2 text-sm text-gray-700 text-center">

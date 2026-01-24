@@ -63,6 +63,30 @@
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
+                    <form method="POST" action="{{ route('tariffs.client-prices.store', $tariff) }}" class="flex flex-wrap items-end gap-4">
+                        @csrf
+                        <div class="flex-1 min-w-[220px]">
+                            <x-input-label for="client_category" :value="__('Client category')" />
+                            <select id="client_category" name="client_category" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                                <option value="">{{ __('Select') }}</option>
+                                @foreach ($clientCategories as $clientCategory)
+                                    <option value="{{ $clientCategory }}">{{ $clientCategory }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="flex-1 min-w-[180px]">
+                            <x-input-label for="client_category_price" :value="__('Category price')" />
+                            <x-text-input id="client_category_price" name="price" type="text" class="mt-1 block w-full" required />
+                        </div>
+                        <div class="pt-6">
+                            <x-primary-button>{{ __('Save') }}</x-primary-button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 text-gray-900">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Pricing History') }}</h3>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
