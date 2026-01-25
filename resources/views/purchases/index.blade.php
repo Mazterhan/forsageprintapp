@@ -27,13 +27,13 @@
                             {{ session('status') }}
                         </div>
                     @endif
-                    <form method="GET" action="{{ route('purchases.index') }}" class="flex flex-wrap gap-3 items-end">
-                        <div class="flex-[2.75] min-w-[525px]">
-                            <x-input-label for="item_search" :value="__('Search by internal code, name, or invoice code')" />
-                            <x-text-input id="item_search" name="item_search" type="text" class="mt-1 block w-full" value="{{ $filters['item_search'] }}" />
+                    <form method="GET" action="{{ route('purchases.index') }}" class="flex flex-wrap items-end gap-4">
+                        <div class="flex-1 min-w-[220px]">
+                            <label class="block font-medium text-sm text-gray-700" for="item_search">Search by internal code, name, or invoice code</label>
+                            <input class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full" id="item_search" name="item_search" type="text" value="{{ $filters['item_search'] }}">
                         </div>
-                        <div class="flex-[0.75] min-w-[180px]" x-data="{ open: false }">
-                            <x-input-label :value="__('Suppliers')" />
+                        <div class="flex-1 min-w-[200px]" x-data="{ open: false }">
+                            <label class="block font-medium text-sm text-gray-700">Suppliers</label>
                             <div class="relative mt-1">
                                 <button type="button" @click="open = !open" class="block w-full border border-gray-300 rounded-md shadow-sm bg-white text-sm text-gray-700 text-left px-3 py-2 pr-8">
                                     {{ __('Select suppliers') }}
@@ -51,9 +51,9 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="flex-[0.75] min-w-[180px]">
-                            <x-input-label for="category" :value="__('Category')" />
-                            <select id="category" name="category" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        <div class="flex-1 min-w-[180px]">
+                            <label class="block font-medium text-sm text-gray-700" for="category">Category</label>
+                            <select id="category" name="category" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full">
                                 <option value="">{{ __('All') }}</option>
                                 @foreach ($categories as $category)
                                     <option value="{{ $category }}" @selected($filters['category'] === $category)>
@@ -63,7 +63,9 @@
                             </select>
                         </div>
                         <div class="pt-6">
-                            <x-primary-button>{{ __('Apply') }}</x-primary-button>
+                            <button type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 active:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                                Apply
+                            </button>
                         </div>
                     </form>
 
