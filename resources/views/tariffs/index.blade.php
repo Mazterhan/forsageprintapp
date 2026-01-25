@@ -15,13 +15,13 @@
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-                    <form method="GET" action="{{ route('tariffs.index') }}" class="w-full flex flex-wrap gap-4 items-end">
+                    <form method="GET" action="{{ route('tariffs.index') }}" class="w-full flex flex-wrap items-end gap-4">
                         <div style="width: 400px;">
-                            <x-input-label for="search" :value="__('Search by name')" />
-                            <x-text-input id="search" name="search" type="text" class="mt-1 block w-full" value="{{ $filters['search'] }}" />
+                            <label class="block font-medium text-sm text-gray-700" for="search">Search by name</label>
+                            <input id="search" name="search" type="text" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full" value="{{ $filters['search'] }}" />
                         </div>
-                        <div class="flex-[0.75] min-w-[180px]" x-data="{ open: false }">
-                            <x-input-label :value="__('Subcontractors')" />
+                        <div class="flex-1 min-w-[180px]" x-data="{ open: false }">
+                            <label class="block font-medium text-sm text-gray-700">Subcontractors</label>
                             <div class="relative mt-1">
                                 <button type="button" @click="open = !open" class="block w-full border border-gray-300 rounded-md shadow-sm bg-white text-sm text-gray-700 text-left px-3 py-2 pr-8">
                                     {{ __('Select subcontractors') }}
@@ -39,8 +39,8 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="flex-[0.75] min-w-[180px]" x-data="{ open: false }">
-                            <x-input-label :value="__('Show price for category')" />
+                        <div class="flex-1 min-w-[180px]" x-data="{ open: false }">
+                            <label class="block font-medium text-sm text-gray-700">Show price for category</label>
                             <div class="relative mt-1">
                                 <button type="button" @click="open = !open" class="block w-full border border-gray-300 rounded-md shadow-sm bg-white text-sm text-gray-700 text-left px-3 py-2 pr-8">
                                     {{ __('Select categories') }}
@@ -62,9 +62,9 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="flex-[0.75] min-w-[180px]">
-                            <x-input-label for="category" :value="__('Category')" />
-                            <select id="category" name="category" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        <div class="flex-1 min-w-[180px]">
+                            <label class="block font-medium text-sm text-gray-700" for="category">Category</label>
+                            <select id="category" name="category" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full">
                                 <option value="">{{ __('All') }}</option>
                                 @foreach ($categories as $category)
                                     <option value="{{ $category }}" @selected($filters['category'] === $category)>
@@ -74,15 +74,17 @@
                             </select>
                         </div>
                         <div style="width: 100px;">
-                            <x-input-label for="price_from" :value="__('Price from')" />
-                            <x-text-input id="price_from" name="price_from" type="text" class="mt-1 block w-full" value="{{ $filters['price_from'] }}" />
+                            <label class="block font-medium text-sm text-gray-700" for="price_from">Price from</label>
+                            <input id="price_from" name="price_from" type="text" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full" value="{{ $filters['price_from'] }}" />
                         </div>
                         <div style="width: 100px;">
-                            <x-input-label for="price_to" :value="__('Price to')" />
-                            <x-text-input id="price_to" name="price_to" type="text" class="mt-1 block w-full" value="{{ $filters['price_to'] }}" />
+                            <label class="block font-medium text-sm text-gray-700" for="price_to">Price to</label>
+                            <input id="price_to" name="price_to" type="text" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full" value="{{ $filters['price_to'] }}" />
                         </div>
-                        <div class="ml-auto" style="padding-top: 12px; padding-bottom: 12px;">
-                            <x-primary-button>{{ __('Apply') }}</x-primary-button>
+                        <div class="ml-auto pt-6">
+                            <button type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 active:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                                Apply
+                            </button>
                         </div>
                     </form>
 
