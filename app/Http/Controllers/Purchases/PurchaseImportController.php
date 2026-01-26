@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PurchaseImportController extends Controller
 {
@@ -165,6 +166,28 @@ class PurchaseImportController extends Controller
         }
 
         return $redirect;
+    }
+
+    public function downloadTemplate(): StreamedResponse
+    {
+        $headers = [
+            'external_code(if_exist)',
+            'name',
+            'price',
+            'unit(if_exist)',
+            'quantity(if_exist)',
+            'category(if_exist)',
+        ];
+
+        $callback = function () use ($headers): void {
+            $handle = fopen('php://output', 'wb');
+            fputcsv($handle, $headers, ';');
+            fclose($handle);
+        };
+
+        return response()->streamDownload($callback, 'purchase_import_template.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     private function syncPricing(int $supplierId, array $items, ?int $userId): void

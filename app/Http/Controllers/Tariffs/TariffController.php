@@ -3,14 +3,11 @@
 namespace App\Http\Controllers\Tariffs;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreTariffClientPriceRequest;
-use App\Models\Client;
 use App\Models\PricingHistory;
 use App\Models\PricingItem;
 use App\Models\PurchaseItem;
 use App\Models\Subcontractor;
 use App\Models\Tariff;
-use App\Models\TariffClientPrice;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -25,7 +22,7 @@ class TariffController extends Controller
             ->get();
 
         $subcontractorIds = array_filter((array) $request->query('subcontractors', []));
-        $clientCategoryFilters = array_filter((array) $request->query('client_categories', []), fn ($value) => $value !== '');
+        $extraPriceFilters = array_filter((array) $request->query('extra_prices', []));
         $category = (string) $request->query('category', '');
         $search = (string) $request->query('search', '');
         $priceFrom = $request->query('price_from');
@@ -37,11 +34,10 @@ class TariffController extends Controller
             ->orderBy('category')
             ->pluck('category');
 
-        $clientCategories = Client::query()
-            ->whereNotNull('category')
-            ->distinct()
-            ->orderBy('category')
-            ->pluck('category');
+        $extraPriceOptions = [
+            'wholesale' => 'оптова ціна',
+            'urgent' => 'термінова робота',
+        ];
 
         $tariffs = Tariff::query()
             ->with('subcontractor')
@@ -61,25 +57,27 @@ class TariffController extends Controller
             ->when($priceTo !== null && $priceTo !== '', function ($query) use ($priceTo) {
                 $query->where('sale_price', '<=', (float) $priceTo);
             })
-            ->when(! empty($clientCategoryFilters), function ($query) use ($clientCategoryFilters) {
-                $query->with(['clientPrices' => function ($clientPrices) use ($clientCategoryFilters) {
-                    $clientPrices->whereIn('client_category', $clientCategoryFilters);
-                }]);
-            })
             ->orderBy('name')
             ->paginate(20)
             ->withQueryString();
 
-        $title = empty($clientCategoryFilters)
-            ? __('Прайс. Роздрібна ціна')
-            : __('Прайс. Роздрібна ціна + Ціна за категорією клієнта');
+        $selectedExtraLabels = collect($extraPriceFilters)
+            ->filter(fn ($key) => array_key_exists($key, $extraPriceOptions))
+            ->map(fn ($key) => $extraPriceOptions[$key])
+            ->values()
+            ->all();
+
+        $title = 'Прайс: роздрібна ціна';
+        if (! empty($selectedExtraLabels)) {
+            $title .= ' + '.implode(' + ', $selectedExtraLabels);
+        }
 
         return view('tariffs.index', [
             'tariffs' => $tariffs,
             'subcontractors' => $subcontractors,
             'categories' => $categories,
-            'clientCategories' => $clientCategories,
-            'selectedClientCategories' => $clientCategoryFilters,
+            'extraPriceOptions' => $extraPriceOptions,
+            'selectedExtraPrices' => $extraPriceFilters,
             'title' => $title,
             'filters' => [
                 'subcontractors' => $subcontractorIds,
@@ -87,28 +85,17 @@ class TariffController extends Controller
                 'search' => $search,
                 'price_from' => $priceFrom,
                 'price_to' => $priceTo,
-                'client_categories' => $clientCategoryFilters,
+                'extra_prices' => $extraPriceFilters,
             ],
         ]);
     }
 
     public function show(Tariff $tariff): View
     {
-        $tariff->load('clientPrices');
-
         $subcontractors = Subcontractor::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
-
-        $clientCategories = Client::query()
-            ->whereNotNull('category')
-            ->distinct()
-            ->orderBy('category')
-            ->pluck('category')
-            ->merge($tariff->clientPrices->pluck('client_category'))
-            ->unique()
-            ->values();
 
         $history = PricingHistory::query()
             ->where('internal_code', $tariff->internal_code)
@@ -118,28 +105,8 @@ class TariffController extends Controller
         return view('tariffs.show', [
             'tariff' => $tariff,
             'subcontractors' => $subcontractors,
-            'clientCategories' => $clientCategories,
             'history' => $history,
         ]);
-    }
-
-    public function storeClientPrice(StoreTariffClientPriceRequest $request, Tariff $tariff): RedirectResponse
-    {
-        $data = $request->validated();
-
-        TariffClientPrice::updateOrCreate(
-            [
-                'tariff_id' => $tariff->id,
-                'client_category' => $data['client_category'],
-            ],
-            [
-                'price' => round((float) $data['price'], 2),
-            ]
-        );
-
-        return redirect()
-            ->route('tariffs.show', $tariff)
-            ->with('status', __('Client category price updated.'));
     }
 
     public function update(Request $request, Tariff $tariff): RedirectResponse
@@ -149,6 +116,8 @@ class TariffController extends Controller
             'category' => ['nullable', 'string', 'max:255'],
             'subcontractor_id' => ['nullable', 'integer', 'exists:subcontractors,id'],
             'sale_price' => ['nullable', 'numeric', 'min:0'],
+            'wholesale_price' => ['nullable', 'numeric', 'min:0'],
+            'urgent_price' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $tariff->update($data);
