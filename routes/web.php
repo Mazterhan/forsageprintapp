@@ -53,6 +53,7 @@ Route::middleware(['auth', 'role:admin|manager'])
         Route::post('/suppliers/{supplier}/documents', [SupplierController::class, 'storeDocument'])->name('suppliers.documents.store');
         Route::get('/suppliers/documents/{document}', [SupplierController::class, 'downloadDocument'])->name('suppliers.documents.download');
         Route::get('/import_file', [PurchaseImportController::class, 'create'])->name('import.create');
+        Route::get('/import_template', [PurchaseImportController::class, 'downloadTemplate'])->name('import.template');
         Route::post('/import_file', [PurchaseImportController::class, 'store'])->name('import.store');
         Route::get('/{purchase}/review', [PurchaseReviewController::class, 'show'])->name('review');
     });
@@ -83,7 +84,6 @@ Route::middleware('auth')
         Route::get('/', [TariffController::class, 'index'])->name('index');
         Route::get('/{tariff}', [TariffController::class, 'show'])->name('show');
         Route::patch('/{tariff}', [TariffController::class, 'update'])->name('update');
-        Route::post('/{tariff}/client-prices', [TariffController::class, 'storeClientPrice'])->name('client-prices.store');
         Route::patch('/{tariff}/deactivate', [TariffController::class, 'deactivate'])->name('deactivate');
     });
 

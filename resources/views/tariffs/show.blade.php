@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Tariff') }}
+            {{ __('Картка товару') }}
         </h2>
     </x-slot>
 
@@ -20,22 +20,22 @@
                         @method('PATCH')
 
                         <div>
-                            <x-input-label for="internal_code" :value="__('Internal Code')" />
+                            <x-input-label for="internal_code" :value="__('Внутрішній код')" />
                             <x-text-input id="internal_code" type="text" class="mt-1 block w-full" value="{{ $tariff->internal_code }}" disabled />
                         </div>
 
                         <div>
-                            <x-input-label for="name" :value="__('Name')" />
+                            <x-input-label for="name" :value="__('Назва')" />
                             <x-text-input id="name" name="name" type="text" class="mt-1 block w-full" value="{{ old('name', $tariff->name) }}" required />
                         </div>
 
                         <div>
-                            <x-input-label for="category" :value="__('Category')" />
+                            <x-input-label for="category" :value="__('Категорія')" />
                             <x-text-input id="category" name="category" type="text" class="mt-1 block w-full" value="{{ old('category', $tariff->category) }}" />
                         </div>
 
                         <div>
-                            <x-input-label for="subcontractor_id" :value="__('Subcontractor')" />
+                            <x-input-label for="subcontractor_id" :value="__('Субпідрядник')" />
                             <select id="subcontractor_id" name="subcontractor_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                                 <option value="">{{ __('Select') }}</option>
                                 @foreach ($subcontractors as $subcontractor)
@@ -47,14 +47,22 @@
                         </div>
 
                         <div>
-                            <x-input-label for="sale_price" :value="__('Price')" />
+                            <x-input-label for="sale_price" :value="__('Роздрібна ціна')" />
                             <x-text-input id="sale_price" name="sale_price" type="text" class="mt-1 block w-full" value="{{ old('sale_price', $tariff->sale_price !== null ? number_format((float) $tariff->sale_price, 2, '.', '') : '') }}" />
+                        </div>
+                        <div>
+                            <x-input-label for="wholesale_price" :value="__('Оптова ціна')" />
+                            <x-text-input id="wholesale_price" name="wholesale_price" type="text" class="mt-1 block w-full" value="{{ old('wholesale_price', $tariff->wholesale_price !== null ? number_format((float) $tariff->wholesale_price, 2, '.', '') : '') }}" />
+                        </div>
+                        <div>
+                            <x-input-label for="urgent_price" :value="__('Термінова робота')" />
+                            <x-text-input id="urgent_price" name="urgent_price" type="text" class="mt-1 block w-full" value="{{ old('urgent_price', $tariff->urgent_price !== null ? number_format((float) $tariff->urgent_price, 2, '.', '') : '') }}" />
                         </div>
 
                         <div class="flex items-center gap-4">
-                            <x-primary-button>{{ __('Save') }}</x-primary-button>
+                            <x-primary-button>{{ __('Зберегти') }}</x-primary-button>
                             <a href="{{ route('tariffs.index') }}" class="text-sm text-gray-600 hover:text-gray-900">
-                                {{ __('Back') }}
+                                {{ __('повернутись') }}
                             </a>
                         </div>
                     </form>
@@ -63,40 +71,16 @@
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-                    <form method="POST" action="{{ route('tariffs.client-prices.store', $tariff) }}" class="flex flex-wrap items-end gap-4">
-                        @csrf
-                        <div class="flex-1 min-w-[220px]">
-                            <x-input-label for="client_category" :value="__('Client category')" />
-                            <select id="client_category" name="client_category" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
-                                <option value="">{{ __('Select') }}</option>
-                                @foreach ($clientCategories as $clientCategory)
-                                    <option value="{{ $clientCategory }}">{{ $clientCategory }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="flex-1 min-w-[180px]">
-                            <x-input-label for="client_category_price" :value="__('Category price')" />
-                            <x-text-input id="client_category_price" name="price" type="text" class="mt-1 block w-full" required />
-                        </div>
-                        <div class="pt-6">
-                            <x-primary-button>{{ __('Save') }}</x-primary-button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Pricing History') }}</h3>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Історія зміни ціни') }}</h3>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead>
                                 <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Import Price</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Markup %</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Markup Price</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">дата</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Закупівельна ціна</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка %</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ціна з націнкою</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Користувач</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">

@@ -43,6 +43,11 @@
                                 {{ __('Повернутись') }}
                             </a>
                         </div>
+                        <div class="flex justify-end">
+                            <a href="{{ route('purchases.import.template') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                                {{ __('Завантажити шаблон імпорту') }}
+                            </a>
+                        </div>
                     </form>
                 </div>
             </div>
