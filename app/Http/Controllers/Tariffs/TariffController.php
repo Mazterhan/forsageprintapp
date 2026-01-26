@@ -71,8 +71,8 @@ class TariffController extends Controller
             ->withQueryString();
 
         $title = empty($clientCategoryFilters)
-            ? __('Tariffs. Retail price')
-            : __('Tariffs. Retail + Client category price');
+            ? __('Прайс. Роздрібна ціна')
+            : __('Прайс. Роздрібна ціна + Ціна за категорією клієнта');
 
         return view('tariffs.index', [
             'tariffs' => $tariffs,

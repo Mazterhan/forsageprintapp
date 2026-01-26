@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Import Purchases') }}
+            {{ __('Імпорт закупівель') }}
         </h2>
     </x-slot>
 
@@ -13,9 +13,9 @@
                         @csrf
 
                         <div>
-                            <x-input-label for="supplier_id" :value="__('Supplier')" />
+                            <x-input-label for="supplier_id" :value="__('Постачальник')" />
                             <select id="supplier_id" name="supplier_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                                <option value="">{{ __('Select supplier') }}</option>
+                                <option value="">{{ __('Виберіть постачальника') }}</option>
                                 @foreach ($suppliers as $supplier)
                                     <option value="{{ $supplier->id }}" @selected(old('supplier_id') == $supplier->id)>
                                         {{ $supplier->name }}
@@ -26,21 +26,21 @@
                         </div>
 
                         <div>
-                            <x-input-label for="supplier_name" :value="__('Manual supplier name')" />
+                            <x-input-label for="supplier_name" :value="__('Якщо постачальника немає у списку - впишіть його вручну')" />
                             <x-text-input id="supplier_name" name="supplier_name" type="text" class="mt-1 block w-full" value="{{ old('supplier_name') }}" />
                             <x-input-error class="mt-2" :messages="$errors->get('supplier_name')" />
                         </div>
 
                         <div>
-                            <x-input-label for="file" :value="__('File (CSV or XLSX)')" />
+                            <x-input-label for="file" :value="__('File (CSV або XLSX)')" />
                             <input id="file" name="file" type="file" class="mt-1 block w-full text-sm text-gray-700" required />
                             <x-input-error class="mt-2" :messages="$errors->get('file')" />
                         </div>
 
                         <div class="flex items-center gap-4">
-                            <x-primary-button>{{ __('Import') }}</x-primary-button>
+                            <x-primary-button>{{ __('Імпорт') }}</x-primary-button>
                             <a href="{{ route('purchases.index') }}" class="text-sm text-gray-600 hover:text-gray-900">
-                                {{ __('Back') }}
+                                {{ __('Повернутись') }}
                             </a>
                         </div>
                     </form>

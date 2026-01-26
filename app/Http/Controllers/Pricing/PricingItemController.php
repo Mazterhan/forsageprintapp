@@ -71,6 +71,6 @@ class PricingItemController extends Controller
 
         return redirect()
             ->route('pricing.items.show', $pricingItem)
-            ->with('status', __('Pricing item updated.'));
+            ->with('status', __('Цінник оновлено.'));
     }
 }

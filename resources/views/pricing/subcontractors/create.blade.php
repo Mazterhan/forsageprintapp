@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Add Subcontractor') }}
+            {{ __('Додати підрядну організацію') }}
         </h2>
     </x-slot>
 
@@ -13,9 +13,9 @@
                         @csrf
                         @include('pricing.subcontractors.partials.form', ['subcontractor' => null])
                         <div class="flex items-center gap-4">
-                            <x-primary-button>{{ __('Save') }}</x-primary-button>
+                            <x-primary-button>{{ __('Зберегти') }}</x-primary-button>
                             <a href="{{ route('pricing.subcontractors.index') }}" class="text-sm text-gray-600 hover:text-gray-900">
-                                {{ __('Cancel') }}
+                                {{ __('Скинути') }}
                             </a>
                         </div>
                     </form>

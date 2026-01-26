@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Pricing Item') }}
+            {{ __('Цінник') }}
         </h2>
     </x-slot>
 
@@ -20,25 +20,25 @@
                         @method('PATCH')
 
                         <div>
-                            <x-input-label for="internal_code" :value="__('Internal Code')" />
+                            <x-input-label for="internal_code" :value="__('Внутрішній код')" />
                             <x-text-input id="internal_code" type="text" class="mt-1 block w-full" value="{{ $item->internal_code }}" disabled />
                         </div>
 
                         <div>
-                            <x-input-label for="name" :value="__('Name')" />
+                            <x-input-label for="name" :value="__('Назва товару')" />
                             <x-text-input id="name" name="name" type="text" class="mt-1 block w-full" value="{{ old('name', $item->name) }}" required />
                             <x-input-error class="mt-2" :messages="$errors->get('name')" />
                         </div>
 
                         <div>
-                            <x-input-label for="category" :value="__('Category')" />
+                            <x-input-label for="category" :value="__('Категорія')" />
                             <x-text-input id="category" name="category" type="text" class="mt-1 block w-full" value="{{ old('category', $item->category) }}" />
                         </div>
 
                         <div>
-                            <x-input-label for="subcontractor_id" :value="__('Subcontractor')" />
+                            <x-input-label for="subcontractor_id" :value="__('Субпідрядник')" />
                             <select id="subcontractor_id" name="subcontractor_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                                <option value="">{{ __('Select') }}</option>
+                                <option value="">{{ __('Обрати') }}</option>
                                 @foreach ($subcontractors as $subcontractor)
                                     <option value="{{ $subcontractor->id }}" @selected($item->subcontractor_id === $subcontractor->id)>
                                         {{ $subcontractor->name }}
@@ -49,23 +49,23 @@
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <x-input-label for="import_price" :value="__('Import Price')" />
+                                <x-input-label for="import_price" :value="__('Закупівельна ціна')" />
                                 <x-text-input id="import_price" name="import_price" type="text" class="mt-1 block w-full" value="{{ old('import_price', $item->import_price) }}" />
                             </div>
                             <div>
-                                <x-input-label for="markup_percent" :value="__('Markup %')" />
+                                <x-input-label for="markup_percent" :value="__('Націнка %')" />
                                 <x-text-input id="markup_percent" name="markup_percent" type="text" class="mt-1 block w-full" value="{{ old('markup_percent', $item->markup_percent) }}" />
                             </div>
                             <div>
-                                <x-input-label for="markup_price" :value="__('Markup Price')" />
+                                <x-input-label for="markup_price" :value="__('Роздрібна ціна')" />
                                 <x-text-input id="markup_price" name="markup_price" type="text" class="mt-1 block w-full" value="{{ old('markup_price', $item->markup_price) }}" />
                             </div>
                         </div>
 
                         <div class="flex items-center gap-4">
-                            <x-primary-button>{{ __('Save') }}</x-primary-button>
+                            <x-primary-button>{{ __('Застосувати') }}</x-primary-button>
                             <a href="{{ route('pricing.index') }}" class="text-sm text-gray-600 hover:text-gray-900">
-                                {{ __('Back') }}
+                                {{ __('Відмінити') }}
                             </a>
                         </div>
                     </form>
@@ -74,16 +74,16 @@
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Price History') }}</h3>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Історія цін') }}</h3>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead>
                                 <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Import Price</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Markup %</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Markup Price</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дата</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Закупівельна ціна</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка %</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Роздрібна ціна</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Користувач</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">

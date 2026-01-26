@@ -13,27 +13,27 @@
                 <!-- Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                        {{ __('Dashboard') }}
+                        {{ __('Головна') }}
                     </x-nav-link>
                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                         <x-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
-                            {{ __('Orders') }}
+                            {{ __('Замовлення') }}
                         </x-nav-link>
                     @endif
                     <x-nav-link :href="route('tariffs.index')" :active="request()->routeIs('tariffs.*')">
-                        {{ __('Tariffs') }}
+                        {{ __('Прайс') }}
                     </x-nav-link>
                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                         <x-nav-link :href="route('purchases.index')" :active="request()->routeIs('purchases.*')">
-                            {{ __('Purchases') }}
+                            {{ __('Закупка') }}
                         </x-nav-link>
                         <x-nav-link :href="route('pricing.index')" :active="request()->routeIs('pricing.*')">
-                            {{ __('Pricing') }}
+                            {{ __('Ціноутворення') }}
                         </x-nav-link>
                     @endif
                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                         <x-nav-link :href="route('admin.index')" :active="request()->routeIs('admin.index')">
-                            {{ __('Admin') }}
+                            {{ __('Адміністрування') }}
                         </x-nav-link>
                     @endif
                 </div>
@@ -56,10 +56,10 @@
 
                     <x-slot name="content">
                         <x-dropdown-link :href="route('profile.edit')">
-                            {{ __('Profile') }}
+                            {{ __('Профіль користувача') }}
                         </x-dropdown-link>
                         <div class="px-4 py-2 text-xs text-gray-500">
-                            {{ __('Role') }}: {{ Auth::user()->role }}
+                            {{ __('Роль') }}: {{ Auth::user()->role }}
                         </div>
 
                         <!-- Authentication -->
@@ -69,7 +69,7 @@
                             <x-dropdown-link :href="route('logout')"
                                     onclick="event.preventDefault();
                                                 this.closest('form').submit();">
-                                {{ __('Log Out') }}
+                                {{ __('Вийти') }}
                             </x-dropdown-link>
                         </form>
                     </x-slot>
@@ -92,27 +92,27 @@
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                {{ __('Dashboard') }}
+                {{ __('Головна') }}
             </x-responsive-nav-link>
             @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                 <x-responsive-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
-                    {{ __('Orders') }}
+                    {{ __('Замовлення') }}
                 </x-responsive-nav-link>
             @endif
             <x-responsive-nav-link :href="route('tariffs.index')" :active="request()->routeIs('tariffs.*')">
-                {{ __('Tariffs') }}
+                {{ __('Прайс') }}
             </x-responsive-nav-link>
             @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                 <x-responsive-nav-link :href="route('purchases.index')" :active="request()->routeIs('purchases.*')">
-                    {{ __('Purchases') }}
+                    {{ __('Закупка') }}
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('pricing.index')" :active="request()->routeIs('pricing.*')">
-                    {{ __('Pricing') }}
+                    {{ __('Ціноутворення') }}
                 </x-responsive-nav-link>
             @endif
             @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                 <x-responsive-nav-link :href="route('admin.index')" :active="request()->routeIs('admin.index')">
-                    {{ __('Admin') }}
+                    {{ __('Адміністрування') }}
                 </x-responsive-nav-link>
             @endif
         </div>
@@ -126,10 +126,10 @@
 
             <div class="mt-3 space-y-1">
                 <x-responsive-nav-link :href="route('profile.edit')">
-                    {{ __('Profile') }}
+                    {{ __('Профіль користувача') }}
                 </x-responsive-nav-link>
                 <div class="px-4 py-2 text-xs text-gray-500">
-                    {{ __('Role') }}: {{ Auth::user()->role }}
+                    {{ __('Роль') }}: {{ Auth::user()->role }}
                 </div>
 
                 <!-- Authentication -->
@@ -139,7 +139,7 @@
                     <x-responsive-nav-link :href="route('logout')"
                             onclick="event.preventDefault();
                                         this.closest('form').submit();">
-                        {{ __('Log Out') }}
+                        {{ __('Вийти') }}
                     </x-responsive-nav-link>
                 </form>
             </div>

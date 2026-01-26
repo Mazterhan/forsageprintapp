@@ -154,7 +154,7 @@ class PurchaseImportController extends Controller
 
         $redirect = redirect()
             ->route('purchases.review', $purchase)
-            ->with('status', __('Import completed.'));
+            ->with('status', __('Імпорт завершено.'));
 
         if ($duplicateCount > 0) {
             $warnings[] = __('Skipped :count duplicate rows.', ['count' => $duplicateCount]);

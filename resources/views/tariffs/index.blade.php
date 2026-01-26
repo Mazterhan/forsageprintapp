@@ -17,14 +17,14 @@
                 <div class="p-6 text-gray-900">
                     <form method="GET" action="{{ route('tariffs.index') }}" class="w-full flex flex-wrap items-end gap-4">
                         <div style="width: 400px;">
-                            <label class="block font-medium text-sm text-gray-700" for="search">Search by name</label>
+                            <label class="block font-medium text-sm text-gray-700" for="search">Пошук за назвою</label>
                             <input id="search" name="search" type="text" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full" value="{{ $filters['search'] }}" />
                         </div>
                         <div class="flex-1 min-w-[180px]" x-data="{ open: false }">
-                            <label class="block font-medium text-sm text-gray-700">Subcontractors</label>
+                            <label class="block font-medium text-sm text-gray-700">Підрядник</label>
                             <div class="relative mt-1">
                                 <button type="button" @click="open = !open" class="block w-full border border-gray-300 rounded-md shadow-sm bg-white text-sm text-gray-700 text-left px-3 py-2 pr-8">
-                                    {{ __('Select subcontractors') }}
+                                    {{ __('Вибрати підрядника') }}
                                 </button>
                                 <svg class="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -40,10 +40,10 @@
                             </div>
                         </div>
                         <div class="flex-1 min-w-[180px]" x-data="{ open: false }">
-                            <label class="block font-medium text-sm text-gray-700">Show price for category</label>
+                            <label class="block font-medium text-sm text-gray-700">Показати ціну для категорії</label>
                             <div class="relative mt-1">
                                 <button type="button" @click="open = !open" class="block w-full border border-gray-300 rounded-md shadow-sm bg-white text-sm text-gray-700 text-left px-3 py-2 pr-8">
-                                    {{ __('Select categories') }}
+                                    {{ __('Вибрати категорії') }}
                                 </button>
                                 <svg class="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -63,9 +63,9 @@
                             </div>
                         </div>
                         <div class="flex-1 min-w-[180px]">
-                            <label class="block font-medium text-sm text-gray-700" for="category">Category</label>
+                            <label class="block font-medium text-sm text-gray-700" for="category">Категорія</label>
                             <select id="category" name="category" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full">
-                                <option value="">{{ __('All') }}</option>
+                                <option value="">{{ __('Все') }}</option>
                                 @foreach ($categories as $category)
                                     <option value="{{ $category }}" @selected($filters['category'] === $category)>
                                         {{ $category }}
@@ -74,16 +74,16 @@
                             </select>
                         </div>
                         <div style="width: 100px;">
-                            <label class="block font-medium text-sm text-gray-700" for="price_from">Price from</label>
+                            <label class="block font-medium text-sm text-gray-700" for="price_from">Ціна від</label>
                             <input id="price_from" name="price_from" type="text" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full" value="{{ $filters['price_from'] }}" />
                         </div>
                         <div style="width: 100px;">
-                            <label class="block font-medium text-sm text-gray-700" for="price_to">Price to</label>
+                            <label class="block font-medium text-sm text-gray-700" for="price_to">Ціна до</label>
                             <input id="price_to" name="price_to" type="text" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full" value="{{ $filters['price_to'] }}" />
                         </div>
                         <div class="ml-auto pt-6">
                             <button type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 active:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                                Apply
+                                Застосувати
                             </button>
                         </div>
                     </form>
@@ -92,18 +92,18 @@
                         <table class="min-w-full w-full divide-y divide-gray-200">
                             <thead>
                                 <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Internal Code</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Price</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Внутрішній код</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Назва товару</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">категорія товару</th>
+                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Роздрібна ціна</th>
                                     @foreach ($selectedClientCategories as $clientCategory)
                                         <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
                                             {{ __('Price.') }}{{ $clientCategory }}
                                         </th>
                                     @endforeach
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Subcontractor</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Підрядник</th>
                                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дія</th>
                                     @endif
                                 </tr>
                             </thead>
@@ -127,13 +127,13 @@
                                             <td class="px-4 py-2 text-sm text-gray-700 text-center">
                                                 <div class="flex items-center justify-center gap-3">
                                                     <a href="{{ route('tariffs.show', $tariff) }}" class="text-indigo-600 hover:text-indigo-900">
-                                                        {{ __('Edit') }}
+                                                        {{ __('Коригувати') }}
                                                     </a>
                                                     <form method="POST" action="{{ route('tariffs.deactivate', $tariff) }}">
                                                         @csrf
                                                         @method('PATCH')
                                                         <button type="submit" class="text-gray-600 hover:text-gray-900">
-                                                            {{ __('Deactivate') }}
+                                                            {{ __('Деактивувати') }}
                                                         </button>
                                                     </form>
                                                 </div>

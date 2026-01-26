@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Create User') }}
+            {{ __('Створити Користувача') }}
         </h2>
     </x-slot>
 
@@ -13,7 +13,7 @@
                         @csrf
 
                         <div>
-                            <x-input-label for="name" :value="__('Name')" />
+                            <x-input-label for="name" :value="__('Ім\'я користувача')" />
                             <x-text-input id="name" name="name" type="text" class="mt-1 block w-full" value="{{ old('name') }}" required />
                             <x-input-error class="mt-2" :messages="$errors->get('name')" />
                         </div>
@@ -25,7 +25,7 @@
                         </div>
 
                         <div>
-                            <x-input-label for="role" :value="__('Role')" />
+                            <x-input-label for="role" :value="__('Роль користувача')" />
                             <select id="role" name="role" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                                 <option value="admin" @selected(old('role') === 'admin')>admin</option>
                                 <option value="manager" @selected(old('role') === 'manager')>manager</option>
@@ -35,20 +35,20 @@
                         </div>
 
                         <div>
-                            <x-input-label for="password" :value="__('Password')" />
+                            <x-input-label for="password" :value="__('Пароль')" />
                             <x-text-input id="password" name="password" type="password" class="mt-1 block w-full" required />
                             <x-input-error class="mt-2" :messages="$errors->get('password')" />
                         </div>
 
                         <div>
-                            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
+                            <x-input-label for="password_confirmation" :value="__('Підтвердіть пароль')" />
                             <x-text-input id="password_confirmation" name="password_confirmation" type="password" class="mt-1 block w-full" required />
                         </div>
 
                         <div class="flex items-center gap-4">
-                            <x-primary-button>{{ __('Create') }}</x-primary-button>
+                            <x-primary-button>{{ __('Створити') }}</x-primary-button>
                             <a href="{{ route('admin.users.index') }}" class="text-sm text-gray-600 hover:text-gray-900">
-                                {{ __('Cancel') }}
+                                {{ __('Відмінити') }}
                             </a>
                         </div>
                     </form>

@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Import Review') }}
+            {{ __('Результат імпорту') }}
         </h2>
     </x-slot>
 
@@ -31,15 +31,15 @@
                 <div class="p-6 text-gray-900">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div>
-                            <div class="text-gray-500">{{ __('Supplier') }}</div>
+                            <div class="text-gray-500">{{ __('Постачальник') }}</div>
                             <div class="font-medium">{{ $purchase->supplier?->name }}</div>
                         </div>
                         <div>
-                            <div class="text-gray-500">{{ __('File') }}</div>
+                            <div class="text-gray-500">{{ __('Файл') }}</div>
                             <div class="font-medium">{{ $purchase->original_filename }}</div>
                         </div>
                         <div>
-                            <div class="text-gray-500">{{ __('Imported At') }}</div>
+                            <div class="text-gray-500">{{ __('Дата імпорту') }}</div>
                             <div class="font-medium">{{ optional($purchase->imported_at)->format('Y-m-d H:i') }}</div>
                         </div>
                     </div>
@@ -48,16 +48,16 @@
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Imported Rows') }}</h3>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Імпортовані дані') }}</h3>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead>
                                 <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Internal Code</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Внутрішній код</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Назва</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Одиниці</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Кількість</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ціна</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -82,13 +82,13 @@
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Parsing Errors') }}</h3>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Помилки парсингу') }}</h3>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead>
                                 <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Row</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Message</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Рядок</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Повідомлення</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">

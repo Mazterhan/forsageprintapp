@@ -27,7 +27,7 @@ class PurchaseImportRequest extends FormRequest
             $supplierName = $this->input('supplier_name');
 
             if (empty($supplierId) && empty($supplierName)) {
-                $validator->errors()->add('supplier_id', 'Select a supplier or enter a manual name.');
+                $validator->errors()->add('supplier_id', 'Виберіть постачальника або введіть ім\'я, вказане вручну.');
             }
 
             $file = $this->file('file');
@@ -35,9 +35,16 @@ class PurchaseImportRequest extends FormRequest
                 $extension = strtolower($file->getClientOriginalExtension());
                 $allowed = ['csv', 'xlsx'];
                 if (! in_array($extension, $allowed, true)) {
-                    $validator->errors()->add('file', 'The file must be CSV or XLSX.');
+                    $validator->errors()->add('file', 'Файл має бути у форматі CSV або XLSX.');
                 }
             }
         });
+    }
+
+    public function messages(): array
+    {
+        return [
+            'file.max' => 'Розмір поля файлу не повинен перевищувати 10240 кілобайт.',
+        ];
     }
 }

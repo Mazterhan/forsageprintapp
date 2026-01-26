@@ -2,10 +2,10 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Pricing') }}
+                {{ __('Ціноутворення') }}
             </h2>
             <a href="{{ route('pricing.subcontractors.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                {{ __('Subcontractors') }}
+                {{ __('Підрядні організації') }}
             </a>
         </div>
     </x-slot>
@@ -28,9 +28,9 @@
 
                 <div class="flex justify-between items-center mb-3">
                     <div class="text-sm text-gray-500">
-                        {{ __('Items pending pricing action.') }}
+                        {{ __('Товари, що очікують зміни ціни для прайс-листа:') }}
                     </div>
-                    <x-primary-button>{{ __('Apply to selected') }}</x-primary-button>
+                    <x-primary-button>{{ __('Застосувати для виділених') }}</x-primary-button>
                 </div>
 
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg w-full">
@@ -40,15 +40,15 @@
                                 <thead>
                                     <tr>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Internal Code</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Subcontractor</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Import Price</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Markup %</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Markup Price</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Changed At</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Внутрішній код</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Назва</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Категорія</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Субпідрядник</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Закупівельна ціна</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка %</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Роздрібна ціна</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дата імпорту</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дія</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
@@ -89,10 +89,10 @@
                                             <td class="px-4 py-2 text-sm text-gray-700">
                                                 <div class="flex items-center gap-3">
                                                     <button type="submit" formaction="{{ route('pricing.apply.single', $item) }}" class="text-indigo-600 hover:text-indigo-900">
-                                                        {{ __('Apply') }}
+                                                        {{ __('Застосувати') }}
                                                     </button>
                                                     <button type="submit" formaction="{{ route('pricing.items.deactivate', $item) }}" class="text-gray-600 hover:text-gray-900">
-                                                        {{ __('Deactivate') }}
+                                                        {{ __('Деактивувати') }}
                                                     </button>
                                                 </div>
                                             </td>
@@ -113,7 +113,7 @@
                         </div>
 
                         <div class="mt-4 flex justify-end">
-                            <x-primary-button>{{ __('Apply to selected') }}</x-primary-button>
+                            <x-primary-button>{{ __('Застосувати для виділених') }}</x-primary-button>
                         </div>
                     </div>
                 </div>

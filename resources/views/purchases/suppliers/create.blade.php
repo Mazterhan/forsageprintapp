@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Create Supplier') }}
+            {{ __('Додати постачальника') }}
         </h2>
     </x-slot>
 
@@ -13,9 +13,9 @@
                         @csrf
                         @include('purchases.suppliers.partials.form', ['supplier' => null])
                         <div class="flex items-center gap-4">
-                            <x-primary-button>{{ __('Create') }}</x-primary-button>
+                            <x-primary-button>{{ __('Створити') }}</x-primary-button>
                             <a href="{{ route('purchases.suppliers.index') }}" class="text-sm text-gray-600 hover:text-gray-900">
-                                {{ __('Cancel') }}
+                                {{ __('Відмінити') }}
                             </a>
                         </div>
                     </form>

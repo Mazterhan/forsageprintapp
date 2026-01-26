@@ -2,10 +2,10 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Admin') }}
+                {{ __('Сторінка Адміністратора') }}
             </h2>
             <a href="{{ route('admin.users.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                {{ __('Add User') }}
+                {{ __('Створити користувача') }}
             </a>
         </div>
     </x-slot>
@@ -15,9 +15,9 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     <div class="flex flex-col gap-3">
-                        <div>{{ __('Admin and Manager area.') }}</div>
+                        <div>{{ __('Зона адміністратора та менеджера.') }}</div>
                         <a href="{{ route('admin.users.index') }}" class="text-indigo-600 hover:text-indigo-900">
-                            {{ __('Manage users') }}
+                            {{ __('Керування користувачами') }}
                         </a>
                     </div>
                 </div>

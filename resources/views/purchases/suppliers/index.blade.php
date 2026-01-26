@@ -2,10 +2,10 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Suppliers') }}
+                {{ __('Постачальник') }}
             </h2>
             <a href="{{ route('purchases.suppliers.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                {{ __('Create Supplier') }}
+                {{ __('Створити постачальника') }}
             </a>
         </div>
     </x-slot>
@@ -16,13 +16,13 @@
                 <div class="p-6 text-gray-900">
                     <form method="GET" action="{{ route('purchases.suppliers.index') }}" class="flex flex-wrap gap-3 items-end">
                         <div class="flex-1 min-w-[200px]">
-                            <x-input-label for="search" :value="__('Search by name or supplier code')" />
+                            <x-input-label for="search" :value="__('Шукати по назві або коду постачальника')" />
                             <x-text-input id="search" name="search" type="text" class="mt-1 block w-full" value="{{ $filters['search'] }}" />
                         </div>
                         <div class="flex-1 min-w-[200px]">
-                            <x-input-label for="category" :value="__('Category')" />
+                            <x-input-label for="category" :value="__('Категорія')" />
                             <select id="category" name="category" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                                <option value="">{{ __('All') }}</option>
+                                <option value="">{{ __('Усі') }}</option>
                                 @foreach ($categories as $category)
                                     <option value="{{ $category }}" @selected($filters['category'] === $category)>
                                         {{ $category }}
@@ -31,7 +31,7 @@
                             </select>
                         </div>
                         <div class="pt-6">
-                            <x-primary-button>{{ __('Apply') }}</x-primary-button>
+                            <x-primary-button>{{ __('Застосувати') }}</x-primary-button>
                         </div>
                     </form>
 
@@ -45,12 +45,12 @@
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead>
                                 <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Short</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Products</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Last Import</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Код</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Назва</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Коротка назва</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Кількість товарів</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дата останнього імпорту</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дія</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -66,13 +66,13 @@
                                         <td class="px-4 py-2 text-sm text-gray-700">
                                             <div class="flex items-center gap-3">
                                                 <a href="{{ route('purchases.suppliers.show', $supplier) }}" class="text-indigo-600 hover:text-indigo-900">
-                                                    {{ __('Edit') }}
+                                                    {{ __('Коригувати') }}
                                                 </a>
                                                 <form method="POST" action="{{ route('purchases.suppliers.toggle', $supplier) }}">
                                                     @csrf
                                                     @method('PATCH')
                                                     <button type="submit" class="text-indigo-600 hover:text-indigo-900">
-                                                        {{ $supplier->is_active ? __('Deactivate') : __('Activate') }}
+                                                        {{ $supplier->is_active ? __('Деактивувати') : __('Activate') }}
                                                     </button>
                                                 </form>
                                             </div>
