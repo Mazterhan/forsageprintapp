@@ -44,12 +44,13 @@ class PurchaseFileParser
             return $candidate;
         }
 
-        if ($this->looksLikeCsv($path)) {
-            return 'csv';
-        }
-
+        // сначала проверяем на xlsx, чтобы не поймать случайную запятую в бинарнике
         if ($this->looksLikeXlsx($path)) {
             return 'xlsx';
+        }
+
+        if ($this->looksLikeCsv($path)) {
+            return 'csv';
         }
 
         return '';
@@ -115,7 +116,9 @@ class PurchaseFileParser
     {
         $spreadsheet = IOFactory::load($path);
         $sheet = $spreadsheet->getSheetByName('Sheet1') ?? $spreadsheet->getActiveSheet();
-        $rows = $sheet->toArray();
+        $highestColumn = $sheet->getHighestColumn();
+        $highestRow = (int) $sheet->getHighestRow();
+        $rows = $sheet->rangeToArray("A1:{$highestColumn}{$highestRow}", null, true, false);
 
         return $this->parseRows($rows, $supplierId, $options);
     }
@@ -129,11 +132,34 @@ class PurchaseFileParser
             return ['items' => [], 'errors' => [['row' => 0, 'message' => 'Empty file.']]];
         }
 
+        $rowOffset = 1;
+        while (! empty($rows) && $this->isRowEmpty($rows[0])) {
+            array_shift($rows);
+            $rowOffset++;
+        }
+
+        if (empty($rows)) {
+            return ['items' => [], 'errors' => [['row' => 0, 'message' => 'Empty file.']]];
+        }
+
         $header = array_map(fn ($value) => $this->normalizeHeader($value), array_shift($rows));
         $indexes = $this->buildIndexMap($header);
 
+        // Absolute fallback: if после всех попыток не нашли name/price, используем позиции первых колонок
+        if (empty($indexes['name']) || empty($indexes['price'])) {
+            $indexes['external_code'] = $indexes['external_code'] ?? [0];
+            $indexes['name'] = $indexes['name'] ?? [1];
+            $indexes['price'] = $indexes['price'] ?? [2];
+            $indexes['unit'] = $indexes['unit'] ?? [3];
+            $indexes['qty'] = $indexes['qty'] ?? [4];
+            $indexes['category'] = $indexes['category'] ?? [5];
+        }
+
         foreach ($rows as $rowIndex => $row) {
-            $rowNumber = $rowIndex + 2;
+            $rowNumber = $rowIndex + $rowOffset + 1;
+            if ($this->isRowEmpty($row)) {
+                continue;
+            }
             $normalizedRow = $this->normalizeRow($row);
 
             $name = $this->getValue($normalizedRow, $indexes['name'] ?? []);
@@ -192,6 +218,28 @@ class PurchaseFileParser
         ];
     }
 
+    private function isRowEmpty(array $row): bool
+    {
+        foreach ($row as $value) {
+            if ($value === null) {
+                continue;
+            }
+            if (is_string($value) && trim($value) === '') {
+                continue;
+            }
+            if (! is_string($value)) {
+                $stringValue = (string) $value;
+                if (trim($stringValue) === '') {
+                    continue;
+                }
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
     private function normalizeRow(array $row): array
     {
         return array_map(fn ($value) => is_string($value) ? trim($value) : $value, $row);
@@ -204,9 +252,12 @@ class PurchaseFileParser
         }
 
         $value = is_string($value) ? $value : (string) $value;
+        $value = Str::lower(trim($value));
+        $value = str_replace(['_', '/', '\\', '(', ')'], ' ', $value);
+        $value = preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $value);
         $value = preg_replace('/\s+/', ' ', trim($value));
 
-        return Str::lower($value);
+        return $value;
     }
 
     private function normalizeText($value): string
@@ -260,23 +311,91 @@ class PurchaseFileParser
     {
         $map = [
             'internal_code' => ['internal_code', 'code', 'sku', 'артикул'],
-            'external_code' => ['external_code', 'invoice code', 'код накладной', 'код товару з накладної', 'код товара из накладной', 'код товара', 'код товару', 'код_товара'],
-            'name' => ['name', 'наименование', 'название', 'товар', 'найменування', 'товар/услуга', 'товар/послуга'],
+            'external_code' => [
+                'external_code',
+                'external_code(if_exist)',
+                'external code if exist',
+                'external code(if exist)',
+                'invoice code',
+                'код накладной',
+                'код товару з накладної',
+                'код товара из накладной',
+                'код товара',
+                'код товару',
+                'код_товара',
+                'код_товару_постачальника(якщо_є)',
+                'код товару постачальника якщо є',
+                'код товару постачальника(якщо є)',
+                'код товару постачальника (якщо є)',
+            ],
+            'name' => [
+                'name',
+                'наименование',
+                'название',
+                'товар',
+                'найменування',
+                'товар/услуга',
+                'товар/послуга',
+                'товари(роботи,послуги)',
+                'товари (роботи, послуги)',
+                'товари роботи послуги',
+            ],
             'price' => ['price', 'цена', 'ціна', 'вартість', 'стоимость'],
-            'unit' => ['unit', 'ед', 'ед.', 'ед.изм', 'од', 'од.', 'од.вим'],
-            'qty' => ['qty', 'количество', 'кількість'],
+            'unit' => ['unit', 'unit if exist', 'unit(if_exist)', 'unit(if exist)', 'ед', 'ед.', 'ед.изм', 'од', 'од.', 'од.вим', 'одиниці'],
+            'qty' => ['qty', 'quantity', 'quantity if exist', 'quantity(if_exist)', 'quantity(if exist)', 'количество', 'кількість'],
             'vat_percent' => ['vat', 'vat_percent', 'ндс', 'пдв'],
-            'category' => ['category', 'категория', 'категорія', 'категорія,'],
+            'category' => [
+                'category',
+                'category if exist',
+                'category(if_exist)',
+                'category(if exist)',
+                'категория',
+                'категорія',
+                'категорія,',
+                'категорія якщо є',
+                'категорія(якщо_є)',
+                'категорія (якщо є)',
+            ],
         ];
 
         $indexes = [];
+        $normalizedHeader = array_map(fn ($value) => $this->normalizeHeader($value), $header);
 
         foreach ($map as $key => $aliases) {
             foreach ($aliases as $alias) {
-                $index = array_search($alias, $header, true);
-                if ($index !== false) {
-                    $indexes[$key][] = $index;
-                    break;
+                $aliasNormalized = $this->normalizeHeader($alias);
+                foreach ($normalizedHeader as $index => $headerValue) {
+                    if ($headerValue === '') {
+                        continue;
+                    }
+
+                    if ($headerValue === $aliasNormalized || str_contains($headerValue, $aliasNormalized) || str_contains($aliasNormalized, $headerValue)) {
+                        $indexes[$key][] = $index;
+                        break 2;
+                    }
+                }
+            }
+        }
+
+        // Fallback: template order external_code, name, price, unit, qty, category
+        if (empty($indexes['name']) && count($normalizedHeader) >= 3) {
+            $templateMatch =
+                $this->normalizeHeader($header[0] ?? '') === 'external code if exist' &&
+                $this->normalizeHeader($header[1] ?? '') === 'name' &&
+                $this->normalizeHeader($header[2] ?? '') === 'price';
+
+            if ($templateMatch) {
+                $indexes['external_code'][] = 0;
+                $indexes['name'][] = 1;
+                $indexes['price'][] = 2;
+                if (isset($normalizedHeader[3])) {
+                    $indexes['unit'][] = 3;
+                }
+                if (isset($normalizedHeader[4])) {
+                    $indexes['qty'][] = 4;
+                }
+                if (isset($normalizedHeader[5])) {
+                    $indexes['category'][] = 5;
                 }
             }
         }

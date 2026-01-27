@@ -15,6 +15,8 @@ class PurchaseController extends Controller
         $supplierIds = array_filter((array) $request->query('suppliers', []));
         $itemSearch = (string) $request->query('item_search', '');
         $category = (string) $request->query('category', '');
+        $sort = (string) $request->query('sort', '');
+        $direction = strtolower((string) $request->query('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
 
         $suppliers = Supplier::query()
             ->orderBy('name')
@@ -33,10 +35,21 @@ class PurchaseController extends Controller
             ->selectRaw('MAX(id) as id')
             ->groupBy('supplier_id', 'internal_code');
 
+        $sortMap = [
+            'supplier' => 'suppliers.name',
+            'external_code' => 'purchase_items.external_code',
+            'internal_code' => 'purchase_items.internal_code',
+            'name' => 'purchase_items.name',
+            'price' => 'purchase_items.price_vat',
+            'imported_at' => 'purchase_items.imported_at',
+        ];
+
         $items = PurchaseItem::query()
             ->joinSub($latestItems, 'latest_items', function ($join) {
                 $join->on('purchase_items.id', '=', 'latest_items.id');
             })
+            ->leftJoin('suppliers', 'suppliers.id', '=', 'purchase_items.supplier_id')
+            ->select('purchase_items.*')
             ->with(['supplier', 'purchase'])
             ->when(! empty($supplierIds), function ($query) use ($supplierIds) {
                 $query->whereIn('purchase_items.supplier_id', $supplierIds);
@@ -54,7 +67,11 @@ class PurchaseController extends Controller
                         ->orWhere('purchase_items.external_code', 'like', "%{$itemSearch}%");
                 });
             })
-            ->orderByDesc('purchase_items.imported_at')
+            ->when(isset($sortMap[$sort]), function ($query) use ($sortMap, $sort, $direction) {
+                $query->orderBy($sortMap[$sort], $direction);
+            }, function ($query) {
+                $query->orderByDesc('purchase_items.imported_at');
+            })
             ->paginate(20)
             ->withQueryString();
 

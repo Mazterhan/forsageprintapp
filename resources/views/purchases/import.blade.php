@@ -43,9 +43,12 @@
                                 {{ __('Повернутись') }}
                             </a>
                         </div>
-                        <div class="flex justify-end">
+                        <div class="flex justify-end gap-3">
+                            <a href="{{ route('purchases.import.template.xlsx') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                                {{ __('Завантажити шаблон імпорту EXCEL') }}
+                            </a>
                             <a href="{{ route('purchases.import.template') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                                {{ __('Завантажити шаблон імпорту') }}
+                                {{ __('Завантажити шаблон імпорту CSV') }}
                             </a>
                         </div>
                     </form>

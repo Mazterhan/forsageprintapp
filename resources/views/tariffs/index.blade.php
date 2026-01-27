@@ -84,23 +84,96 @@
                         </div>
                     </form>
 
+                    @php
+                        $currentSort = request('sort');
+                        $currentDirection = request('direction', 'asc');
+                    @endphp
                     <div class="mt-6 w-full overflow-x-auto">
                         <table class="min-w-full w-full divide-y divide-gray-200">
                             <thead>
                                 <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Внутрішній код</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Назва товару</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">категорія товару</th>
-                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Роздрібна ціна</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        @php
+                                            $nextDirection = $currentSort === 'internal_code' && $currentDirection === 'asc' ? 'desc' : 'asc';
+                                        @endphp
+                                        <a href="{{ route('tariffs.index', array_merge(request()->query(), ['sort' => 'internal_code', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
+                                            Внутрішній код
+                                            @if ($currentSort === 'internal_code')
+                                                <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        @php
+                                            $nextDirection = $currentSort === 'name' && $currentDirection === 'asc' ? 'desc' : 'asc';
+                                        @endphp
+                                        <a href="{{ route('tariffs.index', array_merge(request()->query(), ['sort' => 'name', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
+                                            Назва товару
+                                            @if ($currentSort === 'name')
+                                                <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        @php
+                                            $nextDirection = $currentSort === 'category' && $currentDirection === 'asc' ? 'desc' : 'asc';
+                                        @endphp
+                                        <a href="{{ route('tariffs.index', array_merge(request()->query(), ['sort' => 'category', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
+                                            категорія товару
+                                            @if ($currentSort === 'category')
+                                                <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
+                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                                        @php
+                                            $nextDirection = $currentSort === 'sale_price' && $currentDirection === 'asc' ? 'desc' : 'asc';
+                                        @endphp
+                                        <a href="{{ route('tariffs.index', array_merge(request()->query(), ['sort' => 'sale_price', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1 justify-center">
+                                            Роздрібна ціна
+                                            @if ($currentSort === 'sale_price')
+                                                <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
                                     @foreach ($selectedExtraPrices as $extraKey)
                                         @php
                                             $extraLabel = $extraPriceOptions[$extraKey] ?? $extraKey;
+                                            $sortKey = $extraKey === 'wholesale' ? 'wholesale_price' : ($extraKey === 'urgent' ? 'urgent_price' : $extraKey);
+                                            $nextDirection = $currentSort === $sortKey && $currentDirection === 'asc' ? 'desc' : 'asc';
                                         @endphp
                                         <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                                            {{ __('Price.') }}{{ $extraLabel }}
+                                            <a href="{{ route('tariffs.index', array_merge(request()->query(), ['sort' => $sortKey, 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1 justify-center">
+                                                {{ __('Price.') }}{{ $extraLabel }}
+                                                @if ($currentSort === $sortKey)
+                                                    <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
+                                                @else
+                                                    <span class="text-gray-400">↕</span>
+                                                @endif
+                                            </a>
                                         </th>
                                     @endforeach
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Підрядник</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        @php
+                                            $nextDirection = $currentSort === 'subcontractor' && $currentDirection === 'asc' ? 'desc' : 'asc';
+                                        @endphp
+                                        <a href="{{ route('tariffs.index', array_merge(request()->query(), ['sort' => 'subcontractor', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
+                                            Підрядник
+                                            @if ($currentSort === 'subcontractor')
+                                                <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
                                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дія</th>
                                     @endif

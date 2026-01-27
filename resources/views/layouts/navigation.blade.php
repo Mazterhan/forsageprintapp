@@ -5,16 +5,13 @@
             <div class="flex">
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
-                    <a href="{{ route('dashboard') }}">
-                        <x-application-logo class="block h-9 w-auto fill-current text-gray-800" />
+                    <a href="{{ route('dashboard') }}" class="block">
+                        <img src="{{ asset('images/Logo_2.webp') }}" alt="Logo" class="h-10 w-auto" />
                     </a>
                 </div>
 
                 <!-- Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                        {{ __('Головна') }}
-                    </x-nav-link>
                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                         <x-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
                             {{ __('Замовлення') }}
@@ -26,9 +23,6 @@
                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                         <x-nav-link :href="route('purchases.index')" :active="request()->routeIs('purchases.*')">
                             {{ __('Закупівля') }}
-                        </x-nav-link>
-                        <x-nav-link :href="route('pricing.index')" :active="request()->routeIs('pricing.*')">
-                            {{ __('Ціноутворення') }}
                         </x-nav-link>
                     @endif
                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
@@ -91,9 +85,6 @@
     <!-- Responsive Navigation Menu -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
-            <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                {{ __('Головна') }}
-            </x-responsive-nav-link>
             @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                 <x-responsive-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
                     {{ __('Замовлення') }}
@@ -105,9 +96,6 @@
             @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                 <x-responsive-nav-link :href="route('purchases.index')" :active="request()->routeIs('purchases.*')">
                     {{ __('Закупівля') }}
-                </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('pricing.index')" :active="request()->routeIs('pricing.*')">
-                    {{ __('Ціноутворення') }}
                 </x-responsive-nav-link>
             @endif
             @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')

@@ -27,6 +27,8 @@ class TariffController extends Controller
         $search = (string) $request->query('search', '');
         $priceFrom = $request->query('price_from');
         $priceTo = $request->query('price_to');
+        $sort = (string) $request->query('sort', '');
+        $direction = strtolower((string) $request->query('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
 
         $categories = Tariff::query()
             ->whereNotNull('category')
@@ -39,25 +41,41 @@ class TariffController extends Controller
             'urgent' => 'термінова робота',
         ];
 
+        $sortMap = [
+            'internal_code' => 'tariffs.internal_code',
+            'name' => 'tariffs.name',
+            'category' => 'tariffs.category',
+            'sale_price' => 'tariffs.sale_price',
+            'wholesale_price' => 'tariffs.wholesale_price',
+            'urgent_price' => 'tariffs.urgent_price',
+            'subcontractor' => 'subcontractors.name',
+        ];
+
         $tariffs = Tariff::query()
+            ->leftJoin('subcontractors', 'subcontractors.id', '=', 'tariffs.subcontractor_id')
+            ->select('tariffs.*')
             ->with('subcontractor')
-            ->where('is_active', true)
+            ->where('tariffs.is_active', true)
             ->when(! empty($subcontractorIds), function ($query) use ($subcontractorIds) {
-                $query->whereIn('subcontractor_id', $subcontractorIds);
+                $query->whereIn('tariffs.subcontractor_id', $subcontractorIds);
             })
             ->when($category !== '', function ($query) use ($category) {
-                $query->where('category', $category);
+                $query->where('tariffs.category', $category);
             })
             ->when($search !== '', function ($query) use ($search) {
-                $query->where('name', 'like', "%{$search}%");
+                $query->where('tariffs.name', 'like', "%{$search}%");
             })
             ->when($priceFrom !== null && $priceFrom !== '', function ($query) use ($priceFrom) {
-                $query->where('sale_price', '>=', (float) $priceFrom);
+                $query->where('tariffs.sale_price', '>=', (float) $priceFrom);
             })
             ->when($priceTo !== null && $priceTo !== '', function ($query) use ($priceTo) {
-                $query->where('sale_price', '<=', (float) $priceTo);
+                $query->where('tariffs.sale_price', '<=', (float) $priceTo);
             })
-            ->orderBy('name')
+            ->when(isset($sortMap[$sort]), function ($query) use ($sortMap, $sort, $direction) {
+                $query->orderBy($sortMap[$sort], $direction);
+            }, function ($query) {
+                $query->orderBy('tariffs.name');
+            })
             ->paginate(20)
             ->withQueryString();
 

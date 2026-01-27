@@ -54,6 +54,7 @@ Route::middleware(['auth', 'role:admin|manager'])
         Route::get('/suppliers/documents/{document}', [SupplierController::class, 'downloadDocument'])->name('suppliers.documents.download');
         Route::get('/import_file', [PurchaseImportController::class, 'create'])->name('import.create');
         Route::get('/import_template', [PurchaseImportController::class, 'downloadTemplate'])->name('import.template');
+        Route::get('/import_template_xlsx', [PurchaseImportController::class, 'downloadTemplateXlsx'])->name('import.template.xlsx');
         Route::post('/import_file', [PurchaseImportController::class, 'store'])->name('import.store');
         Route::get('/{purchase}/review', [PurchaseReviewController::class, 'show'])->name('review');
     });
