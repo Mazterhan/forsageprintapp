@@ -25,7 +25,7 @@
                     </x-nav-link>
                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                         <x-nav-link :href="route('purchases.index')" :active="request()->routeIs('purchases.*')">
-                            {{ __('Закупка') }}
+                            {{ __('Закупівля') }}
                         </x-nav-link>
                         <x-nav-link :href="route('pricing.index')" :active="request()->routeIs('pricing.*')">
                             {{ __('Ціноутворення') }}
@@ -104,7 +104,7 @@
             </x-responsive-nav-link>
             @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                 <x-responsive-nav-link :href="route('purchases.index')" :active="request()->routeIs('purchases.*')">
-                    {{ __('Закупка') }}
+                    {{ __('Закупівля') }}
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('pricing.index')" :active="request()->routeIs('pricing.*')">
                     {{ __('Ціноутворення') }}
