@@ -16,10 +16,27 @@ class PricingController extends Controller
 {
     public function index(Request $request): View
     {
+        $sort = (string) $request->query('sort', '');
+        $direction = strtolower((string) $request->query('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        $sortMap = [
+            'name' => 'pricing_items.name',
+            'category' => 'pricing_items.category',
+            'subcontractor' => 'subcontractors.name',
+            'import_price' => 'pricing_items.import_price',
+            'imported_at' => 'pricing_items.last_changed_at',
+        ];
+
         $items = PricingItem::query()
+            ->leftJoin('subcontractors', 'subcontractors.id', '=', 'pricing_items.subcontractor_id')
+            ->select('pricing_items.*')
             ->with(['subcontractor', 'supplier'])
-            ->where('is_active', true)
-            ->orderByDesc('last_changed_at')
+            ->where('pricing_items.is_active', true)
+            ->when(isset($sortMap[$sort]), function ($query) use ($sortMap, $sort, $direction) {
+                $query->orderBy($sortMap[$sort], $direction);
+            }, function ($query) {
+                $query->orderByDesc('pricing_items.last_changed_at');
+            })
             ->paginate(20)
             ->withQueryString();
 

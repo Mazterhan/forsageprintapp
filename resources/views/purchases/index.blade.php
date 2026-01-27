@@ -69,17 +69,93 @@
                         </div>
                     </form>
 
+                    @php
+                        $currentSort = request('sort');
+                        $currentDirection = request('direction', 'asc');
+                    @endphp
                     <div class="mt-6 w-full overflow-x-auto">
                         <table class="min-w-full w-full divide-y divide-gray-200">
                             <thead>
                                 <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Invoice Code</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Internal Code</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Price</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Imported At</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">File</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        @php
+                                            $nextDirection = $currentSort === 'supplier' && $currentDirection === 'asc' ? 'desc' : 'asc';
+                                        @endphp
+                                        <a href="{{ route('purchases.index', array_merge(request()->query(), ['sort' => 'supplier', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
+                                            Постачальник
+                                            @if ($currentSort === 'supplier')
+                                                <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        @php
+                                            $nextDirection = $currentSort === 'external_code' && $currentDirection === 'asc' ? 'desc' : 'asc';
+                                        @endphp
+                                        <a href="{{ route('purchases.index', array_merge(request()->query(), ['sort' => 'external_code', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
+                                            Код товару(постачальника)
+                                            @if ($currentSort === 'external_code')
+                                                <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        @php
+                                            $nextDirection = $currentSort === 'internal_code' && $currentDirection === 'asc' ? 'desc' : 'asc';
+                                        @endphp
+                                        <a href="{{ route('purchases.index', array_merge(request()->query(), ['sort' => 'internal_code', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
+                                            Код товару
+                                            @if ($currentSort === 'internal_code')
+                                                <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        @php
+                                            $nextDirection = $currentSort === 'name' && $currentDirection === 'asc' ? 'desc' : 'asc';
+                                        @endphp
+                                        <a href="{{ route('purchases.index', array_merge(request()->query(), ['sort' => 'name', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
+                                            Назва
+                                            @if ($currentSort === 'name')
+                                                <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
+                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                                        @php
+                                            $nextDirection = $currentSort === 'price' && $currentDirection === 'asc' ? 'desc' : 'asc';
+                                        @endphp
+                                        <a href="{{ route('purchases.index', array_merge(request()->query(), ['sort' => 'price', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1 justify-center">
+                                            Закупівельна ціна
+                                            @if ($currentSort === 'price')
+                                                <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        @php
+                                            $nextDirection = $currentSort === 'imported_at' && $currentDirection === 'asc' ? 'desc' : 'asc';
+                                        @endphp
+                                        <a href="{{ route('purchases.index', array_merge(request()->query(), ['sort' => 'imported_at', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
+                                            Дата імпорту
+                                            @if ($currentSort === 'imported_at')
+                                                <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Файл</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -89,7 +165,7 @@
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $item->external_code }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $item->internal_code }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $item->name }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700 text-center">{{ $item->price_vat }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700 text-center">{{ $item->price_vat !== null ? number_format((float) $item->price_vat, 2, '.', '') : '' }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ optional($item->imported_at)->format('Y-m-d H:i') }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $item->purchase?->original_filename }}</td>
                                     </tr>

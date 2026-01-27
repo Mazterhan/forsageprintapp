@@ -16,6 +16,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PurchaseImportController extends Controller
@@ -187,6 +189,30 @@ class PurchaseImportController extends Controller
 
         return response()->streamDownload($callback, 'purchase_import_template.csv', [
             'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    public function downloadTemplateXlsx(): StreamedResponse
+    {
+        $headers = [
+            'external_code(if_exist)',
+            'name',
+            'price',
+            'unit(if_exist)',
+            'quantity(if_exist)',
+            'category(if_exist)',
+        ];
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray([$headers], null, 'A1');
+
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, 'purchase_import_template.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }
 

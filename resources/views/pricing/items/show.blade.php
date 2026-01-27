@@ -15,7 +15,7 @@
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-                    <form method="POST" action="{{ route('pricing.items.update', $item) }}" class="space-y-6">
+                    <form method="POST" action="{{ route('pricing.items.update', $item) }}" class="space-y-6" data-import-price="{{ $item->import_price ?? 0 }}">
                         @csrf
                         @method('PATCH')
 
@@ -50,15 +50,15 @@
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <x-input-label for="import_price" :value="__('Закупівельна ціна')" />
-                                <x-text-input id="import_price" name="import_price" type="text" class="mt-1 block w-full" value="{{ old('import_price', $item->import_price) }}" />
+                                <x-text-input id="import_price" type="text" class="mt-1 block w-full" value="{{ old('import_price', $item->import_price) }}" disabled />
                             </div>
                             <div>
                                 <x-input-label for="markup_percent" :value="__('Націнка %')" />
-                                <x-text-input id="markup_percent" name="markup_percent" type="text" class="mt-1 block w-full" value="{{ old('markup_percent', $item->markup_percent) }}" />
+                                <x-text-input id="markup_percent" name="markup_percent" type="text" class="mt-1 block w-full markup-percent" value="{{ old('markup_percent', $item->markup_percent) }}" />
                             </div>
                             <div>
                                 <x-input-label for="markup_price" :value="__('Роздрібна ціна')" />
-                                <x-text-input id="markup_price" name="markup_price" type="text" class="mt-1 block w-full" value="{{ old('markup_price', $item->markup_price) }}" />
+                                <x-text-input id="markup_price" name="markup_price" type="text" class="mt-1 block w-full markup-price" value="{{ old('markup_price', $item->markup_price) }}" />
                             </div>
                         </div>
 
@@ -109,4 +109,29 @@
             </div>
         </div>
     </div>
+
+    <script>
+        (function () {
+            const form = document.querySelector('form[data-import-price]');
+            if (!form) return;
+
+            const importPrice = parseFloat(form.getAttribute('data-import-price')) || 0;
+            const percentInput = form.querySelector('.markup-percent');
+            const priceInput = form.querySelector('.markup-price');
+
+            if (!percentInput || !priceInput) return;
+
+            percentInput.addEventListener('input', () => {
+                const percent = parseFloat(percentInput.value) || 0;
+                priceInput.value = (importPrice * (1 + (percent / 100))).toFixed(2);
+            });
+
+            priceInput.addEventListener('input', () => {
+                const price = parseFloat(priceInput.value) || 0;
+                if (importPrice > 0) {
+                    percentInput.value = ((price / importPrice - 1) * 100).toFixed(2);
+                }
+            });
+        })();
+    </script>
 </x-app-layout>
