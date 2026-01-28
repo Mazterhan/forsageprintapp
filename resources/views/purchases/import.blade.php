@@ -31,6 +31,21 @@
                             <x-input-error class="mt-2" :messages="$errors->get('supplier_name')" />
                         </div>
 
+                        <div class="flex flex-wrap items-center gap-4">
+                            <span class="text-sm text-gray-700 font-medium">Ціна вказана з ПДВ 20%?</span>
+                            <div class="inline-flex items-center gap-4">
+                                <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="radio" name="vat_mode" value="vat" class="rounded border-gray-300" @checked(old('vat_mode') === 'vat') required>
+                                    <span>З ПДВ</span>
+                                </label>
+                                <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="radio" name="vat_mode" value="novat" class="rounded border-gray-300" @checked(old('vat_mode') === 'novat') required>
+                                    <span>Без ПДВ</span>
+                                </label>
+                            </div>
+                            <x-input-error class="mt-2 w-full" :messages="$errors->get('vat_mode')" />
+                        </div>
+
                         <div>
                             <x-input-label for="file" :value="__('File (CSV або XLSX)')" />
                             <input id="file" name="file" type="file" class="mt-1 block w-full text-sm text-gray-700" required />

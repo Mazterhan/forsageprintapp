@@ -57,7 +57,10 @@
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Назва</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Одиниці</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Кількість</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ціна</th>
+                                    @if (! $purchase->price_includes_vat)
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ціна без ПДВ</th>
+                                    @endif
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ціна з ПДВ</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -67,6 +70,9 @@
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $item->name }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $item->unit }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $item->qty }}</td>
+                                        @if (! $purchase->price_includes_vat)
+                                            <td class="px-4 py-2 text-sm text-gray-700">{{ $item->price_raw !== null ? number_format((float) $item->price_raw, 2, '.', '') : '' }}</td>
+                                        @endif
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ number_format((float) $item->price_vat, 2, '.', '') }}</td>
                                     </tr>
                                 @endforeach

@@ -39,6 +39,7 @@ class PurchaseImportController extends Controller
     {
         $data = $request->validated();
         $warnings = [];
+        $vatIncluded = ($data['vat_mode'] ?? 'vat') === 'vat';
 
         $supplier = null;
 
@@ -69,7 +70,7 @@ class PurchaseImportController extends Controller
 
         $duplicateCount = 0;
 
-        $purchase = DB::transaction(function () use ($request, $supplier, $file, $data, &$duplicateCount) {
+        $purchase = DB::transaction(function () use ($request, $supplier, $file, $data, $vatIncluded, &$duplicateCount) {
             $purchase = Purchase::create([
                 'supplier_id' => $supplier->id,
                 'original_filename' => $file->getClientOriginalName(),
@@ -77,6 +78,7 @@ class PurchaseImportController extends Controller
                 'imported_at' => now(),
                 'source_type' => Str::lower($file->getClientOriginalExtension()),
                 'source_hash' => sha1_file($file->getRealPath()),
+                'price_includes_vat' => $vatIncluded,
                 'notes' => null,
             ]);
 
@@ -86,6 +88,7 @@ class PurchaseImportController extends Controller
             $result = $parser->parse($file->getRealPath(), $supplier->id, [
                 'extension' => $file->getClientOriginalExtension(),
                 'original_name' => $file->getClientOriginalName(),
+                'vat_included' => $vatIncluded,
             ]);
 
             $latestItems = PurchaseItem::query()
@@ -241,7 +244,7 @@ class PurchaseImportController extends Controller
 
             if ($pricing) {
                 if ((float) $pricing->import_price !== (float) $item['price_vat']) {
-                    $markupPercent = $pricing->markup_percent ?? 30;
+                    $markupPercent = $pricing->markup_percent ?? 50;
                     $markupPrice = $item['price_vat'] * (1 + ($markupPercent / 100));
 
                     $pricing->update([
@@ -259,7 +262,7 @@ class PurchaseImportController extends Controller
             if (! $tariff || (float) $tariff->purchase_price !== (float) $item['price_vat']) {
                 $resolvedCategory = $item['category'] ?? $tariff?->category;
                 $resolvedSubcontractor = $tariff?->subcontractor_id;
-                $markupPercent = 30;
+                $markupPercent = 50;
                 $markupPrice = $item['price_vat'] * (1 + ($markupPercent / 100));
 
                 PricingItem::create([

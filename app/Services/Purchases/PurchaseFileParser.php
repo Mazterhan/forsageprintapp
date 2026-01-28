@@ -192,7 +192,8 @@ class PurchaseFileParser
                 continue;
             }
 
-            $priceVat = $priceNumber;
+            $vatIncluded = $options['vat_included'] ?? true;
+            $priceVat = $vatIncluded ? $priceNumber : round($priceNumber * 1.2, 4);
 
             $internalBase = $externalCode !== ''
                 ? 'INV|'.$externalCode
