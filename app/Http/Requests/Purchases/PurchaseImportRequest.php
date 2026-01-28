@@ -16,6 +16,7 @@ class PurchaseImportRequest extends FormRequest
         return [
             'supplier_id' => ['nullable', 'integer', 'exists:suppliers,id'],
             'supplier_name' => ['nullable', 'string', 'max:255'],
+            'vat_mode' => ['required', 'in:vat,novat'],
             'file' => ['required', 'file', 'max:10240'],
         ];
     }
@@ -44,6 +45,8 @@ class PurchaseImportRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'vat_mode.required' => 'Оберіть, чи вказана ціна з ПДВ.',
+            'vat_mode.in' => 'Оберіть коректний режим ПДВ.',
             'file.max' => 'Розмір поля файлу не повинен перевищувати 10240 кілобайт.',
         ];
     }

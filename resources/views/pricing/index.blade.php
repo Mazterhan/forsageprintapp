@@ -144,7 +144,7 @@
                                             </td>
                                             <td class="px-4 py-2 text-sm text-gray-700">{{ $item->import_price !== null ? number_format((float) $item->import_price, 2, '.', '') : '' }}</td>
                                             <td class="px-4 py-2 text-sm text-gray-700">
-                                                <input type="text" name="markup_percent[{{ $item->id }}]" value="{{ $item->markup_percent ?? 30 }}" class="w-20 border-gray-300 rounded-md shadow-sm text-sm markup-percent">
+                                                <input type="text" name="markup_percent[{{ $item->id }}]" value="{{ $item->markup_percent ?? 50 }}" class="w-20 border-gray-300 rounded-md shadow-sm text-sm markup-percent">
                                             </td>
                                             <td class="px-4 py-2 text-sm text-gray-700">
                                                 <input type="text" name="markup_price[{{ $item->id }}]" value="{{ $item->markup_price !== null ? number_format((float) $item->markup_price, 2, '.', '') : '' }}" class="w-24 border-gray-300 rounded-md shadow-sm text-sm markup-price">

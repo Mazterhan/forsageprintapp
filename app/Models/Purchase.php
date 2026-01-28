@@ -18,11 +18,13 @@ class Purchase extends Model
         'imported_at',
         'source_type',
         'source_hash',
+        'price_includes_vat',
         'notes',
     ];
 
     protected $casts = [
         'imported_at' => 'datetime',
+        'price_includes_vat' => 'boolean',
     ];
 
     public function supplier(): BelongsTo
