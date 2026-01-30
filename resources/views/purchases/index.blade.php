@@ -95,7 +95,7 @@
                                             $nextDirection = $currentSort === 'external_code' && $currentDirection === 'asc' ? 'desc' : 'asc';
                                         @endphp
                                         <a href="{{ route('purchases.index', array_merge(request()->query(), ['sort' => 'external_code', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
-                                            Код товару(постачальника)
+                                            Код товару (постачальника)
                                             @if ($currentSort === 'external_code')
                                                 <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
                                             @else
