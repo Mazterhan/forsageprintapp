@@ -42,7 +42,11 @@
                                     <tr>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $user->id }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $user->name }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $user->email }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">
+                                            <a href="{{ route('admin.users.edit', $user) }}" class="text-indigo-600 hover:text-indigo-900">
+                                                {{ $user->email }}
+                                            </a>
+                                        </td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $user->role }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">
                                             @if ($user->is_active)

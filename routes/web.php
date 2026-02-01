@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Orders\ClientController;
 use App\Http\Controllers\Orders\OrderController;
@@ -23,7 +24,36 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware(['auth', 'role:admin|manager'])->group(function () {
-    Route::view('/admin', 'admin.index')->name('admin.index');
+    Route::get('/admin', function () {
+        $sort = (string) request()->query('sort', '');
+        $direction = strtolower((string) request()->query('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        $sortMap = [
+            'user' => 'users.name',
+            'department' => 'departments.name',
+            'direction' => 'department_categories.name',
+            'position' => 'department_positions.name',
+            'role' => 'users.role',
+        ];
+
+        $activeUsers = \App\Models\User::query()
+            ->where('is_active', true)
+            ->leftJoin('departments', 'departments.id', '=', 'users.department_id')
+            ->leftJoin('department_categories', 'department_categories.id', '=', 'users.department_category_id')
+            ->leftJoin('department_positions', 'department_positions.id', '=', 'users.department_position_id')
+            ->select('users.*')
+            ->with(['department', 'departmentCategory', 'position'])
+            ->when(isset($sortMap[$sort]), function ($query) use ($sortMap, $sort, $direction) {
+                $query->orderBy($sortMap[$sort], $direction);
+            }, function ($query) {
+                $query->orderBy('users.name');
+            })
+            ->get();
+
+        return view('admin.index', [
+            'activeUsers' => $activeUsers,
+        ]);
+    })->name('admin.index');
 });
 
 Route::middleware(['auth', 'role:admin|manager'])
@@ -95,7 +125,15 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
+        Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+        Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('users.toggle');
+
+        Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
+        Route::get('/departments/create', [DepartmentController::class, 'create'])->name('departments.create');
+        Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
+        Route::get('/departments/{department}/edit', [DepartmentController::class, 'edit'])->name('departments.edit');
+        Route::patch('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
     });
 
 Route::middleware('auth')->group(function () {
