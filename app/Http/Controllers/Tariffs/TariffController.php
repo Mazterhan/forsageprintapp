@@ -8,6 +8,8 @@ use App\Models\PricingItem;
 use App\Models\PurchaseItem;
 use App\Models\Subcontractor;
 use App\Models\Tariff;
+use App\Models\TariffCrossLink;
+use App\Models\Supplier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -16,6 +18,10 @@ class TariffController extends Controller
 {
     public function index(Request $request): View
     {
+        $childInternalCodes = TariffCrossLink::query()
+            ->pluck('child_internal_code')
+            ->all();
+
         $subcontractors = Subcontractor::query()
             ->where('is_active', true)
             ->orderBy('name')
@@ -56,6 +62,9 @@ class TariffController extends Controller
             ->select('tariffs.*')
             ->with('subcontractor')
             ->where('tariffs.is_active', true)
+            ->when(! empty($childInternalCodes), function ($query) use ($childInternalCodes) {
+                $query->whereNotIn('tariffs.internal_code', $childInternalCodes);
+            })
             ->when(! empty($subcontractorIds), function ($query) use ($subcontractorIds) {
                 $query->whereIn('tariffs.subcontractor_id', $subcontractorIds);
             })
@@ -115,16 +124,152 @@ class TariffController extends Controller
             ->orderBy('name')
             ->get();
 
+        $crossLinks = $tariff->crossLinks()->with('supplier')->get();
+        $childInternalCodes = $crossLinks->pluck('child_internal_code')->all();
+        $historyCodes = array_values(array_unique(array_merge([$tariff->internal_code], $childInternalCodes)));
+
         $history = PricingHistory::query()
-            ->where('internal_code', $tariff->internal_code)
+            ->with('supplier')
+            ->whereIn('internal_code', $historyCodes)
             ->orderByDesc('changed_at')
+            ->get();
+
+        $historyCodesWithEntries = $history->pluck('internal_code')->unique()->all();
+        $missingHistoryCodes = array_values(array_diff($historyCodes, $historyCodesWithEntries));
+
+        if (! empty($missingHistoryCodes)) {
+            $fallbackItems = PurchaseItem::query()
+                ->with('supplier')
+                ->whereIn('internal_code', $missingHistoryCodes)
+                ->orderByDesc('imported_at')
+                ->get()
+                ->map(function ($item) {
+                    return (object) [
+                        'changed_at' => $item->imported_at,
+                        'import_price' => $item->price_vat,
+                        'markup_percent' => null,
+                        'markup_price' => null,
+                        'internal_code' => $item->internal_code,
+                        'supplier' => $item->supplier,
+                        'user' => null,
+                    ];
+                });
+
+            $history = $history->concat($fallbackItems)
+                ->sortByDesc(fn ($row) => $row->changed_at ?? now())
+                ->values();
+        }
+
+        $parentSupplierId = PurchaseItem::query()
+            ->where('internal_code', $tariff->internal_code)
+            ->orderByDesc('imported_at')
+            ->value('supplier_id');
+
+        $pricingCodes = PricingItem::query()
+            ->pluck('internal_code')
+            ->all();
+
+        $tariffCodes = Tariff::query()
+            ->pluck('internal_code')
+            ->all();
+
+        $allowedInternalCodes = array_values(array_unique(array_merge($pricingCodes, $tariffCodes)));
+
+        $latestItems = PurchaseItem::query()
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('supplier_id', 'internal_code');
+
+        $supplierItems = PurchaseItem::query()
+            ->joinSub($latestItems, 'latest_items', function ($join) {
+                $join->on('purchase_items.id', '=', 'latest_items.id');
+            })
+            ->with('supplier')
+            ->whereNotNull('purchase_items.internal_code')
+            ->where('purchase_items.internal_code', '!=', '')
+            ->whereNotNull('purchase_items.name')
+            ->where('purchase_items.name', '!=', '')
+            ->when(! empty($allowedInternalCodes), function ($query) use ($allowedInternalCodes) {
+                $query->whereIn('purchase_items.internal_code', $allowedInternalCodes);
+            }, function ($query) {
+                $query->whereRaw('1=0');
+            })
+            ->when($parentSupplierId, function ($query) use ($parentSupplierId) {
+                $query->where('purchase_items.supplier_id', '!=', $parentSupplierId);
+            })
+            ->when(! empty($childInternalCodes), function ($query) use ($childInternalCodes) {
+                $query->whereNotIn('purchase_items.internal_code', $childInternalCodes);
+            })
+            ->orderBy('purchase_items.name')
+            ->get();
+
+        $availableSuppliers = Supplier::query()
+            ->whereIn('id', $supplierItems->pluck('supplier_id')->unique()->all())
+            ->orderBy('name')
             ->get();
 
         return view('tariffs.show', [
             'tariff' => $tariff,
             'subcontractors' => $subcontractors,
             'history' => $history,
+            'crossLinks' => $crossLinks,
+            'availableSuppliers' => $availableSuppliers,
+            'supplierItems' => $supplierItems,
+            'hasCrossLinks' => $crossLinks->isNotEmpty(),
         ]);
+    }
+
+    public function storeCrossLink(Request $request, Tariff $tariff): RedirectResponse
+    {
+        $data = $request->validate([
+            'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
+            'child_internal_code' => ['required', 'string'],
+        ]);
+
+        if ($data['child_internal_code'] === $tariff->internal_code) {
+            return redirect()
+                ->route('tariffs.show', $tariff)
+                ->withErrors(['cross_link' => __('Неможливо привʼязати товар до самого себе.')]);
+        }
+
+        $existsInSupplier = PurchaseItem::query()
+            ->where('supplier_id', $data['supplier_id'])
+            ->where('internal_code', $data['child_internal_code'])
+            ->exists();
+
+        if (! $existsInSupplier) {
+            return redirect()
+                ->route('tariffs.show', $tariff)
+                ->withErrors(['cross_link' => __('Обраний товар не належить цьому постачальнику.')]);
+        }
+
+        $existing = TariffCrossLink::query()
+            ->where('child_internal_code', $data['child_internal_code'])
+            ->first();
+
+        if ($existing && $existing->parent_tariff_id !== $tariff->id) {
+            return redirect()
+                ->route('tariffs.show', $tariff)
+                ->withErrors(['cross_link' => __('Ця позиція вже привʼязана до іншого товару.')]);
+        }
+
+        TariffCrossLink::firstOrCreate(
+            [
+                'parent_tariff_id' => $tariff->id,
+                'child_internal_code' => $data['child_internal_code'],
+            ],
+            [
+                'child_supplier_id' => $data['supplier_id'],
+                'created_by' => $request->user()?->id,
+            ]
+        );
+
+        PricingItem::query()
+            ->where('internal_code', $data['child_internal_code'])
+            ->delete();
+
+        return redirect()
+            ->route('tariffs.show', $tariff)
+            ->with('status', __('Кросс-звʼязок збережено.'));
     }
 
     public function update(Request $request, Tariff $tariff): RedirectResponse

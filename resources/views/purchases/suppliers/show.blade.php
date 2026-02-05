@@ -1,7 +1,8 @@
 <x-app-layout>
+    @section('title', __('Профіль постачальника'))
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Профыль постачальника') }}
+            {{ __('Профіль постачальника') }}
         </h2>
     </x-slot>
 

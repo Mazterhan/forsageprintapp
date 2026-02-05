@@ -11,6 +11,7 @@ use App\Models\PricingHistory;
 use App\Models\PricingItem;
 use App\Models\Supplier;
 use App\Models\Tariff;
+use App\Models\TariffCrossLink;
 use App\Services\Purchases\PurchaseFileParser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -226,21 +227,33 @@ class PurchaseImportController extends Controller
         }
 
         $internalCodes = array_values(array_unique(array_map(fn ($item) => $item['internal_code'], $items)));
+        $crossMap = TariffCrossLink::query()
+            ->with('parent')
+            ->whereIn('child_internal_code', $internalCodes)
+            ->get()
+            ->keyBy('child_internal_code');
+
+        $comparisonCodes = array_values(array_unique(array_map(function ($code) use ($crossMap) {
+            $parent = $crossMap->get($code)?->parent;
+            return $parent ? $parent->internal_code : $code;
+        }, $internalCodes)));
 
         $existingPricing = PricingItem::query()
-            ->whereIn('internal_code', $internalCodes)
+            ->whereIn('internal_code', $comparisonCodes)
             ->get()
             ->keyBy('internal_code');
 
         $existingTariffs = Tariff::query()
-            ->whereIn('internal_code', $internalCodes)
+            ->whereIn('internal_code', $comparisonCodes)
             ->where('is_active', true)
             ->get()
             ->keyBy('internal_code');
 
         foreach ($items as $item) {
-            $pricing = $existingPricing->get($item['internal_code']);
-            $tariff = $existingTariffs->get($item['internal_code']);
+            $parentTariff = $crossMap->get($item['internal_code'])?->parent;
+            $compareCode = $parentTariff?->internal_code ?? $item['internal_code'];
+            $pricing = $existingPricing->get($compareCode);
+            $tariff = $existingTariffs->get($compareCode);
 
             if ($pricing) {
                 if ((float) $pricing->import_price !== (float) $item['price_vat']) {
@@ -266,7 +279,7 @@ class PurchaseImportController extends Controller
                 $markupPrice = $item['price_vat'] * (1 + ($markupPercent / 100));
 
                 PricingItem::create([
-                    'internal_code' => $item['internal_code'],
+                    'internal_code' => $compareCode,
                     'name' => $item['name'],
                     'category' => $resolvedCategory,
                     'subcontractor_id' => $resolvedSubcontractor,
