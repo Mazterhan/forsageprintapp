@@ -1,4 +1,5 @@
 <x-guest-layout>
+    @section('title', __('Скидання пароля'))
     <form method="POST" action="{{ route('password.store') }}">
         @csrf
 

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\TariffCrossLink;
 
 class Tariff extends Model
 {
@@ -39,5 +40,10 @@ class Tariff extends Model
     public function clientPrices(): HasMany
     {
         return $this->hasMany(TariffClientPrice::class);
+    }
+
+    public function crossLinks(): HasMany
+    {
+        return $this->hasMany(TariffCrossLink::class, 'parent_tariff_id');
     }
 }

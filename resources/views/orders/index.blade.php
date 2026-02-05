@@ -1,4 +1,5 @@
 <x-app-layout>
+    @section('title', __('Orders'))
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">

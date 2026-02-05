@@ -116,6 +116,7 @@ Route::middleware('auth')
         Route::get('/{tariff}', [TariffController::class, 'show'])->name('show');
         Route::patch('/{tariff}', [TariffController::class, 'update'])->name('update');
         Route::patch('/{tariff}/deactivate', [TariffController::class, 'deactivate'])->name('deactivate');
+        Route::post('/{tariff}/cross-links', [TariffController::class, 'storeCrossLink'])->name('cross-links.store');
     });
 
 Route::middleware(['auth', 'role:admin'])

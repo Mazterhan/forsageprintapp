@@ -31,10 +31,6 @@ class PurchaseController extends Controller
             ->orderBy('category')
             ->pluck('category');
 
-        $latestItems = PurchaseItem::query()
-            ->selectRaw('MAX(id) as id')
-            ->groupBy('supplier_id', 'internal_code');
-
         $sortMap = [
             'supplier' => 'suppliers.name',
             'external_code' => 'purchase_items.external_code',
@@ -45,9 +41,6 @@ class PurchaseController extends Controller
         ];
 
         $items = PurchaseItem::query()
-            ->joinSub($latestItems, 'latest_items', function ($join) {
-                $join->on('purchase_items.id', '=', 'latest_items.id');
-            })
             ->leftJoin('suppliers', 'suppliers.id', '=', 'purchase_items.supplier_id')
             ->select('purchase_items.*')
             ->with(['supplier', 'purchase'])
