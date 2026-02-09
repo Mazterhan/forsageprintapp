@@ -88,12 +88,12 @@
                                     <option value="Oralite 5510" @selected(old('film_brand_series', $tariff->film_brand_series) === 'Oralite 5510')>Oralite 5510</option>
                                 </select>
                             </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
+                            <div class="flex gap-4">
+                                <div class="flex-1">
                                     <x-input-label for="roll_width_m" :value="__('Ширина рулону (м)')" />
                                     <x-text-input id="roll_width_m" name="roll_width_m" type="text" class="mt-1 block w-full" value="{{ old('roll_width_m', $tariff->roll_width_m) }}" />
                                 </div>
-                                <div>
+                                <div class="flex-1">
                                     <x-input-label for="roll_length_m" :value="__('Довжина (м)')" />
                                     <x-text-input id="roll_length_m" name="roll_length_m" type="text" class="mt-1 block w-full" value="{{ old('roll_length_m', $tariff->roll_length_m) }}" />
                                 </div>
@@ -101,16 +101,16 @@
                         </div>
 
                         <div id="sheet-block" class="hidden">
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <div>
+                            <div class="flex gap-4">
+                                <div class="flex-1">
                                     <x-input-label for="sheet_thickness_mm" :value="__('Товщина (мм)')" />
                                     <x-text-input id="sheet_thickness_mm" name="sheet_thickness_mm" type="text" class="mt-1 block w-full" value="{{ old('sheet_thickness_mm', $tariff->sheet_thickness_mm) }}" />
                                 </div>
-                                <div>
+                                <div class="flex-1">
                                     <x-input-label for="sheet_width_mm" :value="__('Ширина (мм)')" />
                                     <x-text-input id="sheet_width_mm" name="sheet_width_mm" type="text" class="mt-1 block w-full" value="{{ old('sheet_width_mm', $tariff->sheet_width_mm) }}" />
                                 </div>
-                                <div>
+                                <div class="flex-1">
                                     <x-input-label for="sheet_length_mm" :value="__('Довжина (мм)')" />
                                     <x-text-input id="sheet_length_mm" name="sheet_length_mm" type="text" class="mt-1 block w-full" value="{{ old('sheet_length_mm', $tariff->sheet_length_mm) }}" />
                                 </div>
