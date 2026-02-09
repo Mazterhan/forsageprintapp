@@ -184,7 +184,11 @@
                                 @forelse ($tariffs as $tariff)
                                     <tr>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $tariff->internal_code }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $tariff->name }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">
+                                            <a href="{{ route('tariffs.show', $tariff) }}" class="text-indigo-600 hover:text-indigo-900">
+                                                {{ $tariff->name }}
+                                            </a>
+                                        </td>
                                         <td class="px-4 py-2 text-sm text-gray-700 text-right">{{ $tariff->category }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700 text-center">{{ number_format((float) $tariff->sale_price, 2, '.', '') }}</td>
                                         @foreach ($selectedExtraPrices as $extraKey)
@@ -200,18 +204,13 @@
                                         <td class="px-4 py-2 text-sm text-gray-700 text-right">{{ $tariff->subcontractor?->name }}</td>
                                         @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                                             <td class="px-4 py-2 text-sm text-gray-700 text-center">
-                                                <div class="flex items-center justify-center gap-3">
-                                                    <a href="{{ route('tariffs.show', $tariff) }}" class="text-indigo-600 hover:text-indigo-900">
-                                                        {{ __('Коригувати') }}
-                                                    </a>
-                                                    <form method="POST" action="{{ route('tariffs.deactivate', $tariff) }}">
-                                                        @csrf
-                                                        @method('PATCH')
-                                                        <button type="submit" class="text-gray-600 hover:text-gray-900">
-                                                            {{ __('Деактивувати') }}
-                                                        </button>
-                                                    </form>
-                                                </div>
+                                                <form method="POST" action="{{ route('tariffs.deactivate', $tariff) }}">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <button type="submit" class="text-gray-600 hover:text-gray-900">
+                                                        {{ __('Деактивувати') }}
+                                                    </button>
+                                                </form>
                                             </td>
                                         @endif
                                     </tr>
