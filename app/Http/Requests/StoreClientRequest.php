@@ -26,6 +26,7 @@ class StoreClientRequest extends FormRequest
             'type' => ['nullable', 'string', 'in:individual,sole_proprietor,company'],
             'status' => ['nullable', 'string', 'in:active,paused,blocked'],
             'category' => ['nullable', 'string', 'max:255'],
+            'price_type' => ['required', 'string', 'in:retail,wholesale,vip'],
             'is_vip' => ['nullable', 'boolean'],
             'notes' => ['nullable', 'string'],
             'tags' => ['nullable', 'string', 'max:255'],

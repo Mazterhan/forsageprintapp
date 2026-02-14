@@ -5,9 +5,20 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('Ціноутворення') }}
             </h2>
-            <a href="{{ route('pricing.subcontractors.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                {{ __('Підрядні організації') }}
-            </a>
+            <div class="flex gap-2">
+                <a href="{{ route('purchases.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                    {{ __('Закупівля') }}
+                </a>
+                <a href="{{ route('purchases.suppliers.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                    {{ __('Постачальники') }}
+                </a>
+                <a href="{{ route('purchases.import.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                    {{ __('Імпорт даних') }}
+                </a>
+                <a href="{{ route('pricing.subcontractors.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                    {{ __('Підрядні організації') }}
+                </a>
+            </div>
         </div>
     </x-slot>
 
@@ -44,7 +55,7 @@
                             <table class="w-full divide-y divide-gray-200">
                                 <thead>
                                     <tr>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th id="toggle-all-pricing-rows" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none" title="Виділити/зняти всі рядки">#</th>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Внутрішній код</th>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                                             @php
@@ -74,19 +85,6 @@
                                         </th>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                                             @php
-                                                $nextDirection = $currentSort === 'subcontractor' && $currentDirection === 'asc' ? 'desc' : 'asc';
-                                            @endphp
-                                            <a href="{{ route('pricing.index', array_merge(request()->query(), ['sort' => 'subcontractor', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
-                                                Субпідрядник
-                                                @if ($currentSort === 'subcontractor')
-                                                    <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
-                                                @else
-                                                    <span class="text-gray-400">↕</span>
-                                                @endif
-                                            </a>
-                                        </th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                                            @php
                                                 $nextDirection = $currentSort === 'import_price' && $currentDirection === 'asc' ? 'desc' : 'asc';
                                             @endphp
                                             <a href="{{ route('pricing.index', array_merge(request()->query(), ['sort' => 'import_price', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
@@ -98,8 +96,12 @@
                                                 @endif
                                             </a>
                                         </th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка %</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка РЦ %</th>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Роздрібна ціна</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка Опт %</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Оптова ціна</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка VIP %</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">VIP ціна</th>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                                             @php
                                                 $nextDirection = $currentSort === 'imported_at' && $currentDirection === 'asc' ? 'desc' : 'asc';
@@ -118,6 +120,25 @@
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
                                     @forelse ($items as $item)
+                                        @php
+                                            $retailPercent = $item->markup_percent ?? 50;
+                                            $retailPrice = $item->markup_price;
+                                            if ($retailPrice === null && $item->import_price !== null) {
+                                                $retailPrice = (float) $item->import_price * (1 + ((float) $retailPercent / 100));
+                                            }
+
+                                            $wholesalePercent = $item->markup_wholesale_percent ?? 30;
+                                            $wholesalePrice = $item->wholesale_price;
+                                            if ($wholesalePrice === null && $item->import_price !== null) {
+                                                $wholesalePrice = (float) $item->import_price * (1 + ((float) $wholesalePercent / 100));
+                                            }
+
+                                            $vipPercent = $item->markup_vip_percent ?? 40;
+                                            $vipPrice = $item->vip_price;
+                                            if ($vipPrice === null && $item->import_price !== null) {
+                                                $vipPrice = (float) $item->import_price * (1 + ((float) $vipPercent / 100));
+                                            }
+                                        @endphp
                                         <tr data-import-price="{{ $item->import_price ?? 0 }}">
                                             <td class="px-4 py-2 text-sm text-gray-700">
                                                 <input type="checkbox" name="selected[]" value="{{ $item->id }}" class="rounded border-gray-300">
@@ -133,22 +154,24 @@
                                                 </a>
                                             </td>
                                             <td class="px-4 py-2 text-sm text-gray-700">{{ $item->category }}</td>
-                                            <td class="px-4 py-2 text-sm text-gray-700">
-                                                <select name="subcontractor_id[{{ $item->id }}]" class="border-gray-300 rounded-md shadow-sm text-sm">
-                                                    <option value="">{{ __('Select') }}</option>
-                                                    @foreach ($subcontractors as $subcontractor)
-                                                        <option value="{{ $subcontractor->id }}" @selected($item->subcontractor_id === $subcontractor->id)>
-                                                            {{ $subcontractor->name }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
-                                            </td>
                                             <td class="px-4 py-2 text-sm text-gray-700">{{ $item->import_price !== null ? number_format((float) $item->import_price, 2, '.', '') : '' }}</td>
                                             <td class="px-4 py-2 text-sm text-gray-700">
-                                                <input type="text" name="markup_percent[{{ $item->id }}]" value="{{ $item->markup_percent ?? 50 }}" class="w-20 border-gray-300 rounded-md shadow-sm text-sm markup-percent">
+                                                <input type="text" name="markup_percent[{{ $item->id }}]" value="{{ number_format((float) $retailPercent, 2, '.', '') }}" class="w-20 border-gray-300 rounded-md shadow-sm text-sm markup-percent">
                                             </td>
                                             <td class="px-4 py-2 text-sm text-gray-700">
-                                                <input type="text" name="markup_price[{{ $item->id }}]" value="{{ $item->markup_price !== null ? number_format((float) $item->markup_price, 2, '.', '') : '' }}" class="w-24 border-gray-300 rounded-md shadow-sm text-sm markup-price">
+                                                <input type="text" name="markup_price[{{ $item->id }}]" value="{{ $retailPrice !== null ? number_format((float) $retailPrice, 2, '.', '') : '' }}" class="w-24 border-gray-300 rounded-md shadow-sm text-sm markup-price">
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-700">
+                                                <input type="text" name="markup_wholesale_percent[{{ $item->id }}]" value="{{ number_format((float) $wholesalePercent, 2, '.', '') }}" class="w-20 border-gray-300 rounded-md shadow-sm text-sm markup-wholesale-percent">
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-700">
+                                                <input type="text" name="wholesale_price[{{ $item->id }}]" value="{{ $wholesalePrice !== null ? number_format((float) $wholesalePrice, 2, '.', '') : '' }}" class="w-24 border-gray-300 rounded-md shadow-sm text-sm wholesale-price">
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-700">
+                                                <input type="text" name="markup_vip_percent[{{ $item->id }}]" value="{{ number_format((float) $vipPercent, 2, '.', '') }}" class="w-20 border-gray-300 rounded-md shadow-sm text-sm markup-vip-percent">
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-700">
+                                                <input type="text" name="vip_price[{{ $item->id }}]" value="{{ $vipPrice !== null ? number_format((float) $vipPrice, 2, '.', '') : '' }}" class="w-24 border-gray-300 rounded-md shadow-sm text-sm vip-price">
                                             </td>
                                             <td class="px-4 py-2 text-sm text-gray-700">{{ optional($item->last_changed_at)->format('Y-m-d H:i') }}</td>
                                             <td class="px-4 py-2 text-sm text-gray-700">
@@ -164,7 +187,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="10" class="px-4 py-6 text-center text-sm text-gray-500">
+                                            <td colspan="13" class="px-4 py-6 text-center text-sm text-gray-500">
                                                 {{ __('No pricing items found.') }}
                                             </td>
                                         </tr>
@@ -187,24 +210,50 @@
     </div>
 
     <script>
+        const toggleAllHeader = document.getElementById('toggle-all-pricing-rows');
+        const rowCheckboxes = Array.from(document.querySelectorAll('input[type="checkbox"][name="selected[]"]'));
+
+        toggleAllHeader?.addEventListener('click', () => {
+            if (rowCheckboxes.length === 0) {
+                return;
+            }
+
+            const allChecked = rowCheckboxes.every((checkbox) => checkbox.checked);
+            rowCheckboxes.forEach((checkbox) => {
+                checkbox.checked = !allChecked;
+            });
+        });
+
         document.querySelectorAll('tr[data-import-price]').forEach((row) => {
             const importPrice = parseFloat(row.getAttribute('data-import-price')) || 0;
             const percentInput = row.querySelector('.markup-percent');
             const priceInput = row.querySelector('.markup-price');
+            const wholesalePercentInput = row.querySelector('.markup-wholesale-percent');
+            const wholesalePriceInput = row.querySelector('.wholesale-price');
+            const vipPercentInput = row.querySelector('.markup-vip-percent');
+            const vipPriceInput = row.querySelector('.vip-price');
 
-            if (percentInput && priceInput) {
-                percentInput.addEventListener('input', () => {
-                    const percent = parseFloat(percentInput.value) || 0;
-                    priceInput.value = (importPrice * (1 + (percent / 100))).toFixed(2);
+            const bindPair = (percentEl, priceEl) => {
+                if (!percentEl || !priceEl) {
+                    return;
+                }
+
+                percentEl.addEventListener('input', () => {
+                    const percent = parseFloat(percentEl.value) || 0;
+                    priceEl.value = (importPrice * (1 + (percent / 100))).toFixed(2);
                 });
 
-                priceInput.addEventListener('input', () => {
-                    const price = parseFloat(priceInput.value) || 0;
+                priceEl.addEventListener('input', () => {
+                    const price = parseFloat(priceEl.value) || 0;
                     if (importPrice > 0) {
-                        percentInput.value = ((price / importPrice - 1) * 100).toFixed(2);
+                        percentEl.value = ((price / importPrice - 1) * 100).toFixed(2);
                     }
                 });
-            }
+            };
+
+            bindPair(percentInput, priceInput);
+            bindPair(wholesalePercentInput, wholesalePriceInput);
+            bindPair(vipPercentInput, vipPriceInput);
         });
     </script>
 </x-app-layout>

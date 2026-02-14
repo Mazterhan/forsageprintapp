@@ -7,7 +7,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-6xl mx-auto sm:px-6 lg:px-8 space-y-6">
+        <div class="max-w-[1700px] mx-auto px-6 sm:px-8 lg:px-12 space-y-6">
             @if (session('status'))
                 <div class="text-sm text-green-700 bg-green-100 px-4 py-2 rounded">
                     {{ session('status') }}
@@ -200,17 +200,7 @@
                             </div>
                         </div>
 
-                        <div>
-                            <x-input-label for="subcontractor_id" :value="__('Субпідрядник')" />
-                            <select id="subcontractor_id" name="subcontractor_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                                <option value="">{{ __('Select') }}</option>
-                                @foreach ($subcontractors as $subcontractor)
-                                    <option value="{{ $subcontractor->id }}" @selected($tariff->subcontractor_id === $subcontractor->id)>
-                                        {{ $subcontractor->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
+                        <input type="hidden" name="subcontractor_id" value="{{ $tariff->subcontractor_id }}">
 
                         <div>
                             <x-input-label for="sale_price" :value="__('Роздрібна ціна')" />
@@ -221,7 +211,7 @@
                             <x-text-input id="wholesale_price" name="wholesale_price" type="text" class="mt-1 block w-full" value="{{ old('wholesale_price', $tariff->wholesale_price !== null ? number_format((float) $tariff->wholesale_price, 2, '.', '') : '') }}" />
                         </div>
                         <div>
-                            <x-input-label for="urgent_price" :value="__('Термінова робота')" />
+                            <x-input-label for="urgent_price" :value="__('VIP ціна')" />
                             <x-text-input id="urgent_price" name="urgent_price" type="text" class="mt-1 block w-full" value="{{ old('urgent_price', $tariff->urgent_price !== null ? number_format((float) $tariff->urgent_price, 2, '.', '') : '') }}" />
                         </div>
 
@@ -292,27 +282,50 @@
                                 <tr>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">дата</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Закупівельна ціна</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка %</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ціна з націнкою</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка РЦ %</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Роздрібна ціна</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка Опт %</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Оптова ціна</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка VIP %</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">VIP ціна</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Внутрішній код</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Постачальник</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Користувач</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дія</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
                                 @forelse ($history as $row)
                                     <tr>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ optional($row->changed_at)->format('Y-m-d H:i') }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->import_price }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_percent }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_price }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->import_price !== null ? number_format((float) $row->import_price, 2, '.', '') : '' }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_percent !== null ? number_format((float) $row->markup_percent, 2, '.', '') : '' }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_price !== null ? number_format((float) $row->markup_price, 2, '.', '') : '' }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_wholesale_percent !== null ? number_format((float) $row->markup_wholesale_percent, 2, '.', '') : '' }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->wholesale_price !== null ? number_format((float) $row->wholesale_price, 2, '.', '') : '' }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_vip_percent !== null ? number_format((float) $row->markup_vip_percent, 2, '.', '') : '' }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->vip_price !== null ? number_format((float) $row->vip_price, 2, '.', '') : '' }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $row->internal_code }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $row->supplier?->name }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $row->user?->name }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">
+                                            @if (!empty($row->id))
+                                                <form method="POST" action="{{ route('tariffs.history.revert', [$tariff, $row->id]) }}">
+                                                    @csrf
+                                                    <button
+                                                        type="submit"
+                                                        class="text-indigo-600 hover:text-indigo-900"
+                                                        onclick="return confirm('Діюча ціна товару буде оновлена на вибрану')"
+                                                    >
+                                                        {{ __('Повернути') }}
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">
+                                        <td colspan="12" class="px-4 py-6 text-center text-sm text-gray-500">
                                             {{ __('No history yet.') }}
                                         </td>
                                     </tr>

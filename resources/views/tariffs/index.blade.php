@@ -153,7 +153,7 @@
                                         @endphp
                                         <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
                                             <a href="{{ route('tariffs.index', array_merge(request()->query(), ['sort' => $sortKey, 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1 justify-center">
-                                                {{ __('Price.') }}{{ $extraLabel }}
+                                                {{ $extraLabel }}
                                                 @if ($currentSort === $sortKey)
                                                     <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
                                                 @else
@@ -162,19 +162,6 @@
                                             </a>
                                         </th>
                                     @endforeach
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                                        @php
-                                            $nextDirection = $currentSort === 'subcontractor' && $currentDirection === 'asc' ? 'desc' : 'asc';
-                                        @endphp
-                                        <a href="{{ route('tariffs.index', array_merge(request()->query(), ['sort' => 'subcontractor', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
-                                            Підрядник
-                                            @if ($currentSort === 'subcontractor')
-                                                <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
-                                            @else
-                                                <span class="text-gray-400">↕</span>
-                                            @endif
-                                        </a>
-                                    </th>
                                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дія</th>
                                     @endif
@@ -201,7 +188,6 @@
                                                 {{ $extraValue !== null ? number_format((float) $extraValue, 2, '.', '') : '' }}
                                             </td>
                                         @endforeach
-                                        <td class="px-4 py-2 text-sm text-gray-700 text-right">{{ $tariff->subcontractor?->name }}</td>
                                         @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                                             <td class="px-4 py-2 text-sm text-gray-700 text-center">
                                                 <form method="POST" action="{{ route('tariffs.deactivate', $tariff) }}">

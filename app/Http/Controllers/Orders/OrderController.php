@@ -11,4 +11,14 @@ class OrderController extends Controller
     {
         return view('orders.index');
     }
+
+    public function calculation(Request $request)
+    {
+        return view('orders.calculation');
+    }
+
+    public function saved(Request $request)
+    {
+        return view('orders.saved');
+    }
 }

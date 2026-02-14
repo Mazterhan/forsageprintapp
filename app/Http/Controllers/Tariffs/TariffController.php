@@ -44,7 +44,7 @@ class TariffController extends Controller
 
         $extraPriceOptions = [
             'wholesale' => 'оптова ціна',
-            'urgent' => 'термінова робота',
+            'urgent' => 'VIP ціна',
         ];
 
         $sortMap = [
@@ -145,10 +145,15 @@ class TariffController extends Controller
                 ->get()
                 ->map(function ($item) {
                     return (object) [
+                        'id' => null,
                         'changed_at' => $item->imported_at,
                         'import_price' => $item->price_vat,
                         'markup_percent' => null,
                         'markup_price' => null,
+                        'markup_wholesale_percent' => null,
+                        'wholesale_price' => null,
+                        'markup_vip_percent' => null,
+                        'vip_price' => null,
                         'internal_code' => $item->internal_code,
                         'supplier' => $item->supplier,
                         'user' => null,
@@ -299,8 +304,16 @@ class TariffController extends Controller
 
         $importPrice = $tariff->purchase_price;
         $markupPercent = null;
+        $markupWholesalePercent = null;
+        $markupVipPercent = null;
         if ($importPrice !== null && (float) $importPrice > 0 && $tariff->sale_price !== null) {
             $markupPercent = ((float) $tariff->sale_price / (float) $importPrice - 1) * 100;
+        }
+        if ($importPrice !== null && (float) $importPrice > 0 && $tariff->wholesale_price !== null) {
+            $markupWholesalePercent = ((float) $tariff->wholesale_price / (float) $importPrice - 1) * 100;
+        }
+        if ($importPrice !== null && (float) $importPrice > 0 && $tariff->urgent_price !== null) {
+            $markupVipPercent = ((float) $tariff->urgent_price / (float) $importPrice - 1) * 100;
         }
 
         PricingHistory::create([
@@ -312,6 +325,10 @@ class TariffController extends Controller
             'import_price' => $importPrice,
             'markup_percent' => $markupPercent,
             'markup_price' => $tariff->sale_price,
+            'markup_wholesale_percent' => $markupWholesalePercent,
+            'wholesale_price' => $tariff->wholesale_price,
+            'markup_vip_percent' => $markupVipPercent,
+            'vip_price' => $tariff->urgent_price,
             'changed_by' => $request->user()?->id,
             'changed_at' => now(),
             'source' => 'tariff',
@@ -320,6 +337,48 @@ class TariffController extends Controller
         return redirect()
             ->route('tariffs.show', $tariff)
             ->with('status', __('Tariff updated.'));
+    }
+
+    public function revertHistory(Request $request, Tariff $tariff, PricingHistory $history): RedirectResponse
+    {
+        $allowedCodes = array_merge(
+            [$tariff->internal_code],
+            $tariff->crossLinks()->pluck('child_internal_code')->all()
+        );
+
+        if (! in_array($history->internal_code, $allowedCodes, true)) {
+            return redirect()
+                ->route('tariffs.show', $tariff)
+                ->withErrors(['history' => __('Обраний запис історії не належить цій картці товару.')]);
+        }
+
+        $tariff->update([
+            'sale_price' => $history->markup_price,
+            'wholesale_price' => $history->wholesale_price,
+            'urgent_price' => $history->vip_price,
+        ]);
+
+        PricingHistory::create([
+            'internal_code' => $history->internal_code,
+            'name' => $history->name,
+            'category' => $history->category,
+            'supplier_id' => null,
+            'subcontractor_id' => $history->subcontractor_id,
+            'import_price' => $history->import_price,
+            'markup_percent' => $history->markup_percent,
+            'markup_price' => $history->markup_price,
+            'markup_wholesale_percent' => $history->markup_wholesale_percent,
+            'wholesale_price' => $history->wholesale_price,
+            'markup_vip_percent' => $history->markup_vip_percent,
+            'vip_price' => $history->vip_price,
+            'changed_by' => $request->user()?->id,
+            'changed_at' => now(),
+            'source' => 'revert',
+        ]);
+
+        return redirect()
+            ->route('tariffs.show', $tariff)
+            ->with('status', __('Ціни товару оновлено з обраного запису історії.'));
     }
 
     public function deactivate(Request $request, Tariff $tariff): RedirectResponse
@@ -331,30 +390,60 @@ class TariffController extends Controller
             ->orderByDesc('imported_at')
             ->first();
 
-        if ($latestPurchase) {
-            $existingPricing = PricingItem::query()
-                ->where('internal_code', $tariff->internal_code)
-                ->where('import_price', $latestPurchase->price_vat)
-                ->first();
+        $importPrice = $latestPurchase?->price_vat ?? $tariff->purchase_price;
 
-            if (! $existingPricing) {
-                PricingItem::create([
-                    'internal_code' => $latestPurchase->internal_code,
-                    'external_code' => $latestPurchase->external_code,
-                    'name' => $latestPurchase->name,
-                    'category' => null,
-                    'unit' => $latestPurchase->unit,
-                    'supplier_id' => $latestPurchase->supplier_id,
-                    'subcontractor_id' => $tariff->subcontractor_id,
-                    'import_price' => $latestPurchase->price_vat,
-                    'markup_percent' => 50,
-                    'markup_price' => $latestPurchase->price_vat * 1.5,
-                    'last_changed_at' => now(),
-                    'last_imported_at' => $latestPurchase->imported_at,
-                    'is_active' => true,
-                ]);
+        $markupPercent = 50.0;
+        $markupWholesalePercent = 30.0;
+        $markupVipPercent = 40.0;
+
+        if ($importPrice !== null && (float) $importPrice > 0) {
+            if ($tariff->sale_price !== null) {
+                $markupPercent = (((float) $tariff->sale_price / (float) $importPrice) - 1) * 100;
+            }
+            if ($tariff->wholesale_price !== null) {
+                $markupWholesalePercent = (((float) $tariff->wholesale_price / (float) $importPrice) - 1) * 100;
+            }
+            if ($tariff->urgent_price !== null) {
+                $markupVipPercent = (((float) $tariff->urgent_price / (float) $importPrice) - 1) * 100;
             }
         }
+
+        $resolvedMarkupPrice = $tariff->sale_price;
+        if ($resolvedMarkupPrice === null && $importPrice !== null) {
+            $resolvedMarkupPrice = (float) $importPrice * (1 + ($markupPercent / 100));
+        }
+
+        $resolvedWholesalePrice = $tariff->wholesale_price;
+        if ($resolvedWholesalePrice === null && $importPrice !== null) {
+            $resolvedWholesalePrice = (float) $importPrice * (1 + ($markupWholesalePercent / 100));
+        }
+
+        $resolvedVipPrice = $tariff->urgent_price;
+        if ($resolvedVipPrice === null && $importPrice !== null) {
+            $resolvedVipPrice = (float) $importPrice * (1 + ($markupVipPercent / 100));
+        }
+
+        PricingItem::updateOrCreate(
+            ['internal_code' => $tariff->internal_code],
+            [
+                'external_code' => $latestPurchase?->external_code,
+                'name' => $tariff->name,
+                'category' => $tariff->category,
+                'unit' => $latestPurchase?->unit,
+                'supplier_id' => $latestPurchase?->supplier_id,
+                'subcontractor_id' => $tariff->subcontractor_id,
+                'import_price' => $importPrice,
+                'markup_percent' => $markupPercent,
+                'markup_price' => $resolvedMarkupPrice,
+                'markup_wholesale_percent' => $markupWholesalePercent,
+                'wholesale_price' => $resolvedWholesalePrice,
+                'markup_vip_percent' => $markupVipPercent,
+                'vip_price' => $resolvedVipPrice,
+                'last_changed_at' => now(),
+                'last_imported_at' => $latestPurchase?->imported_at ?? now(),
+                'is_active' => true,
+            ]
+        );
 
         return redirect()
             ->route('tariffs.index')
