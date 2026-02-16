@@ -21,198 +21,113 @@
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-                    <form method="POST" action="{{ route('tariffs.update', $tariff) }}" class="space-y-6">
+                    <form id="tariff-update-form" method="POST" action="{{ route('tariffs.update', $tariff) }}" class="space-y-6">
                         @csrf
                         @method('PATCH')
 
-                        <div>
-                            <x-input-label for="internal_code" :value="__('Внутрішній код')" />
-                            <div class="mt-1 flex items-center gap-3">
-                                <x-text-input id="internal_code" type="text" class="block w-full" value="{{ $tariff->internal_code }}" disabled />
-                                @if ($hasCrossLinks)
-                                    <span class="text-sm text-green-600 whitespace-nowrap">
-                                        {{ __('Цей товар має кросс-зв\'язок (зв\'язані артикули)') }}
-                                    </span>
-                                @endif
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                            <div class="md:col-span-8">
+                                <x-input-label for="name" :value="__('Назва')" />
+                                <x-text-input id="name" name="name" type="text" class="mt-1 block w-full" value="{{ old('name', $tariff->name) }}" required />
                             </div>
-                        </div>
-
-                        <div>
-                            <x-input-label for="name" :value="__('Назва')" />
-                            <x-text-input id="name" name="name" type="text" class="mt-1 block w-full" value="{{ old('name', $tariff->name) }}" required />
-                        </div>
-
-                        <div>
-                            <x-input-label for="category" :value="__('Категорія')" />
-                            <x-text-input id="category" name="category" type="text" class="mt-1 block w-full" value="{{ old('category', $tariff->category) }}" />
-                        </div>
-
-                        @php
-                            $typeClassValue = old('type_class', $tariff->type_class);
-                            $typeClassNormalized = $typeClassValue;
-                            if (is_string($typeClassValue)) {
-                                if (str_starts_with($typeClassValue, 'sheet_')) {
-                                    $typeClassNormalized = 'sheet';
-                                } elseif (str_starts_with($typeClassValue, 'roll_')) {
-                                    $typeClassNormalized = 'roll';
-                                } elseif ($typeClassValue === 'tool_accessory') {
-                                    $typeClassNormalized = 'tool';
-                                }
-                            }
-                        @endphp
-
-                        <div>
-                            <x-input-label for="type_class" :value="__('Тип/клас товару')" />
-                            <select id="type_class" name="type_class" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                                <option value="">{{ __('Оберіть тип') }}</option>
-                                <option value="sheet" @selected($typeClassNormalized === 'sheet')>Листові пластики: Акрил, ПВХ, Композит (ACP), ПЕТ, Полістирол</option>
-                                <option value="roll" @selected($typeClassNormalized === 'roll')>Плівки (рулонні): Oracal / Orajet / Oralite / Монтажна</option>
-                                <option value="tool" @selected($typeClassNormalized === 'tool')>Інструмент/аксесуар</option>
-                            </select>
-                        </div>
-
-                        <div id="film-block" class="hidden space-y-4">
-                            <div>
-                                <x-input-label for="film_brand_series" :value="__('Бренд/серія')" />
-                                <select id="film_brand_series" name="film_brand_series" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                                    <option value="">{{ __('Оберіть серію') }}</option>
-                                    <option value="Oracal 641" @selected(old('film_brand_series', $tariff->film_brand_series) === 'Oracal 641')>Oracal 641</option>
-                                    <option value="Oracal 640" @selected(old('film_brand_series', $tariff->film_brand_series) === 'Oracal 640')>Oracal 640</option>
-                                    <option value="Oracal 8300" @selected(old('film_brand_series', $tariff->film_brand_series) === 'Oracal 8300')>Oracal 8300</option>
-                                    <option value="Oracal 352" @selected(old('film_brand_series', $tariff->film_brand_series) === 'Oracal 352')>Oracal 352</option>
-                                    <option value="Oracal 6510" @selected(old('film_brand_series', $tariff->film_brand_series) === 'Oracal 6510')>Oracal 6510</option>
-                                    <option value="Orajet 3640" @selected(old('film_brand_series', $tariff->film_brand_series) === 'Orajet 3640')>Orajet 3640</option>
-                                    <option value="Orajet 3641" @selected(old('film_brand_series', $tariff->film_brand_series) === 'Orajet 3641')>Orajet 3641</option>
-                                    <option value="Orajet 3651" @selected(old('film_brand_series', $tariff->film_brand_series) === 'Orajet 3651')>Orajet 3651</option>
-                                    <option value="Oralite 5200" @selected(old('film_brand_series', $tariff->film_brand_series) === 'Oralite 5200')>Oralite 5200</option>
-                                    <option value="Oralite 5510" @selected(old('film_brand_series', $tariff->film_brand_series) === 'Oralite 5510')>Oralite 5510</option>
-                                </select>
-                            </div>
-                            <div class="flex gap-4">
-                                <div class="flex-1">
-                                    <x-input-label for="roll_width_m" :value="__('Ширина рулону (м)')" />
-                                    <x-text-input id="roll_width_m" name="roll_width_m" type="text" class="mt-1 block w-full" value="{{ old('roll_width_m', $tariff->roll_width_m) }}" />
-                                </div>
-                                <div class="flex-1">
-                                    <x-input-label for="roll_length_m" :value="__('Довжина (м)')" />
-                                    <x-text-input id="roll_length_m" name="roll_length_m" type="text" class="mt-1 block w-full" value="{{ old('roll_length_m', $tariff->roll_length_m) }}" />
+                            <div class="md:col-span-4">
+                                <x-input-label for="internal_code" :value="__('Внутрішній код')" />
+                                <div class="mt-1 flex items-center gap-3">
+                                    <x-text-input id="internal_code" type="text" class="block w-full" value="{{ $tariff->internal_code }}" disabled />
+                                    @if ($hasCrossLinks)
+                                        <span class="text-sm text-green-600 whitespace-nowrap">
+                                            {{ __('Цей товар має кросс-зв\'язок (зв\'язані артикули)') }}
+                                        </span>
+                                    @endif
                                 </div>
                             </div>
                         </div>
 
-                        <div id="sheet-block" class="hidden">
-                            <div class="flex gap-4">
-                                <div class="flex-1">
-                                    <x-input-label for="sheet_thickness_mm" :value="__('Товщина (мм)')" />
-                                    <x-text-input id="sheet_thickness_mm" name="sheet_thickness_mm" type="text" class="mt-1 block w-full" value="{{ old('sheet_thickness_mm', $tariff->sheet_thickness_mm) }}" />
-                                </div>
-                                <div class="flex-1">
-                                    <x-input-label for="sheet_width_mm" :value="__('Ширина (мм)')" />
-                                    <x-text-input id="sheet_width_mm" name="sheet_width_mm" type="text" class="mt-1 block w-full" value="{{ old('sheet_width_mm', $tariff->sheet_width_mm) }}" />
-                                </div>
-                                <div class="flex-1">
-                                    <x-input-label for="sheet_length_mm" :value="__('Довжина (мм)')" />
-                                    <x-text-input id="sheet_length_mm" name="sheet_length_mm" type="text" class="mt-1 block w-full" value="{{ old('sheet_length_mm', $tariff->sheet_length_mm) }}" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="attribute-block" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <x-input-label for="color" :value="__('Колір')" />
-                                <input id="color" name="color" list="color-options" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" value="{{ old('color', $tariff->color) }}" />
-                                <datalist id="color-options">
-                                    <option value="блакитний"></option>
-                                    <option value="світло-блакитний"></option>
-                                    <option value="небесно-блакитний"></option>
-                                    <option value="синій"></option>
-                                    <option value="яскраво-синій"></option>
-                                    <option value="королівський синій"></option>
-                                    <option value="темно-синій"></option>
-                                    <option value="лазурний"></option>
-                                    <option value="бірюзовий"></option>
-                                    <option value="зелений"></option>
-                                    <option value="світло-зелений"></option>
-                                    <option value="липово-зелений"></option>
-                                    <option value="жовто-зелений"></option>
-                                    <option value="трав'янисто-зелений"></option>
-                                    <option value="жовтий"></option>
-                                    <option value="золотисто-жовтий"></option>
-                                    <option value="сірчано-жовтий"></option>
-                                    <option value="червоний"></option>
-                                    <option value="темно-червоний"></option>
-                                    <option value="помаранчевий"></option>
-                                    <option value="пастельно-помаранчевий"></option>
-                                    <option value="фіоглетовий"></option>
-                                    <option value="малиновий"></option>
-                                    <option value="лавандовий"></option>
-                                    <option value="світло-рожевий"></option>
-                                    <option value="чорний"></option>
-                                    <option value="темно-сірий"></option>
-                                    <option value="білий"></option>
-                                    <option value="бежевий"></option>
-                                    <option value="світло-коричневий"></option>
-                                    <option value="коричневий"></option>
-                                    <option value="пурпурний"></option>
-                                    <option value="бургунд"></option>
-                                    <option value="золото"></option>
-                                    <option value="срібло"></option>
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                            <div class="md:col-span-6">
+                                <x-input-label for="category" :value="__('Категорія')" />
+                                <input
+                                    id="category"
+                                    name="category"
+                                    type="text"
+                                    list="category-options"
+                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                                    value="{{ old('category', $tariff->category) }}"
+                                    placeholder="{{ __('Оберіть категорію') }}"
+                                >
+                                <datalist id="category-options">
+                                    @foreach ($productCategories as $category)
+                                        <option value="{{ $category }}"></option>
+                                    @endforeach
                                 </datalist>
+                                <x-input-error class="mt-2" :messages="$errors->get('category')" />
                             </div>
-                            <div>
-                                <x-input-label for="finish" :value="__('Поверхня/фініш')" />
-                                <select id="finish" name="finish" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                                    <option value="">{{ __('Оберіть варіант') }}</option>
-                                    <option value="мат" @selected(old('finish', $tariff->finish) === 'мат')>мат</option>
-                                    <option value="глянець" @selected(old('finish', $tariff->finish) === 'глянець')>глянець</option>
-                                    <option value="дзеркало" @selected(old('finish', $tariff->finish) === 'дзеркало')>дзеркало</option>
-                                    <option value="браш (brush)" @selected(old('finish', $tariff->finish) === 'браш (brush)')>браш (brush)</option>
-                                </select>
+
+                            <div class="md:col-span-6">
+                                <x-input-label for="product_group_id" :value="__('Внутрішня назва товару (Група товарів)')" />
+                                @php
+                                    $currentGroupName = old('product_group_name');
+                                    if ($currentGroupName === null) {
+                                        $currentGroupName = optional($productGroups->firstWhere('id', $tariff->product_group_id))->name;
+                                    }
+                                @endphp
+                                <input
+                                    id="product_group_name"
+                                    name="product_group_name"
+                                    type="text"
+                                    list="product-group-options"
+                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                                    value="{{ $currentGroupName }}"
+                                    placeholder="{{ __('Оберіть значення') }}"
+                                >
+                                <datalist id="product-group-options">
+                                    @foreach ($productGroups as $group)
+                                        <option value="{{ $group->name }}" data-id="{{ $group->id }}"></option>
+                                    @endforeach
+                                </datalist>
+                                <input type="hidden" id="product_group_id" name="product_group_id" value="{{ (int) old('product_group_id', $tariff->product_group_id) ?: '' }}">
+                                <x-input-error class="mt-2" :messages="$errors->get('product_group_id')" />
                             </div>
-                            <div>
-                                <x-input-label for="special_effect" :value="__('Спецефекти')" />
-                                <select id="special_effect" name="special_effect" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                                    <option value="">{{ __('Оберіть варіант') }}</option>
-                                    <option value="прозорий" @selected(old('special_effect', $tariff->special_effect) === 'прозорий')>прозорий</option>
-                                    <option value="молочний" @selected(old('special_effect', $tariff->special_effect) === 'молочний')>молочний</option>
-                                    <option value="опал" @selected(old('special_effect', $tariff->special_effect) === 'опал')>опал</option>
-                                    <option value="дзеркало" @selected(old('special_effect', $tariff->special_effect) === 'дзеркало')>дзеркало</option>
-                                    <option value="флуоресцентний" @selected(old('special_effect', $tariff->special_effect) === 'флуоресцентний')>флуоресцентний</option>
-                                    <option value="світловідбиваюча" @selected(old('special_effect', $tariff->special_effect) === 'світловідбиваюча')>світловідбиваюча</option>
-                                    <option value="дорожній" @selected(old('special_effect', $tariff->special_effect) === 'дорожній')>дорожній</option>
-                                </select>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                            <div class="md:col-span-3" id="size-width-wrap">
+                                <x-input-label for="roll_width_m" :value="__('Ширина (м)')" />
+                                <x-text-input id="roll_width_m" name="roll_width_m" type="text" class="mt-1 block w-full" value="{{ old('roll_width_m', $tariff->roll_width_m) }}" />
+                                <x-input-error class="mt-2" :messages="$errors->get('roll_width_m')" />
                             </div>
-                            <div>
-                                <x-input-label for="liner" :value="__('Підложка/лайнер')" />
-                                <select id="liner" name="liner" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                                    <option value="">{{ __('Оберіть варіант') }}</option>
-                                    <option value="сіра підложка" @selected(old('liner', $tariff->liner) === 'сіра підложка')>сіра підложка</option>
-                                    <option value="біла основа" @selected(old('liner', $tariff->liner) === 'біла основа')>біла основа</option>
-                                    <option value="чорна основа" @selected(old('liner', $tariff->liner) === 'чорна основа')>чорна основа</option>
-                                </select>
+                            <div class="md:col-span-3" id="size-length-wrap">
+                                <x-input-label for="roll_length_m" :value="__('Довжина (м)')" />
+                                <x-text-input id="roll_length_m" name="roll_length_m" type="text" class="mt-1 block w-full" value="{{ old('roll_length_m', $tariff->roll_length_m) }}" />
+                                <x-input-error class="mt-2" :messages="$errors->get('roll_length_m')" />
                             </div>
-                            <div>
-                                <x-input-label for="double_sided" :value="__('Двосторонність')" />
-                                <select id="double_sided" name="double_sided" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                                    <option value="односторонній" @selected(old('double_sided', $tariff->double_sided ?? 'односторонній') === 'односторонній')>односторонній</option>
-                                    <option value="двосторонній" @selected(old('double_sided', $tariff->double_sided) === 'двосторонній')>двосторонній</option>
-                                </select>
+                            <div class="md:col-span-3" id="size-thickness-wrap">
+                                <x-input-label for="sheet_thickness_mm" :value="__('Товщина (мм)')" />
+                                <x-text-input id="sheet_thickness_mm" name="sheet_thickness_mm" type="text" class="mt-1 block w-full" value="{{ old('sheet_thickness_mm', $tariff->sheet_thickness_mm) }}" />
+                                <x-input-error class="mt-2" :messages="$errors->get('sheet_thickness_mm')" />
+                            </div>
+                            <div class="md:col-span-3" id="size-auto-fill-wrap">
+                                <button type="button" class="inline-flex items-center justify-center w-full px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                                    {{ __('Заповнити параметри розмірів (автоматично)') }}
+                                </button>
                             </div>
                         </div>
 
                         <input type="hidden" name="subcontractor_id" value="{{ $tariff->subcontractor_id }}">
 
-                        <div>
-                            <x-input-label for="sale_price" :value="__('Роздрібна ціна')" />
-                            <x-text-input id="sale_price" name="sale_price" type="text" class="mt-1 block w-full" value="{{ old('sale_price', $tariff->sale_price !== null ? number_format((float) $tariff->sale_price, 2, '.', '') : '') }}" />
-                        </div>
-                        <div>
-                            <x-input-label for="wholesale_price" :value="__('Оптова ціна')" />
-                            <x-text-input id="wholesale_price" name="wholesale_price" type="text" class="mt-1 block w-full" value="{{ old('wholesale_price', $tariff->wholesale_price !== null ? number_format((float) $tariff->wholesale_price, 2, '.', '') : '') }}" />
-                        </div>
-                        <div>
-                            <x-input-label for="urgent_price" :value="__('VIP ціна')" />
-                            <x-text-input id="urgent_price" name="urgent_price" type="text" class="mt-1 block w-full" value="{{ old('urgent_price', $tariff->urgent_price !== null ? number_format((float) $tariff->urgent_price, 2, '.', '') : '') }}" />
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                            <div class="md:col-span-4">
+                                <x-input-label for="sale_price" :value="__('Роздрібна ціна')" />
+                                <x-text-input id="sale_price" name="sale_price" type="text" class="mt-1 block w-full" value="{{ old('sale_price', $tariff->sale_price !== null ? number_format((float) $tariff->sale_price, 2, '.', '') : '') }}" />
+                            </div>
+                            <div class="md:col-span-4">
+                                <x-input-label for="wholesale_price" :value="__('Оптова ціна')" />
+                                <x-text-input id="wholesale_price" name="wholesale_price" type="text" class="mt-1 block w-full" value="{{ old('wholesale_price', $tariff->wholesale_price !== null ? number_format((float) $tariff->wholesale_price, 2, '.', '') : '') }}" />
+                            </div>
+                            <div class="md:col-span-4">
+                                <x-input-label for="urgent_price" :value="__('VIP ціна')" />
+                                <x-text-input id="urgent_price" name="urgent_price" type="text" class="mt-1 block w-full" value="{{ old('urgent_price', $tariff->urgent_price !== null ? number_format((float) $tariff->urgent_price, 2, '.', '') : '') }}" />
+                            </div>
                         </div>
 
                         <div class="space-y-3">
@@ -257,12 +172,27 @@
                             </div>
                         </div>
 
-                        <div class="flex items-center gap-4">
-                            <x-primary-button>{{ __('Зберегти') }}</x-primary-button>
-                            <a href="{{ route('tariffs.index') }}" class="text-sm text-gray-600 hover:text-gray-900">
-                                {{ __('повернутись') }}
-                            </a>
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-4">
+                                <x-primary-button>{{ __('Зберегти') }}</x-primary-button>
+                                <a href="{{ route('tariffs.index') }}" class="text-sm text-gray-600 hover:text-gray-900">
+                                    {{ __('повернутись') }}
+                                </a>
+                            </div>
+                            <button
+                                type="submit"
+                                form="tariff-deactivate-form"
+                                class="inline-flex items-center px-4 py-2 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest hover:bg-gray-200 focus:bg-gray-200 active:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                                onclick="return confirm('Товар буде деактивовано. Продовжити?')"
+                            >
+                                {{ __('Деактивувати') }}
+                            </button>
                         </div>
+                    </form>
+
+                    <form id="tariff-deactivate-form" method="POST" action="{{ route('tariffs.deactivate', $tariff) }}" class="hidden">
+                        @csrf
+                        @method('PATCH')
                     </form>
 
                     <form method="POST" action="{{ route('tariffs.cross-links.store', $tariff) }}" id="cross-link-submit" class="hidden">
@@ -348,11 +278,14 @@
             const submitForm = document.getElementById('cross-link-submit');
             const supplierInput = document.getElementById('cross_supplier_id_input');
             const itemInput = document.getElementById('cross_item_input');
-            const typeSelect = document.getElementById('type_class');
-            const filmBlock = document.getElementById('film-block');
-            const sheetBlock = document.getElementById('sheet-block');
-            const attributeBlock = document.getElementById('attribute-block');
-
+            const categorySelect = document.getElementById('category');
+            const productGroupNameInput = document.getElementById('product_group_name');
+            const productGroupIdInput = document.getElementById('product_group_id');
+            const productGroupOptions = Array.from(document.querySelectorAll('#product-group-options option'));
+            const widthWrap = document.getElementById('size-width-wrap');
+            const lengthWrap = document.getElementById('size-length-wrap');
+            const thicknessWrap = document.getElementById('size-thickness-wrap');
+            const autoFillWrap = document.getElementById('size-auto-fill-wrap');
             document.querySelectorAll('input[name="cross_toggle"]').forEach((radio) => {
                 radio.addEventListener('change', () => {
                     form.classList.toggle('hidden', !yes.checked);
@@ -382,18 +315,41 @@
                 submitForm.submit();
             });
 
-            const updateTypeBlocks = () => {
-                const value = typeSelect?.value || '';
-                const isFilm = value === 'roll';
-                const isSheet = value === 'sheet';
-                const isTool = value === 'tool';
-                filmBlock?.classList.toggle('hidden', !isFilm);
-                sheetBlock?.classList.toggle('hidden', !isSheet);
-                attributeBlock?.classList.toggle('hidden', isTool || !value);
+            const updateSizeFieldsVisibility = () => {
+                const value = (categorySelect?.value || '').trim().toLowerCase();
+
+                const isBannerOrFilm = value === 'банер' || value === 'плівка';
+                const isAccessoryOrService = value === 'аксесуар' || value === 'послуга';
+
+                if (widthWrap) {
+                    widthWrap.classList.toggle('hidden', isAccessoryOrService);
+                }
+                if (lengthWrap) {
+                    lengthWrap.classList.toggle('hidden', isAccessoryOrService);
+                }
+                if (thicknessWrap) {
+                    thicknessWrap.classList.toggle('hidden', isBannerOrFilm || isAccessoryOrService);
+                }
+                if (autoFillWrap) {
+                    autoFillWrap.classList.toggle('hidden', isAccessoryOrService);
+                }
             };
 
-            typeSelect?.addEventListener('change', updateTypeBlocks);
-            updateTypeBlocks();
+            categorySelect?.addEventListener('change', updateSizeFieldsVisibility);
+            updateSizeFieldsVisibility();
+
+            const syncProductGroupId = () => {
+                if (!productGroupNameInput || !productGroupIdInput) {
+                    return;
+                }
+
+                const selected = productGroupOptions.find((option) => option.value === productGroupNameInput.value);
+                productGroupIdInput.value = selected?.dataset.id ?? '';
+            };
+
+            productGroupNameInput?.addEventListener('input', syncProductGroupId);
+            productGroupNameInput?.addEventListener('change', syncProductGroupId);
+            syncProductGroupId();
         })();
     </script>
 </x-app-layout>

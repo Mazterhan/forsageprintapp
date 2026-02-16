@@ -21,7 +21,7 @@ class PricingController extends Controller
 
         $sortMap = [
             'name' => 'pricing_items.name',
-            'category' => 'pricing_items.category',
+            'product_group' => 'product_groups.name',
             'subcontractor' => 'subcontractors.name',
             'import_price' => 'pricing_items.import_price',
             'imported_at' => 'pricing_items.last_changed_at',
@@ -29,8 +29,9 @@ class PricingController extends Controller
 
         $items = PricingItem::query()
             ->leftJoin('subcontractors', 'subcontractors.id', '=', 'pricing_items.subcontractor_id')
+            ->leftJoin('product_groups', 'product_groups.id', '=', 'pricing_items.product_group_id')
             ->select('pricing_items.*')
-            ->with(['subcontractor', 'supplier'])
+            ->with(['subcontractor', 'supplier', 'productGroup'])
             ->where('pricing_items.is_active', true)
             ->when(isset($sortMap[$sort]), function ($query) use ($sortMap, $sort, $direction) {
                 $query->orderBy($sortMap[$sort], $direction);
@@ -154,6 +155,7 @@ class PricingController extends Controller
             ->first();
 
         $resolvedCategory = $pricingItem->category ?? $existingTariff?->category;
+        $resolvedProductGroup = $pricingItem->product_group_id ?? $existingTariff?->product_group_id;
         $resolvedSubcontractor = $pricingItem->subcontractor_id ?? $existingTariff?->subcontractor_id;
 
         Tariff::updateOrCreate(
@@ -161,6 +163,7 @@ class PricingController extends Controller
             [
                 'name' => $pricingItem->name,
                 'category' => $resolvedCategory,
+                'product_group_id' => $resolvedProductGroup,
                 'subcontractor_id' => $resolvedSubcontractor,
                 'purchase_price' => $pricingItem->import_price,
                 'sale_price' => $pricingItem->markup_price,

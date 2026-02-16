@@ -32,8 +32,16 @@
                         </div>
 
                         <div>
-                            <x-input-label for="category" :value="__('Категорія')" />
-                            <x-text-input id="category" name="category" type="text" class="mt-1 block w-full" value="{{ old('category', $item->category) }}" />
+                            <x-input-label for="product_group_id" :value="__('Внутрішня назва товару (Група товарів)')" />
+                            <select id="product_group_id" name="product_group_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                                <option value="">{{ __('Оберіть значення') }}</option>
+                                @foreach ($productGroups as $group)
+                                    <option value="{{ $group->id }}" @selected((int) old('product_group_id', $item->product_group_id) === $group->id)>
+                                        {{ $group->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <x-input-error class="mt-2" :messages="$errors->get('product_group_id')" />
                         </div>
 
                         <div>

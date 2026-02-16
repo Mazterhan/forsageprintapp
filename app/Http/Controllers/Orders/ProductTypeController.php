@@ -31,11 +31,35 @@ class ProductTypeController extends Controller
             'types.*' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $types = collect($data['types'] ?? [])
+        $rawTypes = collect($data['types'] ?? [])
             ->map(fn ($value) => trim((string) $value))
             ->filter(fn ($value) => $value !== '')
-            ->unique()
             ->values();
+
+        $normalize = static fn (string $value): string => function_exists('mb_strtolower')
+            ? mb_strtolower($value, 'UTF-8')
+            : strtolower($value);
+
+        $seen = [];
+        $hasDuplicates = false;
+        $uniqueTypes = $rawTypes->filter(function (string $value) use (&$seen, &$hasDuplicates, $normalize): bool {
+            $key = $normalize($value);
+            if (isset($seen[$key])) {
+                $hasDuplicates = true;
+                return false;
+            }
+            $seen[$key] = true;
+            return true;
+        })->values();
+
+        if ($hasDuplicates) {
+            return redirect()
+                ->route('orders.product-types.index')
+                ->withInput(['types' => $uniqueTypes->all()])
+                ->withErrors(['types' => __('Знайдено дублікати. Кожен тип виробу має бути унікальним.')]);
+        }
+
+        $types = $uniqueTypes;
 
         DB::transaction(function () use ($types): void {
             ProductType::query()->delete();

@@ -15,9 +15,6 @@
                 <a href="{{ route('purchases.import.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
                     {{ __('Імпорт даних') }}
                 </a>
-                <a href="{{ route('pricing.subcontractors.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                    {{ __('Підрядні організації') }}
-                </a>
             </div>
         </div>
     </x-slot>
@@ -72,11 +69,11 @@
                                         </th>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                                             @php
-                                                $nextDirection = $currentSort === 'category' && $currentDirection === 'asc' ? 'desc' : 'asc';
-                                            @endphp
-                                            <a href="{{ route('pricing.index', array_merge(request()->query(), ['sort' => 'category', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
-                                                Категорія
-                                                @if ($currentSort === 'category')
+                                            $nextDirection = $currentSort === 'product_group' && $currentDirection === 'asc' ? 'desc' : 'asc';
+                                        @endphp
+                                            <a href="{{ route('pricing.index', array_merge(request()->query(), ['sort' => 'product_group', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
+                                                Внутрішня назва товару
+                                                @if ($currentSort === 'product_group')
                                                     <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
                                                 @else
                                                     <span class="text-gray-400">↕</span>
@@ -153,7 +150,7 @@
                                                     {{ $item->name }}
                                                 </a>
                                             </td>
-                                            <td class="px-4 py-2 text-sm text-gray-700">{{ $item->category }}</td>
+                                            <td class="px-4 py-2 text-sm text-gray-700">{{ $item->productGroup?->name }}</td>
                                             <td class="px-4 py-2 text-sm text-gray-700">{{ $item->import_price !== null ? number_format((float) $item->import_price, 2, '.', '') : '' }}</td>
                                             <td class="px-4 py-2 text-sm text-gray-700">
                                                 <input type="text" name="markup_percent[{{ $item->id }}]" value="{{ number_format((float) $retailPercent, 2, '.', '') }}" class="w-20 border-gray-300 rounded-md shadow-sm text-sm markup-percent">

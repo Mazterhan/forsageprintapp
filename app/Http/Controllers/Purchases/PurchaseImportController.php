@@ -182,7 +182,6 @@ class PurchaseImportController extends Controller
             'price',
             'unit(if_exist)',
             'quantity(if_exist)',
-            'category(if_exist)',
         ];
 
         $callback = function () use ($headers): void {
@@ -204,7 +203,6 @@ class PurchaseImportController extends Controller
             'price',
             'unit(if_exist)',
             'quantity(if_exist)',
-            'category(if_exist)',
         ];
 
         $spreadsheet = new Spreadsheet();
@@ -255,17 +253,16 @@ class PurchaseImportController extends Controller
             $pricing = $existingPricing->get($compareCode);
             $tariff = $existingTariffs->get($compareCode);
 
-            if ($pricing) {
-                if ((float) $pricing->import_price !== (float) $item['price_vat']) {
-                    $markupPercent = $pricing->markup_percent ?? 50;
-                    $markupWholesalePercent = $pricing->markup_wholesale_percent ?? 30;
-                    $markupVipPercent = $pricing->markup_vip_percent ?? 40;
+                if ($pricing) {
+                    if ((float) $pricing->import_price !== (float) $item['price_vat']) {
+                        $markupPercent = $pricing->markup_percent ?? 50;
+                        $markupWholesalePercent = $pricing->markup_wholesale_percent ?? 30;
+                        $markupVipPercent = $pricing->markup_vip_percent ?? 40;
                     $markupPrice = $item['price_vat'] * (1 + ($markupPercent / 100));
                     $wholesalePrice = $item['price_vat'] * (1 + ($markupWholesalePercent / 100));
                     $vipPrice = $item['price_vat'] * (1 + ($markupVipPercent / 100));
 
                     $pricing->update([
-                        'category' => $item['category'] ?? $pricing->category,
                         'import_price' => $item['price_vat'],
                         'markup_price' => $markupPrice,
                         'wholesale_price' => $wholesalePrice,
@@ -279,7 +276,8 @@ class PurchaseImportController extends Controller
             }
 
             if (! $tariff || (float) $tariff->purchase_price !== (float) $item['price_vat']) {
-                $resolvedCategory = $item['category'] ?? $tariff?->category;
+                $resolvedCategory = $tariff?->category;
+                $resolvedProductGroup = $tariff?->product_group_id;
                 $resolvedSubcontractor = $tariff?->subcontractor_id;
                 $markupPercent = 50;
                 $markupWholesalePercent = 30;
@@ -292,6 +290,7 @@ class PurchaseImportController extends Controller
                     'internal_code' => $compareCode,
                     'name' => $item['name'],
                     'category' => $resolvedCategory,
+                    'product_group_id' => $resolvedProductGroup,
                     'subcontractor_id' => $resolvedSubcontractor,
                     'import_price' => $item['price_vat'],
                     'markup_percent' => $markupPercent,

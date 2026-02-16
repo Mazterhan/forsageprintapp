@@ -5,9 +5,14 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('Прорахунок замовлення') }}
             </h2>
-            <a href="{{ route('orders.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                {{ __('Повернутись до замовлень') }}
-            </a>
+            <div class="flex items-center gap-2">
+                <a href="{{ route('orders.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                    {{ __('Повернутись до замовлень') }}
+                </a>
+                <a href="{{ route('orders.proposals') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                    {{ __('Повернутись до заявок') }}
+                </a>
+            </div>
         </div>
     </x-slot>
 

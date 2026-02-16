@@ -22,25 +22,6 @@
                             <input id="search" name="search" type="text" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full" value="{{ $filters['search'] }}" />
                         </div>
                         <div class="flex-1 min-w-[180px]" x-data="{ open: false }">
-                            <label class="block font-medium text-sm text-gray-700">Підрядник</label>
-                            <div class="relative mt-1">
-                                <button type="button" @click="open = !open" class="block w-full border border-gray-300 rounded-md shadow-sm bg-white text-sm text-gray-700 text-left px-3 py-2 pr-8">
-                                    {{ __('Вибрати підрядника') }}
-                                </button>
-                                <svg class="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                                </svg>
-                                <div x-show="open" @click.outside="open = false" class="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-sm max-h-60 overflow-y-auto">
-                                    @foreach ($subcontractors as $subcontractor)
-                                        <label class="flex items-center gap-2 px-3 py-2 text-sm text-gray-700">
-                                            <input type="checkbox" name="subcontractors[]" value="{{ $subcontractor->id }}" class="rounded border-gray-300" @checked(in_array($subcontractor->id, $filters['subcontractors'], true))>
-                                            <span>{{ $subcontractor->name }}</span>
-                                        </label>
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex-1 min-w-[180px]" x-data="{ open: false }">
                             <label class="block font-medium text-sm text-gray-700">Показати додаткові ціни</label>
                             <div class="relative mt-1">
                                 <button type="button" @click="open = !open" class="block w-full border border-gray-300 rounded-md shadow-sm bg-white text-sm text-gray-700 text-left px-3 py-2 pr-8">
@@ -66,6 +47,17 @@
                                 @foreach ($categories as $category)
                                     <option value="{{ $category }}" @selected($filters['category'] === $category)>
                                         {{ $category }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="flex-1 min-w-[180px]">
+                            <label class="block font-medium text-sm text-gray-700" for="product_group_id">Внутрішня назва товару</label>
+                            <select id="product_group_id" name="product_group_id" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full">
+                                <option value="">{{ __('Все') }}</option>
+                                @foreach ($productGroups as $group)
+                                    <option value="{{ $group->id }}" @selected((string) ($filters['product_group_id'] ?? '') === (string) $group->id)>
+                                        {{ $group->name }}
                                     </option>
                                 @endforeach
                             </select>
@@ -132,6 +124,19 @@
                                             @endif
                                         </a>
                                     </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        @php
+                                            $nextDirection = $currentSort === 'product_group' && $currentDirection === 'asc' ? 'desc' : 'asc';
+                                        @endphp
+                                        <a href="{{ route('tariffs.index', array_merge(request()->query(), ['sort' => 'product_group', 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1">
+                                            Внутрішня назва товару
+                                            @if ($currentSort === 'product_group')
+                                                <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
                                     <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
                                         @php
                                             $nextDirection = $currentSort === 'sale_price' && $currentDirection === 'asc' ? 'desc' : 'asc';
@@ -177,6 +182,7 @@
                                             </a>
                                         </td>
                                         <td class="px-4 py-2 text-sm text-gray-700 text-right">{{ $tariff->category }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $tariff->productGroup?->name }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700 text-center">{{ number_format((float) $tariff->sale_price, 2, '.', '') }}</td>
                                         @foreach ($selectedExtraPrices as $extraKey)
                                             @php
@@ -202,7 +208,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="px-4 py-6 text-center text-sm text-gray-500">
+                                        <td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">
                                             {{ __('No tariffs found.') }}
                                         </td>
                                     </tr>

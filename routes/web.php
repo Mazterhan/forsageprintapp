@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DepartmentController;
+use App\Http\Controllers\Admin\EditGroupsAndCategoriesController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Orders\ClientController;
 use App\Http\Controllers\Orders\OrderController;
@@ -63,7 +64,7 @@ Route::middleware(['auth', 'role:admin|manager'])
     ->group(function () {
         Route::get('/', [OrderController::class, 'index'])->name('index');
         Route::get('/calculation', [OrderController::class, 'calculation'])->name('calculation');
-        Route::get('/saved', [OrderController::class, 'saved'])->name('saved');
+        Route::get('/proposals', [OrderController::class, 'saved'])->name('proposals');
         Route::get('/product-types', [ProductTypeController::class, 'index'])->name('product-types.index');
         Route::post('/product-types', [ProductTypeController::class, 'store'])->name('product-types.store');
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
@@ -141,6 +142,11 @@ Route::middleware(['auth', 'role:admin'])
         Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
         Route::get('/departments/{department}/edit', [DepartmentController::class, 'edit'])->name('departments.edit');
         Route::patch('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
+        Route::view('/editgroupsandcategories', 'admin.editgroupsandcategories')->name('editgroupsandcategories');
+        Route::get('/editgroupsandcategories/product-groups', [EditGroupsAndCategoriesController::class, 'productGroups'])->name('product-groups.index');
+        Route::post('/editgroupsandcategories/product-groups', [EditGroupsAndCategoriesController::class, 'storeProductGroups'])->name('product-groups.store');
+        Route::get('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'productCategories'])->name('product-categories.index');
+        Route::post('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'storeProductCategories'])->name('product-categories.store');
     });
 
 Route::middleware('auth')->group(function () {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Pricing;
 use App\Http\Controllers\Controller;
 use App\Models\PricingHistory;
 use App\Models\PricingItem;
+use App\Models\ProductGroup;
 use App\Models\Subcontractor;
 use App\Models\Tariff;
 use Illuminate\Http\RedirectResponse;
@@ -19,6 +20,10 @@ class PricingItemController extends Controller
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
+        $productGroups = ProductGroup::query()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
 
         $history = PricingHistory::query()
             ->where('internal_code', $pricingItem->internal_code)
@@ -28,6 +33,7 @@ class PricingItemController extends Controller
         return view('pricing.items.show', [
             'item' => $pricingItem,
             'subcontractors' => $subcontractors,
+            'productGroups' => $productGroups,
             'history' => $history,
         ]);
     }
@@ -36,7 +42,7 @@ class PricingItemController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'category' => ['nullable', 'string', 'max:255'],
+            'product_group_id' => ['nullable', 'integer', 'exists:product_groups,id'],
             'subcontractor_id' => ['nullable', 'integer', 'exists:subcontractors,id'],
             'markup_percent' => ['nullable', 'numeric', 'min:0'],
             'markup_price' => ['nullable', 'numeric', 'min:0'],
@@ -65,7 +71,7 @@ class PricingItemController extends Controller
 
         $pricingItem->update([
             'name' => $data['name'],
-            'category' => $data['category'] ?? null,
+            'product_group_id' => $data['product_group_id'] ?? null,
             'subcontractor_id' => $data['subcontractor_id'] ?? null,
             'markup_percent' => $markupPercent,
             'markup_price' => $markupPrice,
@@ -81,6 +87,7 @@ class PricingItemController extends Controller
             ->first();
 
         $resolvedCategory = $pricingItem->category ?? $existingTariff?->category;
+        $resolvedProductGroup = $pricingItem->product_group_id ?? $existingTariff?->product_group_id;
         $resolvedSubcontractor = $pricingItem->subcontractor_id ?? $existingTariff?->subcontractor_id;
 
         Tariff::updateOrCreate(
@@ -88,6 +95,7 @@ class PricingItemController extends Controller
             [
                 'name' => $pricingItem->name,
                 'category' => $resolvedCategory,
+                'product_group_id' => $resolvedProductGroup,
                 'subcontractor_id' => $resolvedSubcontractor,
                 'purchase_price' => $pricingItem->import_price,
                 'sale_price' => $pricingItem->markup_price,

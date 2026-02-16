@@ -10,8 +10,12 @@ use App\Models\Subcontractor;
 use App\Models\Tariff;
 use App\Models\TariffCrossLink;
 use App\Models\Supplier;
+use App\Models\ProductCategory;
+use App\Models\ProductGroup;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class TariffController extends Controller
@@ -30,6 +34,7 @@ class TariffController extends Controller
         $subcontractorIds = array_filter((array) $request->query('subcontractors', []));
         $extraPriceFilters = array_filter((array) $request->query('extra_prices', []));
         $category = (string) $request->query('category', '');
+        $productGroupId = (string) $request->query('product_group_id', '');
         $search = (string) $request->query('search', '');
         $priceFrom = $request->query('price_from');
         $priceTo = $request->query('price_to');
@@ -41,6 +46,10 @@ class TariffController extends Controller
             ->distinct()
             ->orderBy('category')
             ->pluck('category');
+        $productGroups = ProductGroup::query()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
 
         $extraPriceOptions = [
             'wholesale' => 'оптова ціна',
@@ -51,6 +60,7 @@ class TariffController extends Controller
             'internal_code' => 'tariffs.internal_code',
             'name' => 'tariffs.name',
             'category' => 'tariffs.category',
+            'product_group' => 'product_groups.name',
             'sale_price' => 'tariffs.sale_price',
             'wholesale_price' => 'tariffs.wholesale_price',
             'urgent_price' => 'tariffs.urgent_price',
@@ -59,8 +69,9 @@ class TariffController extends Controller
 
         $tariffs = Tariff::query()
             ->leftJoin('subcontractors', 'subcontractors.id', '=', 'tariffs.subcontractor_id')
+            ->leftJoin('product_groups', 'product_groups.id', '=', 'tariffs.product_group_id')
             ->select('tariffs.*')
-            ->with('subcontractor')
+            ->with(['subcontractor', 'productGroup'])
             ->where('tariffs.is_active', true)
             ->when(! empty($childInternalCodes), function ($query) use ($childInternalCodes) {
                 $query->whereNotIn('tariffs.internal_code', $childInternalCodes);
@@ -70,6 +81,9 @@ class TariffController extends Controller
             })
             ->when($category !== '', function ($query) use ($category) {
                 $query->where('tariffs.category', $category);
+            })
+            ->when($productGroupId !== '', function ($query) use ($productGroupId) {
+                $query->where('tariffs.product_group_id', (int) $productGroupId);
             })
             ->when($search !== '', function ($query) use ($search) {
                 $query->where('tariffs.name', 'like', "%{$search}%");
@@ -103,12 +117,14 @@ class TariffController extends Controller
             'tariffs' => $tariffs,
             'subcontractors' => $subcontractors,
             'categories' => $categories,
+            'productGroups' => $productGroups,
             'extraPriceOptions' => $extraPriceOptions,
             'selectedExtraPrices' => $extraPriceFilters,
             'title' => $title,
             'filters' => [
                 'subcontractors' => $subcontractorIds,
                 'category' => $category,
+                'product_group_id' => $productGroupId,
                 'search' => $search,
                 'price_from' => $priceFrom,
                 'price_to' => $priceTo,
@@ -121,6 +137,15 @@ class TariffController extends Controller
     {
         $subcontractors = Subcontractor::query()
             ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+        $productCategories = ProductCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->pluck('name')
+            ->all();
+        $productGroups = ProductGroup::query()
+            ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
@@ -215,6 +240,8 @@ class TariffController extends Controller
         return view('tariffs.show', [
             'tariff' => $tariff,
             'subcontractors' => $subcontractors,
+            'productCategories' => $productCategories,
+            'productGroups' => $productGroups,
             'history' => $history,
             'crossLinks' => $crossLinks,
             'availableSuppliers' => $availableSuppliers,
@@ -279,10 +306,22 @@ class TariffController extends Controller
 
     public function update(Request $request, Tariff $tariff): RedirectResponse
     {
-        $data = $request->validate([
+        $categoryOptions = ProductCategory::query()->pluck('name')->all();
+        $payload = $request->all();
+        $productGroupName = trim((string) ($payload['product_group_name'] ?? ''));
+
+        if ($productGroupName !== '') {
+            $payload['product_group_id'] = ProductGroup::query()
+                ->where('name', $productGroupName)
+                ->value('id');
+        } elseif (! $request->filled('product_group_id')) {
+            $payload['product_group_id'] = null;
+        }
+
+        $data = Validator::make($payload, [
             'name' => ['required', 'string', 'max:255'],
-            'category' => ['nullable', 'string', 'max:255'],
-            'type_class' => ['nullable', 'string', 'max:255'],
+            'category' => ['nullable', 'string', 'max:255', Rule::in($categoryOptions)],
+            'product_group_id' => ['nullable', 'integer', 'exists:product_groups,id'],
             'film_brand_series' => ['nullable', 'string', 'max:255'],
             'roll_width_m' => ['nullable', 'numeric', 'min:0'],
             'roll_length_m' => ['nullable', 'numeric', 'min:0'],
@@ -298,7 +337,13 @@ class TariffController extends Controller
             'sale_price' => ['nullable', 'numeric', 'min:0'],
             'wholesale_price' => ['nullable', 'numeric', 'min:0'],
             'urgent_price' => ['nullable', 'numeric', 'min:0'],
-        ]);
+        ])->validate();
+
+        foreach (['roll_width_m', 'roll_length_m', 'sheet_thickness_mm'] as $dimensionField) {
+            if (array_key_exists($dimensionField, $data) && $data[$dimensionField] !== null && $data[$dimensionField] !== '') {
+                $data[$dimensionField] = round((float) $data[$dimensionField], 2);
+            }
+        }
 
         $tariff->update($data);
 
@@ -429,6 +474,7 @@ class TariffController extends Controller
                 'external_code' => $latestPurchase?->external_code,
                 'name' => $tariff->name,
                 'category' => $tariff->category,
+                'product_group_id' => $tariff->product_group_id,
                 'unit' => $latestPurchase?->unit,
                 'supplier_id' => $latestPurchase?->supplier_id,
                 'subcontractor_id' => $tariff->subcontractor_id,

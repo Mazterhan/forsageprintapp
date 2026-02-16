@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\ProductGroup;
 
 class PricingItem extends Model
 {
@@ -14,6 +15,7 @@ class PricingItem extends Model
         'internal_code',
         'external_code',
         'name',
+        'product_group_id',
         'category',
         'unit',
         'supplier_id',
@@ -51,5 +53,10 @@ class PricingItem extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function productGroup(): BelongsTo
+    {
+        return $this->belongsTo(ProductGroup::class);
     }
 }

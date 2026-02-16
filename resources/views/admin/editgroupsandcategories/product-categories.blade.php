@@ -1,12 +1,12 @@
 <x-app-layout>
-    @section('title', __('Тип виробу'))
+    @section('title', __('Категорії товарів'))
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Тип виробу') }}
+                {{ __('Категорії товарів') }}
             </h2>
-            <a href="{{ route('orders.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                {{ __('Повернутись до замовлень') }}
+            <a href="{{ route('admin.editgroupsandcategories') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                {{ __('Повернутись') }}
             </a>
         </div>
     </x-slot>
@@ -18,34 +18,32 @@
                     {{ session('status') }}
                 </div>
             @endif
-            @if ($errors->has('types'))
+            @if ($errors->has('categories'))
                 <div class="mb-4 text-sm text-red-700 bg-red-100 px-4 py-2 rounded">
-                    {{ $errors->first('types') }}
+                    {{ $errors->first('categories') }}
                 </div>
             @endif
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-                    <form method="POST" action="{{ route('orders.product-types.store') }}" id="product-types-form" class="space-y-4">
+                    <form method="POST" action="{{ route('admin.product-categories.store') }}" id="product-categories-form" class="space-y-4">
                         @csrf
 
-                        <div id="type-fields" class="space-y-3">
+                        <div id="category-fields" class="space-y-3">
                             @php
-                                $oldTypes = old('types');
-                                $initialTypes = is_array($oldTypes) ? $oldTypes : $types;
+                                $oldCategories = old('categories');
+                                $initialCategories = is_array($oldCategories) ? $oldCategories : $categories;
                             @endphp
-                            @foreach ($initialTypes as $index => $type)
+                            @foreach ($initialCategories as $index => $category)
                                 <div class="entry-row">
-                                    <label class="block font-medium text-sm text-gray-700" for="type_{{ $index }}">
-                                        {{ __('Тип виробу') }}
-                                    </label>
+                                    <label class="block font-medium text-sm text-gray-700" for="category_{{ $index }}">{{ __('Категорія товарів') }}</label>
                                     <div class="mt-1 flex items-center gap-2">
                                         <input
-                                            id="type_{{ $index }}"
-                                            name="types[]"
+                                            id="category_{{ $index }}"
+                                            name="categories[]"
                                             type="text"
-                                            value="{{ $type }}"
-                                            class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full product-type-input"
+                                            value="{{ $category }}"
+                                            class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full category-input"
                                         >
                                         <button type="button" class="remove-entry inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-50 whitespace-nowrap">
                                             {{ __('Удалить') }}
@@ -54,16 +52,14 @@
                                 </div>
                             @endforeach
                             <div class="entry-row">
-                                <label class="block font-medium text-sm text-gray-700" for="type_new">
-                                    {{ __('Тип виробу') }}
-                                </label>
+                                <label class="block font-medium text-sm text-gray-700" for="category_new">{{ __('Категорія товарів') }}</label>
                                 <div class="mt-1 flex items-center gap-2">
                                     <input
-                                        id="type_new"
-                                        name="types[]"
+                                        id="category_new"
+                                        name="categories[]"
                                         type="text"
                                         value=""
-                                        class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full product-type-input"
+                                        class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full category-input"
                                     >
                                     <button type="button" class="remove-entry inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-50 whitespace-nowrap">
                                         {{ __('Удалить') }}
@@ -74,7 +70,7 @@
 
                         <div class="pt-2">
                             <button type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 active:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                                {{ __('Зберегти зміни у типах виробів') }}
+                                {{ __('Зберегти зміни у категоріях товарів') }}
                             </button>
                         </div>
                     </form>
@@ -85,22 +81,22 @@
 
     <script>
         (function () {
-            const container = document.getElementById('type-fields');
+            const container = document.getElementById('category-fields');
             if (!container) return;
 
             const buildField = () => {
-                const index = container.querySelectorAll('.product-type-input').length;
+                const index = container.querySelectorAll('.category-input').length;
                 const wrapper = document.createElement('div');
                 wrapper.className = 'entry-row';
                 wrapper.innerHTML = `
-                    <label class="block font-medium text-sm text-gray-700" for="type_${index}">Тип виробу</label>
+                    <label class="block font-medium text-sm text-gray-700" for="category_${index}">Категорія товарів</label>
                     <div class="mt-1 flex items-center gap-2">
                         <input
-                            id="type_${index}"
-                            name="types[]"
+                            id="category_${index}"
+                            name="categories[]"
                             type="text"
                             value=""
-                            class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full product-type-input"
+                            class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full category-input"
                         >
                         <button type="button" class="remove-entry inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-50 whitespace-nowrap">
                             Удалить
@@ -111,7 +107,7 @@
             };
 
             const ensureTrailingEmptyField = () => {
-                const inputs = Array.from(container.querySelectorAll('.product-type-input'));
+                const inputs = Array.from(container.querySelectorAll('.category-input'));
                 if (inputs.length === 0) {
                     container.appendChild(buildField());
                     return;
@@ -124,7 +120,7 @@
 
             const syncRemoveButtons = () => {
                 container.querySelectorAll('.entry-row').forEach((row) => {
-                    const input = row.querySelector('.product-type-input');
+                    const input = row.querySelector('.category-input');
                     const removeButton = row.querySelector('.remove-entry');
                     if (!input || !removeButton) return;
                     const filled = input.value.trim() !== '';
@@ -135,7 +131,7 @@
 
             container.addEventListener('input', (event) => {
                 if (!(event.target instanceof HTMLInputElement)) return;
-                if (!event.target.classList.contains('product-type-input')) return;
+                if (!event.target.classList.contains('category-input')) return;
                 ensureTrailingEmptyField();
                 syncRemoveButtons();
             });
