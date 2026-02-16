@@ -152,7 +152,6 @@ class PurchaseFileParser
             $indexes['price'] = $indexes['price'] ?? [2];
             $indexes['unit'] = $indexes['unit'] ?? [3];
             $indexes['qty'] = $indexes['qty'] ?? [4];
-            $indexes['category'] = $indexes['category'] ?? [5];
         }
 
         foreach ($rows as $rowIndex => $row) {
@@ -167,11 +166,9 @@ class PurchaseFileParser
             $externalCode = $this->getValue($normalizedRow, $indexes['external_code'] ?? []);
             $unit = $this->getValue($normalizedRow, $indexes['unit'] ?? []);
             $qty = $this->getValue($normalizedRow, $indexes['qty'] ?? []);
-            $category = $this->getValue($normalizedRow, $indexes['category'] ?? []);
             $name = $this->normalizeText($name);
             $externalCode = $this->normalizeText($externalCode);
             $unit = $this->normalizeText($unit);
-            $category = $this->normalizeText($category);
 
             if ($name === '') {
                 $errors[] = [
@@ -205,7 +202,6 @@ class PurchaseFileParser
                 'internal_code' => $internalCode,
                 'name' => $name,
                 'unit' => $unit !== '' ? $unit : null,
-                'category' => $category !== '' ? $category : null,
                 'qty' => $qty !== '' ? $this->normalizePrice($qty) : null,
                 'price_raw' => $priceNumber,
                 'price_vat' => $priceVat,
@@ -345,18 +341,6 @@ class PurchaseFileParser
             'unit' => ['unit', 'unit if exist', 'unit(if_exist)', 'unit(if exist)', 'ед', 'ед.', 'ед.изм', 'од', 'од.', 'од.вим', 'одиниці'],
             'qty' => ['qty', 'quantity', 'quantity if exist', 'quantity(if_exist)', 'quantity(if exist)', 'количество', 'кількість'],
             'vat_percent' => ['vat', 'vat_percent', 'ндс', 'пдв'],
-            'category' => [
-                'category',
-                'category if exist',
-                'category(if_exist)',
-                'category(if exist)',
-                'категория',
-                'категорія',
-                'категорія,',
-                'категорія якщо є',
-                'категорія(якщо_є)',
-                'категорія (якщо є)',
-            ],
         ];
 
         $indexes = [];
@@ -378,7 +362,7 @@ class PurchaseFileParser
             }
         }
 
-        // Fallback: template order external_code, name, price, unit, qty, category
+        // Fallback: template order external_code, name, price, unit, qty
         if (empty($indexes['name']) && count($normalizedHeader) >= 3) {
             $templateMatch =
                 $this->normalizeHeader($header[0] ?? '') === 'external code if exist' &&
@@ -394,9 +378,6 @@ class PurchaseFileParser
                 }
                 if (isset($normalizedHeader[4])) {
                     $indexes['qty'][] = 4;
-                }
-                if (isset($normalizedHeader[5])) {
-                    $indexes['category'][] = 5;
                 }
             }
         }

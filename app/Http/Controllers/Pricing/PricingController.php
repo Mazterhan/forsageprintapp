@@ -21,7 +21,7 @@ class PricingController extends Controller
 
         $sortMap = [
             'name' => 'pricing_items.name',
-            'category' => 'pricing_items.category',
+            'product_group' => 'product_groups.name',
             'subcontractor' => 'subcontractors.name',
             'import_price' => 'pricing_items.import_price',
             'imported_at' => 'pricing_items.last_changed_at',
@@ -29,8 +29,9 @@ class PricingController extends Controller
 
         $items = PricingItem::query()
             ->leftJoin('subcontractors', 'subcontractors.id', '=', 'pricing_items.subcontractor_id')
+            ->leftJoin('product_groups', 'product_groups.id', '=', 'pricing_items.product_group_id')
             ->select('pricing_items.*')
-            ->with(['subcontractor', 'supplier'])
+            ->with(['subcontractor', 'supplier', 'productGroup'])
             ->where('pricing_items.is_active', true)
             ->when(isset($sortMap[$sort]), function ($query) use ($sortMap, $sort, $direction) {
                 $query->orderBy($sortMap[$sort], $direction);
@@ -99,12 +100,20 @@ class PricingController extends Controller
         $data = [
             'markup_percent' => $request->input("markup_percent.$itemId"),
             'markup_price' => $request->input("markup_price.$itemId"),
+            'markup_wholesale_percent' => $request->input("markup_wholesale_percent.$itemId"),
+            'wholesale_price' => $request->input("wholesale_price.$itemId"),
+            'markup_vip_percent' => $request->input("markup_vip_percent.$itemId"),
+            'vip_price' => $request->input("vip_price.$itemId"),
             'subcontractor_id' => $request->input("subcontractor_id.$itemId"),
         ];
 
         $validator = Validator::make($data, [
             'markup_percent' => ['nullable', 'numeric', 'min:0'],
             'markup_price' => ['nullable', 'numeric', 'min:0'],
+            'markup_wholesale_percent' => ['nullable', 'numeric', 'min:0'],
+            'wholesale_price' => ['nullable', 'numeric', 'min:0'],
+            'markup_vip_percent' => ['nullable', 'numeric', 'min:0'],
+            'vip_price' => ['nullable', 'numeric', 'min:0'],
             'subcontractor_id' => ['nullable', 'integer', 'exists:subcontractors,id'],
         ]);
 
@@ -115,14 +124,28 @@ class PricingController extends Controller
     {
         $markupPercent = $data['markup_percent'] ?? $pricingItem->markup_percent;
         $markupPrice = $data['markup_price'] ?? null;
+        $markupWholesalePercent = $data['markup_wholesale_percent'] ?? $pricingItem->markup_wholesale_percent;
+        $wholesalePrice = $data['wholesale_price'] ?? null;
+        $markupVipPercent = $data['markup_vip_percent'] ?? $pricingItem->markup_vip_percent;
+        $vipPrice = $data['vip_price'] ?? null;
 
         if ($markupPrice === null && $pricingItem->import_price !== null) {
             $markupPrice = $pricingItem->import_price * (1 + ($markupPercent / 100));
+        }
+        if ($wholesalePrice === null && $pricingItem->import_price !== null) {
+            $wholesalePrice = $pricingItem->import_price * (1 + ($markupWholesalePercent / 100));
+        }
+        if ($vipPrice === null && $pricingItem->import_price !== null) {
+            $vipPrice = $pricingItem->import_price * (1 + ($markupVipPercent / 100));
         }
 
         $pricingItem->update([
             'markup_percent' => $markupPercent,
             'markup_price' => $markupPrice,
+            'markup_wholesale_percent' => $markupWholesalePercent,
+            'wholesale_price' => $wholesalePrice,
+            'markup_vip_percent' => $markupVipPercent,
+            'vip_price' => $vipPrice,
             'subcontractor_id' => $data['subcontractor_id'] ?? $pricingItem->subcontractor_id,
             'last_changed_at' => now(),
         ]);
@@ -132,6 +155,7 @@ class PricingController extends Controller
             ->first();
 
         $resolvedCategory = $pricingItem->category ?? $existingTariff?->category;
+        $resolvedProductGroup = $pricingItem->product_group_id ?? $existingTariff?->product_group_id;
         $resolvedSubcontractor = $pricingItem->subcontractor_id ?? $existingTariff?->subcontractor_id;
 
         Tariff::updateOrCreate(
@@ -139,9 +163,12 @@ class PricingController extends Controller
             [
                 'name' => $pricingItem->name,
                 'category' => $resolvedCategory,
+                'product_group_id' => $resolvedProductGroup,
                 'subcontractor_id' => $resolvedSubcontractor,
                 'purchase_price' => $pricingItem->import_price,
                 'sale_price' => $pricingItem->markup_price,
+                'wholesale_price' => $pricingItem->wholesale_price,
+                'urgent_price' => $pricingItem->vip_price,
                 'is_active' => true,
             ]
         );
@@ -155,6 +182,10 @@ class PricingController extends Controller
             'import_price' => $pricingItem->import_price,
             'markup_percent' => $pricingItem->markup_percent,
             'markup_price' => $pricingItem->markup_price,
+            'markup_wholesale_percent' => $pricingItem->markup_wholesale_percent,
+            'wholesale_price' => $pricingItem->wholesale_price,
+            'markup_vip_percent' => $pricingItem->markup_vip_percent,
+            'vip_price' => $pricingItem->vip_price,
             'changed_by' => $userId,
             'changed_at' => now(),
             'source' => 'apply',

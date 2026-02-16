@@ -21,8 +21,8 @@
                         {{ __('Прайс') }}
                     </x-nav-link>
                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
-                        <x-nav-link :href="route('purchases.index')" :active="request()->routeIs('purchases.*')">
-                            {{ __('Закупівля') }}
+                        <x-nav-link :href="route('pricing.index')" :active="request()->routeIs('pricing.*')">
+                            {{ __('Ціноутворення') }}
                         </x-nav-link>
                     @endif
                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
@@ -94,8 +94,8 @@
                 {{ __('Прайс') }}
             </x-responsive-nav-link>
             @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
-                <x-responsive-nav-link :href="route('purchases.index')" :active="request()->routeIs('purchases.*')">
-                    {{ __('Закупівля') }}
+                <x-responsive-nav-link :href="route('pricing.index')" :active="request()->routeIs('pricing.*')">
+                    {{ __('Ціноутворення') }}
                 </x-responsive-nav-link>
             @endif
             @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')

@@ -23,6 +23,9 @@
                         <a href="{{ route('admin.departments.index') }}" class="text-indigo-600 hover:text-indigo-900">
                             {{ __('Керування підрозділами') }}
                         </a>
+                        <a href="{{ route('admin.editgroupsandcategories') }}" class="text-indigo-600 hover:text-indigo-900">
+                            {{ __('Довідники, групи та категорії') }}
+                        </a>
                     </div>
                 </div>
             </div>

@@ -19,6 +19,10 @@ class PricingHistory extends Model
         'import_price',
         'markup_percent',
         'markup_price',
+        'markup_wholesale_percent',
+        'wholesale_price',
+        'markup_vip_percent',
+        'vip_price',
         'changed_by',
         'changed_at',
         'source',
@@ -28,6 +32,10 @@ class PricingHistory extends Model
         'import_price' => 'decimal:4',
         'markup_percent' => 'decimal:2',
         'markup_price' => 'decimal:4',
+        'markup_wholesale_percent' => 'decimal:2',
+        'wholesale_price' => 'decimal:4',
+        'markup_vip_percent' => 'decimal:2',
+        'vip_price' => 'decimal:4',
         'changed_at' => 'datetime',
     ];
 

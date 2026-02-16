@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Controllers\Admin\DepartmentController;
+use App\Http\Controllers\Admin\EditGroupsAndCategoriesController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Orders\ClientController;
 use App\Http\Controllers\Orders\OrderController;
+use App\Http\Controllers\Orders\ProductTypeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Pricing\PricingController;
 use App\Http\Controllers\Pricing\PricingItemController;
@@ -61,6 +63,10 @@ Route::middleware(['auth', 'role:admin|manager'])
     ->name('orders.')
     ->group(function () {
         Route::get('/', [OrderController::class, 'index'])->name('index');
+        Route::get('/calculation', [OrderController::class, 'calculation'])->name('calculation');
+        Route::get('/proposals', [OrderController::class, 'saved'])->name('proposals');
+        Route::get('/product-types', [ProductTypeController::class, 'index'])->name('product-types.index');
+        Route::post('/product-types', [ProductTypeController::class, 'store'])->name('product-types.store');
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
         Route::get('/clients/create', [ClientController::class, 'create'])->name('clients.create');
         Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
@@ -115,6 +121,7 @@ Route::middleware('auth')
         Route::get('/', [TariffController::class, 'index'])->name('index');
         Route::get('/{tariff}', [TariffController::class, 'show'])->name('show');
         Route::patch('/{tariff}', [TariffController::class, 'update'])->name('update');
+        Route::post('/{tariff}/history/{history}/revert', [TariffController::class, 'revertHistory'])->name('history.revert');
         Route::patch('/{tariff}/deactivate', [TariffController::class, 'deactivate'])->name('deactivate');
         Route::post('/{tariff}/cross-links', [TariffController::class, 'storeCrossLink'])->name('cross-links.store');
     });
@@ -135,6 +142,11 @@ Route::middleware(['auth', 'role:admin'])
         Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
         Route::get('/departments/{department}/edit', [DepartmentController::class, 'edit'])->name('departments.edit');
         Route::patch('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
+        Route::view('/editgroupsandcategories', 'admin.editgroupsandcategories')->name('editgroupsandcategories');
+        Route::get('/editgroupsandcategories/product-groups', [EditGroupsAndCategoriesController::class, 'productGroups'])->name('product-groups.index');
+        Route::post('/editgroupsandcategories/product-groups', [EditGroupsAndCategoriesController::class, 'storeProductGroups'])->name('product-groups.store');
+        Route::get('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'productCategories'])->name('product-categories.index');
+        Route::post('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'storeProductCategories'])->name('product-categories.store');
     });
 
 Route::middleware('auth')->group(function () {

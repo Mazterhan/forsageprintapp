@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\ProductGroup;
 
 class PricingItem extends Model
 {
@@ -14,6 +15,7 @@ class PricingItem extends Model
         'internal_code',
         'external_code',
         'name',
+        'product_group_id',
         'category',
         'unit',
         'supplier_id',
@@ -21,6 +23,10 @@ class PricingItem extends Model
         'import_price',
         'markup_percent',
         'markup_price',
+        'markup_wholesale_percent',
+        'wholesale_price',
+        'markup_vip_percent',
+        'vip_price',
         'last_changed_at',
         'last_imported_at',
         'is_active',
@@ -30,6 +36,10 @@ class PricingItem extends Model
         'import_price' => 'decimal:4',
         'markup_percent' => 'decimal:2',
         'markup_price' => 'decimal:4',
+        'markup_wholesale_percent' => 'decimal:2',
+        'wholesale_price' => 'decimal:4',
+        'markup_vip_percent' => 'decimal:2',
+        'vip_price' => 'decimal:4',
         'last_changed_at' => 'datetime',
         'last_imported_at' => 'datetime',
         'is_active' => 'boolean',
@@ -43,5 +53,10 @@ class PricingItem extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function productGroup(): BelongsTo
+    {
+        return $this->belongsTo(ProductGroup::class);
     }
 }

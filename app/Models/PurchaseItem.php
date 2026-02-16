@@ -16,7 +16,6 @@ class PurchaseItem extends Model
         'external_code',
         'internal_code',
         'name',
-        'category',
         'unit',
         'qty',
         'price_raw',
