@@ -97,12 +97,40 @@ class OrderController extends Controller
             ->filter(fn ($type, $material) => $material !== '' && $type !== null)
             ->toArray();
 
+        $materialCategoryByMaterial = Tariff::query()
+            ->where('is_active', true)
+            ->whereHas('productGroup')
+            ->with('productGroup:id,name')
+            ->get(['product_group_id', 'category'])
+            ->groupBy(fn (Tariff $tariff) => (string) optional($tariff->productGroup)->name)
+            ->map(function ($items) {
+                $categories = $items
+                    ->pluck('category')
+                    ->filter(fn ($category) => $category !== null && trim((string) $category) !== '')
+                    ->map(fn ($category) => trim((string) $category))
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if (in_array('Банер', $categories, true)) {
+                    return 'Банер';
+                }
+                if (in_array('Банерна сітка', $categories, true)) {
+                    return 'Банерна сітка';
+                }
+
+                return $categories[0] ?? null;
+            })
+            ->filter(fn ($category, $material) => $material !== '' && $category !== null)
+            ->toArray();
+
         return view('orders.calculation', [
             'clients' => $clients,
             'productTypes' => $productTypes,
             'materials' => $materials,
             'thicknessByMaterial' => $thicknessByMaterial,
             'materialTypeByMaterial' => $materialTypeByMaterial,
+            'materialCategoryByMaterial' => $materialCategoryByMaterial,
             'priceOptions' => [
                 ['value' => 'retail', 'label' => 'Роздрібна ціна'],
                 ['value' => 'wholesale', 'label' => 'Оптова ціна'],

@@ -26,6 +26,7 @@
                     materials: @js($materials),
                     thicknessByMaterial: @js($thicknessByMaterial),
                     materialTypeByMaterial: @js($materialTypeByMaterial),
+                    materialCategoryByMaterial: @js($materialCategoryByMaterial),
                     priceOptions: @js($priceOptions),
                 })"
             >
@@ -178,7 +179,7 @@
                             </div>
 
                             <div x-show="product.servicesEnabledRaw === '1'" class="mt-4 space-y-3">
-                                <div class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
+                                <div x-show="isServiceBlockVisible(product, 'lamination')" class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
                                     <div class="font-medium text-gray-700">Ламінування</div>
                                     <select x-model="product.services.lamination" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
                                         <option value="Без">Без</option>
@@ -187,16 +188,17 @@
                                     </select>
                                 </div>
 
-                                <div class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
+                                <div x-show="isServiceBlockVisible(product, 'cutting')" class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
                                     <div class="font-medium text-gray-700">Порізка</div>
                                     <select x-model="product.services.cutting" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
-                                        <option value="Фреза">Фреза</option>
-                                        <option value="Лазер">Лазер</option>
-                                        <option value="Плотер">Плотер</option>
+                                        <option value="Без порізки">Без порізки</option>
+                                        <template x-for="option in getCuttingOptions(product)" :key="option">
+                                            <option :value="option" x-text="option"></option>
+                                        </template>
                                     </select>
                                 </div>
 
-                                <div class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
+                                <div x-show="isServiceBlockVisible(product, 'weeding')" class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
                                     <div class="font-medium text-gray-700">Вибірка (складність)</div>
                                     <select x-model="product.services.weeding" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
                                         <option value="Низька">Низька</option>
@@ -205,19 +207,19 @@
                                     </select>
                                 </div>
 
-                                <div class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
+                                <div x-show="isServiceBlockVisible(product, 'montage')" class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
                                     <div class="font-medium text-gray-700">Монтажка</div>
                                     <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_montage_${product.uid}`" value="0" x-model="product.services.montage"><span>ні</span></label>
                                     <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_montage_${product.uid}`" value="1" x-model="product.services.montage"><span>так</span></label>
                                 </div>
 
-                                <div class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
+                                <div x-show="isServiceBlockVisible(product, 'rolling')" class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
                                     <div class="font-medium text-gray-700">Прикатка</div>
                                     <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_rolling_${product.uid}`" value="0" x-model="product.services.rolling"><span>ні</span></label>
                                     <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_rolling_${product.uid}`" value="1" x-model="product.services.rolling"><span>так</span></label>
                                 </div>
 
-                                <div class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
+                                <div x-show="isServiceBlockVisible(product, 'eyelets_soldering')" class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
                                     <div class="font-medium text-gray-700">Люверси</div>
                                     <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_eyelets_${product.uid}`" value="0" x-model="product.services.eyelets"><span>ні</span></label>
                                     <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_eyelets_${product.uid}`" value="1" x-model="product.services.eyelets"><span>так</span></label>
@@ -305,6 +307,7 @@
                 materials: config.materials || [],
                 thicknessByMaterial: config.thicknessByMaterial || {},
                 materialTypeByMaterial: config.materialTypeByMaterial || {},
+                materialCategoryByMaterial: config.materialCategoryByMaterial || {},
                 priceOptions: config.priceOptions || [],
                 selectedClientId: '',
                 priceType: 'retail',
@@ -329,7 +332,7 @@
                         servicesEnabledRaw: '0',
                         services: {
                             lamination: 'Без',
-                            cutting: 'Фреза',
+                            cutting: 'Без порізки',
                             weeding: 'Середня',
                             montage: '0',
                             rolling: '0',
@@ -376,11 +379,14 @@
                 },
 
                 addPosition(product) {
+                    this.ensureCuttingValue(product);
                     product.positions.push(this.createPosition());
                 },
 
                 addProduct() {
-                    this.products.push(this.createProduct());
+                    const product = this.createProduct();
+                    this.ensureCuttingValue(product);
+                    this.products.push(product);
                 },
 
                 normalizeMaterial(value) {
@@ -397,6 +403,81 @@
 
                 getMaterialType(material) {
                     return this.materialTypeByMaterial[material] || '';
+                },
+
+                getMaterialCategory(material) {
+                    return this.materialCategoryByMaterial[material] || '';
+                },
+
+                normalizeText(value) {
+                    return (value || '').toString().trim().toLowerCase();
+                },
+
+                isBannerLikeCategory(category) {
+                    const normalized = this.normalizeText(category);
+                    return normalized === 'банер' || normalized === 'банерна сітка';
+                },
+
+                getServiceScenario(product) {
+                    if (this.isCustomerRollMaterial(product.material)) {
+                        return 'customer_roll';
+                    }
+
+                    if (this.isCustomerMaterial(product.material)) {
+                        return 'sheet';
+                    }
+
+                    const materialType = this.getMaterialType(product.material);
+                    if (materialType === 'Листовий') {
+                        return 'sheet';
+                    }
+
+                    if (materialType === 'Рулонний') {
+                        return this.isBannerLikeCategory(this.getMaterialCategory(product.material))
+                            ? 'roll_banner'
+                            : 'roll_other';
+                    }
+
+                    return 'default';
+                },
+
+                isServiceBlockVisible(product, block) {
+                    const scenario = this.getServiceScenario(product);
+
+                    if (scenario === 'sheet') {
+                        return !['lamination', 'weeding', 'montage', 'eyelets_soldering'].includes(block);
+                    }
+
+                    if (scenario === 'roll_banner') {
+                        return !['lamination', 'cutting', 'weeding', 'montage', 'rolling'].includes(block);
+                    }
+
+                    if (scenario === 'roll_other') {
+                        return block !== 'eyelets_soldering';
+                    }
+
+                    return true;
+                },
+
+                getCuttingOptions(product) {
+                    const scenario = this.getServiceScenario(product);
+
+                    if (scenario === 'sheet') {
+                        return ['Фреза', 'Лазер', 'Без порізки'];
+                    }
+
+                    if (scenario === 'roll_other' || scenario === 'customer_roll') {
+                        return ['Плотер', 'Без порізки'];
+                    }
+
+                    return ['Фреза', 'Лазер', 'Плотер', 'Без порізки'];
+                },
+
+                ensureCuttingValue(product) {
+                    const options = this.getCuttingOptions(product);
+                    if (!options.includes(product.services.cutting)) {
+                        product.services.cutting = 'Без порізки';
+                    }
                 },
 
                 showThicknessForMaterial(material) {
@@ -431,6 +512,8 @@
                     if (options.length === 1) {
                         product.thickness = options[0];
                     }
+
+                    this.ensureCuttingValue(product);
                 },
 
                 onManualThicknessInput(product, event) {
