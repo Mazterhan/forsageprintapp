@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Orders;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\ProductCategory;
 use App\Models\ProductType;
 use App\Models\Tariff;
 use Illuminate\Http\Request;
@@ -39,8 +40,11 @@ class OrderController extends Controller
             ->values()
             ->all();
 
-        if (! in_array('Матеріал замовника', $materials, true)) {
-            $materials[] = 'Матеріал замовника';
+        if (! in_array('Матеріал замовника листовий', $materials, true)) {
+            $materials[] = 'Матеріал замовника листовий';
+        }
+        if (! in_array('Матеріал замовника рулонний', $materials, true)) {
+            $materials[] = 'Матеріал замовника рулонний';
         }
 
         sort($materials, SORT_NATURAL | SORT_FLAG_CASE);
@@ -65,11 +69,40 @@ class OrderController extends Controller
             ->filter(fn ($values, $key) => $key !== '' && ! empty($values))
             ->toArray();
 
+        $materialTypeByCategory = ProductCategory::query()
+            ->whereNotNull('material_type')
+            ->pluck('material_type', 'name')
+            ->toArray();
+
+        $materialTypeByMaterial = Tariff::query()
+            ->where('is_active', true)
+            ->whereHas('productGroup')
+            ->with('productGroup:id,name')
+            ->get(['product_group_id', 'category'])
+            ->groupBy(fn (Tariff $tariff) => (string) optional($tariff->productGroup)->name)
+            ->map(function ($items) use ($materialTypeByCategory) {
+                $types = $items
+                    ->map(fn (Tariff $tariff) => $materialTypeByCategory[$tariff->category] ?? null)
+                    ->filter(fn ($type) => $type !== null && $type !== '')
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if (in_array('Рулонний', $types, true)) {
+                    return 'Рулонний';
+                }
+
+                return $types[0] ?? null;
+            })
+            ->filter(fn ($type, $material) => $material !== '' && $type !== null)
+            ->toArray();
+
         return view('orders.calculation', [
             'clients' => $clients,
             'productTypes' => $productTypes,
             'materials' => $materials,
             'thicknessByMaterial' => $thicknessByMaterial,
+            'materialTypeByMaterial' => $materialTypeByMaterial,
             'priceOptions' => [
                 ['value' => 'retail', 'label' => 'Роздрібна ціна'],
                 ['value' => 'wholesale', 'label' => 'Оптова ціна'],

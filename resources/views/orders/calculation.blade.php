@@ -25,6 +25,7 @@
                     productTypes: @js($productTypes),
                     materials: @js($materials),
                     thicknessByMaterial: @js($thicknessByMaterial),
+                    materialTypeByMaterial: @js($materialTypeByMaterial),
                     priceOptions: @js($priceOptions),
                 })"
             >
@@ -303,6 +304,7 @@
                 productTypes: config.productTypes || [],
                 materials: config.materials || [],
                 thicknessByMaterial: config.thicknessByMaterial || {},
+                materialTypeByMaterial: config.materialTypeByMaterial || {},
                 priceOptions: config.priceOptions || [],
                 selectedClientId: '',
                 priceType: 'retail',
@@ -386,14 +388,26 @@
                 },
 
                 isCustomerMaterial(material) {
-                    return this.normalizeMaterial(material) === 'матеріал замовника';
+                    return this.normalizeMaterial(material) === 'матеріал замовника листовий';
+                },
+
+                isCustomerRollMaterial(material) {
+                    return this.normalizeMaterial(material) === 'матеріал замовника рулонний';
+                },
+
+                getMaterialType(material) {
+                    return this.materialTypeByMaterial[material] || '';
                 },
 
                 showThicknessForMaterial(material) {
-                    const normalized = this.normalizeMaterial(material);
-                    const isBanner = normalized.includes('банер');
-                    const isFilm = normalized.includes('плівк');
-                    return !isBanner && !isFilm;
+                    if (this.isCustomerMaterial(material)) {
+                        return true;
+                    }
+                    if (this.isCustomerRollMaterial(material)) {
+                        return false;
+                    }
+
+                    return this.getMaterialType(material) !== 'Рулонний';
                 },
 
                 noop() {
