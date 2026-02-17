@@ -19,10 +19,11 @@
                 </div>
             @endif
             @if ($errors->has('categories'))
-                <div class="mb-4 text-sm text-red-700 bg-red-100 px-4 py-2 rounded">
+                <div class="mb-4 text-sm font-bold text-red-700 bg-red-100 px-4 py-2 rounded">
                     {{ $errors->first('categories') }}
                 </div>
             @endif
+            <div id="material-type-client-error" class="hidden mb-4 text-sm font-bold text-red-700 bg-red-100 px-4 py-2 rounded"></div>
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
@@ -32,9 +33,17 @@
                         <div id="category-fields" class="space-y-3">
                             @php
                                 $oldCategories = old('categories');
-                                $initialCategories = is_array($oldCategories) ? $oldCategories : $categories;
+                                $oldMaterialTypes = old('material_types');
+                                $initialRows = is_array($oldCategories)
+                                    ? collect($oldCategories)->map(function ($name, $index) use ($oldMaterialTypes) {
+                                        return [
+                                            'name' => $name,
+                                            'material_type' => is_array($oldMaterialTypes) ? ($oldMaterialTypes[$index] ?? '') : '',
+                                        ];
+                                    })->all()
+                                    : $categories;
                             @endphp
-                            @foreach ($initialCategories as $index => $category)
+                            @foreach ($initialRows as $index => $row)
                                 <div class="entry-row">
                                     <label class="block font-medium text-sm text-gray-700" for="category_{{ $index }}">{{ __('Категорія товарів') }}</label>
                                     <div class="mt-1 flex items-center gap-2">
@@ -42,9 +51,15 @@
                                             id="category_{{ $index }}"
                                             name="categories[]"
                                             type="text"
-                                            value="{{ $category }}"
+                                            value="{{ $row['name'] ?? '' }}"
                                             class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full category-input"
                                         >
+                                        <select name="material_types[]" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-[180px] material-type-select">
+                                            <option value="">{{ __('Тип матеріалу') }}</option>
+                                            @foreach ($materialTypeOptions as $option)
+                                                <option value="{{ $option }}" @selected(($row['material_type'] ?? '') === $option)>{{ $option }}</option>
+                                            @endforeach
+                                        </select>
                                         <button type="button" class="remove-entry inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-50 whitespace-nowrap">
                                             {{ __('Удалить') }}
                                         </button>
@@ -61,6 +76,12 @@
                                         value=""
                                         class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full category-input"
                                     >
+                                    <select name="material_types[]" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-[180px] material-type-select">
+                                        <option value="">{{ __('Тип матеріалу') }}</option>
+                                        @foreach ($materialTypeOptions as $option)
+                                            <option value="{{ $option }}">{{ $option }}</option>
+                                        @endforeach
+                                    </select>
                                     <button type="button" class="remove-entry inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-50 whitespace-nowrap">
                                         {{ __('Удалить') }}
                                     </button>
@@ -82,6 +103,8 @@
     <script>
         (function () {
             const container = document.getElementById('category-fields');
+            const form = document.getElementById('product-categories-form');
+            const clientError = document.getElementById('material-type-client-error');
             if (!container) return;
 
             const buildField = () => {
@@ -98,6 +121,12 @@
                             value=""
                             class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full category-input"
                         >
+                        <select name="material_types[]" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-[180px] material-type-select">
+                            <option value="">Тип матеріалу</option>
+                            <option value="Листовий">Листовий</option>
+                            <option value="Рулонний">Рулонний</option>
+                            <option value="Без типу матеріалу">Без типу матеріалу</option>
+                        </select>
                         <button type="button" class="remove-entry inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-50 whitespace-nowrap">
                             Удалить
                         </button>
@@ -145,6 +174,32 @@
                 row.remove();
                 ensureTrailingEmptyField();
                 syncRemoveButtons();
+            });
+
+            form?.addEventListener('submit', (event) => {
+                const rows = Array.from(container.querySelectorAll('.entry-row'));
+                const hasMissingMaterialType = rows.some((row) => {
+                    const categoryInput = row.querySelector('.category-input');
+                    const materialTypeSelect = row.querySelector('.material-type-select');
+                    if (!(categoryInput instanceof HTMLInputElement)) return false;
+                    if (!(materialTypeSelect instanceof HTMLSelectElement)) return false;
+                    if (categoryInput.value.trim() === '') return false;
+                    return materialTypeSelect.value.trim() === '';
+                });
+
+                if (hasMissingMaterialType) {
+                    event.preventDefault();
+                    if (clientError) {
+                        clientError.textContent = 'Оберіть "Тип матеріалу" для кожної категорії товарів.';
+                        clientError.classList.remove('hidden');
+                    }
+                    return;
+                }
+
+                if (clientError) {
+                    clientError.textContent = '';
+                    clientError.classList.add('hidden');
+                }
             });
 
             ensureTrailingEmptyField();
