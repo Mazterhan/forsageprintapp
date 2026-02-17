@@ -8,6 +8,7 @@ use App\Models\ProductGroup;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
 class EditGroupsAndCategoriesController extends Controller
@@ -83,24 +84,61 @@ class EditGroupsAndCategoriesController extends Controller
         $categories = ProductCategory::query()
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->pluck('name')
+            ->get(['name', 'material_type'])
+            ->map(fn (ProductCategory $category) => [
+                'name' => $category->name,
+                'material_type' => $category->material_type,
+            ])
             ->all();
 
         return view('admin.editgroupsandcategories.product-categories', [
             'categories' => $categories,
+            'materialTypeOptions' => [
+                'Листовий',
+                'Рулонний',
+                'Без типу матеріалу',
+            ],
         ]);
     }
 
     public function storeProductCategories(Request $request): RedirectResponse
     {
-        $data = $request->validate([
+        $materialTypeOptions = ['Листовий', 'Рулонний', 'Без типу матеріалу'];
+
+        $validator = Validator::make($request->all(), [
             'categories' => ['nullable', 'array'],
             'categories.*' => ['nullable', 'string', 'max:255'],
+            'material_types' => ['nullable', 'array'],
+            'material_types.*' => ['nullable', 'string', 'in:Листовий,Рулонний,Без типу матеріалу'],
         ]);
+        $validator->after(function ($validator) use ($request, $materialTypeOptions): void {
+            $categories = (array) $request->input('categories', []);
+            $materialTypes = (array) $request->input('material_types', []);
 
-        $rawCategories = collect($data['categories'] ?? [])
-            ->map(fn ($value) => trim((string) $value))
-            ->filter(fn ($value) => $value !== '')
+            foreach ($categories as $index => $name) {
+                $normalizedName = trim((string) $name);
+                if ($normalizedName === '') {
+                    continue;
+                }
+
+                $materialType = trim((string) ($materialTypes[$index] ?? ''));
+                if ($materialType === '' || ! in_array($materialType, $materialTypeOptions, true)) {
+                    $validator->errors()->add('categories', __('Оберіть "Тип матеріалу" для кожної категорії товарів.'));
+                    break;
+                }
+            }
+        });
+
+        $data = $validator->validate();
+
+        $rawRows = collect($data['categories'] ?? [])
+            ->map(function ($name, $index) use ($data) {
+                return [
+                    'name' => trim((string) $name),
+                    'material_type' => trim((string) (($data['material_types'][$index] ?? ''))),
+                ];
+            })
+            ->filter(fn (array $row) => $row['name'] !== '')
             ->values();
 
         $normalize = static fn (string $value): string => function_exists('mb_strtolower')
@@ -109,8 +147,8 @@ class EditGroupsAndCategoriesController extends Controller
 
         $seen = [];
         $hasDuplicates = false;
-        $uniqueCategories = $rawCategories->filter(function (string $value) use (&$seen, &$hasDuplicates, $normalize): bool {
-            $key = $normalize($value);
+        $uniqueRows = $rawRows->filter(function (array $row) use (&$seen, &$hasDuplicates, $normalize): bool {
+            $key = $normalize($row['name']);
             if (isset($seen[$key])) {
                 $hasDuplicates = true;
                 return false;
@@ -122,18 +160,22 @@ class EditGroupsAndCategoriesController extends Controller
         if ($hasDuplicates) {
             return redirect()
                 ->route('admin.product-categories.index')
-                ->withInput(['categories' => $uniqueCategories->all()])
+                ->withInput([
+                    'categories' => $uniqueRows->pluck('name')->all(),
+                    'material_types' => $uniqueRows->pluck('material_type')->all(),
+                ])
                 ->withErrors(['categories' => __('Знайдено дублікати. Кожна категорія товарів має бути унікальною.')]);
         }
 
-        $categories = $uniqueCategories;
+        $categories = $uniqueRows;
 
         DB::transaction(function () use ($categories): void {
             ProductCategory::query()->delete();
 
-            foreach ($categories as $index => $name) {
+            foreach ($categories as $index => $row) {
                 ProductCategory::create([
-                    'name' => $name,
+                    'name' => $row['name'],
+                    'material_type' => $row['material_type'],
                     'sort_order' => $index + 1,
                 ]);
             }
