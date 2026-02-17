@@ -140,7 +140,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="flex flex-wrap items-end gap-3">
+                                    <div x-show="!isUvPrintProduct(product)" class="flex flex-wrap items-end gap-3">
                                         <div class="text-sm font-semibold text-gray-700">Шари друку (шт):</div>
                                         <div class="ml-10 text-sm font-semibold text-gray-700">CMYK</div>
                                         <div class="w-[90px]">
@@ -163,7 +163,7 @@
 
                         <div class="border border-gray-300 rounded-lg p-4 bg-white">
                             <div class="flex items-center gap-3">
-                                <div class="font-semibold text-gray-800" x-text="`Послуги #${productIndex + 1}`"></div>
+                                <div class="font-semibold text-gray-800" x-text="`Послуги до виробу #${productIndex + 1}`"></div>
                                 <div class="inline-flex items-center gap-4">
                                     <label class="inline-flex items-center gap-2 text-sm text-gray-700">
                                         <input type="radio" :name="`services_enabled_${product.uid}`" value="0" x-model="product.servicesEnabledRaw">
@@ -361,6 +361,16 @@
                             this.priceType = 'retail';
                         }
                     }
+                },
+
+                getProductTypeName(productTypeId) {
+                    const selected = this.productTypes.find((item) => String(item.id) === String(productTypeId));
+                    return selected?.name || '';
+                },
+
+                isUvPrintProduct(product) {
+                    const name = this.getProductTypeName(product.productTypeId).toLowerCase().replace(/\s+/g, ' ').trim();
+                    return name.includes('уф друк') || name.includes('уф-друк');
                 },
 
                 addPosition(product) {
