@@ -193,38 +193,80 @@
                             </div>
 
                             <div x-show="product.servicesEnabledRaw === '1'" class="mt-4 space-y-3">
-                                <div x-show="isServiceBlockVisible(product, 'lamination')" class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
-                                    <div class="font-medium text-gray-700">Ламінування</div>
-                                    <select x-model="product.services.lamination" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
-                                        <option value="Без">Без</option>
-                                        <option value="Одностороннє">Одностороннє</option>
-                                        <option value="Двостороннє">Двостороннє</option>
-                                    </select>
+                                <div x-show="isServiceBlockVisible(product, 'lamination')" class="border border-gray-200 rounded-md p-3 space-y-2">
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <div class="font-medium text-gray-700">Ламінування</div>
+                                        <select x-model="product.services.lamination" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                                            <option value="Без">Без</option>
+                                            <option value="Одностороннє">Одностороннє</option>
+                                            <option value="Двостороннє">Двостороннє</option>
+                                        </select>
+                                    </div>
+                                    <div x-show="product.services.lamination !== 'Без'" class="flex flex-wrap items-end gap-3">
+                                        <div class="text-sm text-gray-700">Ширина(м)</div>
+                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="text-sm text-gray-700">Висота(м)</div>
+                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                    </div>
                                 </div>
 
-                                <div x-show="isServiceBlockVisible(product, 'cutting')" class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
-                                    <div class="font-medium text-gray-700">Порізка</div>
-                                    <select x-model="product.services.cutting" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
-                                        <option value="Без порізки">Без порізки</option>
-                                        <template x-for="option in getCuttingOptions(product)" :key="option">
-                                            <option :value="option" x-text="option"></option>
-                                        </template>
-                                    </select>
+                                <div x-show="isServiceBlockVisible(product, 'cutting')" class="border border-gray-200 rounded-md p-3 space-y-2">
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <div class="font-medium text-gray-700">Порізка</div>
+                                        <select x-model="product.services.cutting" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                                            <option value="Без порізки">Без порізки</option>
+                                            <template x-for="option in getCuttingOptions(product)" :key="option">
+                                                <option :value="option" x-text="option"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div x-show="product.services.cutting !== 'Без порізки'" class="flex flex-wrap items-end gap-3">
+                                        <div class="text-sm text-gray-700">Довжина порізки(м.п.)</div>
+                                        <input
+                                            x-model="product.services.cuttingLength"
+                                            @input="sanitizeIntegerInObject(product.services, 'cuttingLength', $event)"
+                                            type="text"
+                                            inputmode="numeric"
+                                            class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                        />
+                                    </div>
                                 </div>
 
-                                <div x-show="isServiceBlockVisible(product, 'weeding')" class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
-                                    <div class="font-medium text-gray-700">Вибірка (складність)</div>
-                                    <select x-model="product.services.weeding" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
-                                        <option value="Низька">Низька</option>
-                                        <option value="Середня">Середня</option>
-                                        <option value="Висока">Висока</option>
-                                    </select>
+                                <div x-show="isServiceBlockVisible(product, 'weeding')" class="border border-gray-200 rounded-md p-3 space-y-2">
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <div class="font-medium text-gray-700">Вибірка (складність)</div>
+                                        <div class="ml-[40px]"></div>
+                                        <input
+                                            x-model="product.services.weedingPrice"
+                                            @input="sanitizeDecimalInObject(product.services, 'weedingPrice', $event)"
+                                            type="text"
+                                            inputmode="decimal"
+                                            class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                        />
+                                        <div class="text-sm text-gray-700">ціна (грн/м.кв.)</div>
+                                    </div>
+                                    <div class="flex flex-wrap items-end gap-3">
+                                        <div class="text-sm text-gray-700">Ширина(м)</div>
+                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="text-sm text-gray-700">Висота(м)</div>
+                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="text-sm text-gray-700">Кількість(шт)</div>
+                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                    </div>
                                 </div>
 
-                                <div x-show="isServiceBlockVisible(product, 'montage')" class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
-                                    <div class="font-medium text-gray-700">Монтажка</div>
-                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_montage_${product.uid}`" value="0" x-model="product.services.montage"><span>ні</span></label>
-                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_montage_${product.uid}`" value="1" x-model="product.services.montage"><span>так</span></label>
+                                <div x-show="isServiceBlockVisible(product, 'montage')" class="border border-gray-200 rounded-md p-3 space-y-2">
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <div class="font-medium text-gray-700">Монтажка</div>
+                                    </div>
+                                    <div class="flex flex-wrap items-end gap-3">
+                                        <div class="text-sm text-gray-700">Ширина(м)</div>
+                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="text-sm text-gray-700">Висота(м)</div>
+                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="text-sm text-gray-700">Кількість(шт)</div>
+                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                    </div>
                                 </div>
 
                                 <div x-show="isServiceBlockVisible(product, 'rolling')" class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
@@ -233,14 +275,31 @@
                                     <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_rolling_${product.uid}`" value="1" x-model="product.services.rolling"><span>так</span></label>
                                 </div>
 
-                                <div x-show="isServiceBlockVisible(product, 'eyelets_soldering')" class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
-                                    <div class="font-medium text-gray-700">Люверси</div>
-                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_eyelets_${product.uid}`" value="0" x-model="product.services.eyelets"><span>ні</span></label>
-                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_eyelets_${product.uid}`" value="1" x-model="product.services.eyelets"><span>так</span></label>
-
-                                    <div class="ml-10 font-medium text-gray-700">Пропайка</div>
-                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_soldering_${product.uid}`" value="0" x-model="product.services.soldering"><span>ні</span></label>
-                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_soldering_${product.uid}`" value="1" x-model="product.services.soldering"><span>так</span></label>
+                                <div x-show="isServiceBlockVisible(product, 'eyelets_soldering')" class="border border-gray-200 rounded-md p-3 space-y-2">
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <div class="font-medium text-gray-700">Люверси</div>
+                                        <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_eyelets_mode_${product.uid}`" value="Шаг" x-model="product.services.eyeletsMode"><span>Шаг</span></label>
+                                        <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_eyelets_mode_${product.uid}`" value="Штуки" x-model="product.services.eyeletsMode"><span>Штуки</span></label>
+                                        <input
+                                            x-model="product.services.eyeletsValue"
+                                            @input="sanitizeIntegerInObject(product.services, 'eyeletsValue', $event)"
+                                            type="text"
+                                            inputmode="numeric"
+                                            class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                        />
+                                        <div class="text-sm text-gray-700" x-text="product.services.eyeletsMode === 'Штуки' ? '(штук)' : '(см)'"></div>
+                                    </div>
+                                    <div class="flex flex-wrap items-end gap-3">
+                                        <div class="font-medium text-gray-700">Пропайка</div>
+                                        <div class="text-sm text-gray-700">Довжина порізки (м.п.)</div>
+                                        <input
+                                            x-model="product.services.solderingLength"
+                                            @input="sanitizeIntegerInObject(product.services, 'solderingLength', $event)"
+                                            type="text"
+                                            inputmode="numeric"
+                                            class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
@@ -357,11 +416,12 @@
                         services: {
                             lamination: 'Без',
                             cutting: 'Без порізки',
-                            weeding: 'Середня',
-                            montage: '0',
+                            cuttingLength: '0',
+                            weedingPrice: '0.00',
                             rolling: '0',
-                            eyelets: '0',
-                            soldering: '0',
+                            eyeletsMode: 'Шаг',
+                            eyeletsValue: '0',
+                            solderingLength: '0',
                             designAmount: '0.00',
                             packagingQty: '0',
                         },
@@ -507,14 +567,14 @@
                     const scenario = this.getServiceScenario(product);
 
                     if (scenario === 'sheet') {
-                        return ['Фреза', 'Лазер', 'Без порізки'];
+                        return ['Фреза', 'Лазер'];
                     }
 
                     if (scenario === 'roll_other' || scenario === 'customer_roll') {
-                        return ['Плотер', 'Без порізки'];
+                        return ['Плотер'];
                     }
 
-                    return ['Фреза', 'Лазер', 'Плотер', 'Без порізки'];
+                    return ['Фреза', 'Лазер', 'Плотер'];
                 },
 
                 ensureCuttingValue(product) {
