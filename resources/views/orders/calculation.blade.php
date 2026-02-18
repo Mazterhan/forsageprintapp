@@ -123,7 +123,18 @@
 
                             <template x-for="(position, positionIndex) in product.positions" :key="position.uid">
                                 <div class="space-y-3 border border-gray-200 rounded-md p-3">
-                                    <div class="text-sm font-bold text-gray-800" x-text="`Позиція замовлення #${positionIndex + 1}`"></div>
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="text-sm font-bold text-gray-800" x-text="`Позиція замовлення #${positionIndex + 1}`"></div>
+                                        <button
+                                            x-show="product.positions.length > 1"
+                                            type="button"
+                                            @click="removePosition(product, positionIndex)"
+                                            class="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-xs font-semibold text-gray-800"
+                                            style="background-color: #EFE4B0;"
+                                        >
+                                            Видалити позицію замовлення
+                                        </button>
+                                    </div>
 
                                     <div class="flex flex-wrap items-end gap-4">
                                         <div class="text-sm font-semibold text-gray-700">Ширина(м)</div>
@@ -142,7 +153,7 @@
                                         </div>
                                     </div>
 
-                                    <div x-show="!isUvPrintProduct(product)" class="flex flex-wrap items-end gap-3">
+                                    <div x-show="isUvPrintProduct(product)" class="flex flex-wrap items-end gap-3">
                                         <div class="text-sm font-semibold text-gray-700">Шари друку (шт):</div>
                                         <div class="ml-10 text-sm font-semibold text-gray-700">CMYK</div>
                                         <div class="w-[90px]">
@@ -151,6 +162,9 @@
                                         <div class="text-sm font-semibold text-gray-700">Білий</div>
                                         <div class="w-[90px]">
                                             <input x-model="position.white" @input="sanitizeIntegerInObject(position, 'white', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
+                                        </div>
+                                        <div x-show="!isUvLayersValid(position)" class="text-xs font-semibold text-red-600">
+                                            Для УФ Друк потрібно, щоб CMYK або Білий були більше 0.
                                         </div>
                                     </div>
                                 </div>
@@ -258,9 +272,19 @@
                                 <button type="button" @click.prevent.stop="noop()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-gray-900" style="background-color: #27E349;">
                                     Прорахувати
                                 </button>
-                                <button x-show="products.length === 1" type="button" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white" style="background-color: #698DE3;">
-                                    Зберегти заявку
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button
+                                        x-show="products.length > 1"
+                                        type="button"
+                                        @click="removeProduct(productIndex)"
+                                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white"
+                                        style="background-color: #EF795A;"
+                                        x-text="`Видалити тип виробу #${productIndex + 1}`"
+                                    ></button>
+                                    <button x-show="products.length === 1" type="button" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white" style="background-color: #698DE3;">
+                                        Зберегти заявку
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -378,15 +402,35 @@
                     return name.includes('уф друк') || name.includes('уф-друк');
                 },
 
+                isUvLayersValid(position) {
+                    const cmyk = parseInt(position.cmyk || '0', 10);
+                    const white = parseInt(position.white || '0', 10);
+                    return cmyk > 0 || white > 0;
+                },
+
                 addPosition(product) {
                     this.ensureCuttingValue(product);
                     product.positions.push(this.createPosition());
+                },
+
+                removePosition(product, positionIndex) {
+                    if (product.positions.length <= 1) {
+                        return;
+                    }
+                    product.positions.splice(positionIndex, 1);
                 },
 
                 addProduct() {
                     const product = this.createProduct();
                     this.ensureCuttingValue(product);
                     this.products.push(product);
+                },
+
+                removeProduct(productIndex) {
+                    if (this.products.length <= 1) {
+                        return;
+                    }
+                    this.products.splice(productIndex, 1);
                 },
 
                 normalizeMaterial(value) {
@@ -492,7 +536,19 @@
                 },
 
                 noop() {
-                    // Заглушка: кнопка "Прорахувати" поки без функціоналу і не повинна скидати стан форми.
+                    // Перевірка для УФ друку: у кожній позиції CMYK або Білий мають бути > 0.
+                    for (const product of this.products) {
+                        if (!this.isUvPrintProduct(product)) {
+                            continue;
+                        }
+
+                        for (const position of product.positions) {
+                            if (!this.isUvLayersValid(position)) {
+                                alert('Для "УФ Друк" потрібно вказати значення більше 0 у полі CMYK або Білий для кожної позиції.');
+                                return;
+                            }
+                        }
+                    }
                 },
 
                 getThicknessOptions(material) {
