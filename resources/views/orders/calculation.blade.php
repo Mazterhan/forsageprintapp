@@ -151,6 +151,10 @@
                                         <div class="w-[120px]">
                                             <input x-model="position.qty" @input="sanitizeIntegerInObject(position, 'qty', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
                                         </div>
+                                        <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <span class="text-sm text-gray-700">грн</span>
+                                        </div>
                                     </div>
 
                                     <div x-show="isUvPrintProduct(product)" class="flex flex-wrap items-end gap-3">
@@ -207,6 +211,10 @@
                                         <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="text-sm text-gray-700">Висота(м)</div>
                                         <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <span class="text-sm text-gray-700">грн</span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -229,6 +237,10 @@
                                             inputmode="numeric"
                                             class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
                                         />
+                                        <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <span class="text-sm text-gray-700">грн</span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -252,6 +264,10 @@
                                         <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="text-sm text-gray-700">Кількість(шт)</div>
                                         <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <span class="text-sm text-gray-700">грн</span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -266,6 +282,10 @@
                                         <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="text-sm text-gray-700">Кількість(шт)</div>
                                         <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <span class="text-sm text-gray-700">грн</span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -288,6 +308,10 @@
                                             class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
                                         />
                                         <div class="text-sm text-gray-700" x-text="product.services.eyeletsMode === 'Штуки' ? '(штук)' : '(см)'"></div>
+                                        <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <span class="text-sm text-gray-700">грн</span>
+                                        </div>
                                     </div>
                                     <div class="flex flex-wrap items-end gap-3">
                                         <div class="font-medium text-gray-700">Пропайка</div>
@@ -299,6 +323,10 @@
                                             inputmode="numeric"
                                             class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
                                         />
+                                        <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <span class="text-sm text-gray-700">грн</span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -308,6 +336,10 @@
                                     <div class="w-[120px]">
                                         <input x-model="product.services.designAmount" @input="sanitizeDecimalInObject(product.services, 'designAmount', $event)" type="text" inputmode="decimal" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
                                     </div>
+                                    <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                        <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <span class="text-sm text-gray-700">грн</span>
+                                    </div>
                                 </div>
 
                                 <div class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
@@ -315,6 +347,10 @@
                                     <div class="ml-10 font-medium text-gray-700">Кількість (шт)</div>
                                     <div class="w-[120px]">
                                         <input x-model="product.services.packagingQty" @input="sanitizeIntegerInObject(product.services, 'packagingQty', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
+                                    </div>
+                                    <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                        <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <span class="text-sm text-gray-700">грн</span>
                                     </div>
                                 </div>
                             </div>
