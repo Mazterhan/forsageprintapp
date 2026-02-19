@@ -65,8 +65,8 @@ Route::middleware(['auth', 'role:admin|manager'])
         Route::get('/', [OrderController::class, 'index'])->name('index');
         Route::get('/calculation', [OrderController::class, 'calculation'])->name('calculation');
         Route::get('/proposals', [OrderController::class, 'saved'])->name('proposals');
-        Route::get('/product-types', [ProductTypeController::class, 'index'])->name('product-types.index');
-        Route::post('/product-types', [ProductTypeController::class, 'store'])->name('product-types.store');
+        Route::get('/product-types', fn () => redirect()->route('admin.product-types.index'))->name('product-types.index');
+        Route::post('/product-types', fn () => redirect()->route('admin.product-types.index'))->name('product-types.store');
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
         Route::get('/clients/create', [ClientController::class, 'create'])->name('clients.create');
         Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
@@ -147,6 +147,8 @@ Route::middleware(['auth', 'role:admin'])
         Route::post('/editgroupsandcategories/product-groups', [EditGroupsAndCategoriesController::class, 'storeProductGroups'])->name('product-groups.store');
         Route::get('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'productCategories'])->name('product-categories.index');
         Route::post('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'storeProductCategories'])->name('product-categories.store');
+        Route::get('/editgroupsandcategories/product-types', [ProductTypeController::class, 'index'])->name('product-types.index');
+        Route::post('/editgroupsandcategories/product-types', [ProductTypeController::class, 'store'])->name('product-types.store');
     });
 
 Route::middleware('auth')->group(function () {

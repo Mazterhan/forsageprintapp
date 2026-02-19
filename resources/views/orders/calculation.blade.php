@@ -27,6 +27,8 @@
                     thicknessByMaterial: @js($thicknessByMaterial),
                     materialTypeByMaterial: @js($materialTypeByMaterial),
                     materialCategoryByMaterial: @js($materialCategoryByMaterial),
+                    materialCategoriesByMaterial: @js($materialCategoriesByMaterial),
+                    typeCategoryMatrix: @js($typeCategoryMatrix),
                     priceOptions: @js($priceOptions),
                 })"
             >
@@ -55,7 +57,8 @@
                         <div class="w-[140px]">
                             <input
                                 x-model="urgencyCoefficient"
-                                @input="sanitizeDecimalField($event, 'urgencyCoefficient')"
+                                @input="sanitizeUrgencyInput($event)"
+                                @blur="normalizeUrgencyOnBlur($event)"
                                 type="text"
                                 inputmode="decimal"
                                 class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full"
@@ -70,7 +73,7 @@
                             <div class="flex flex-wrap items-end gap-4">
                                 <div class="text-sm font-semibold text-gray-700" x-text="`Тип виробу #${productIndex + 1}`"></div>
                                 <div class="min-w-[240px]">
-                                    <select x-model="product.productTypeId" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full">
+                                    <select x-model="product.productTypeId" @change="onProductTypeChanged(product)" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full">
                                         <option value="">Оберіть тип виробу</option>
                                         <template x-for="productType in productTypes" :key="productType.id">
                                             <option :value="String(productType.id)" x-text="productType.name"></option>
@@ -80,9 +83,14 @@
 
                                 <div class="ml-4 text-sm font-semibold text-gray-700">Матеріал</div>
                                 <div class="w-[220px]">
-                                    <select x-model="product.material" @change="onMaterialChanged(product)" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full">
+                                    <select
+                                        x-model="product.material"
+                                        @change="onMaterialChanged(product)"
+                                        :disabled="!product.productTypeId"
+                                        class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500"
+                                    >
                                         <option value="">Оберіть матеріал</option>
-                                        <template x-for="material in materials" :key="material">
+                                        <template x-for="material in getAllowedMaterials(product)" :key="material">
                                             <option :value="material" x-text="material"></option>
                                         </template>
                                     </select>
@@ -95,7 +103,7 @@
                                             <template x-if="!isCustomerMaterial(product.material)">
                                                 <select
                                                     x-model="product.thickness"
-                                                    :disabled="isSingleThicknessOption(product.material)"
+                                                    :disabled="!product.productTypeId || isSingleThicknessOption(product.material)"
                                                     class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500"
                                                 >
                                                     <option value="">Оберіть товщину</option>
@@ -112,7 +120,8 @@
                                                         @input="onManualThicknessInput(product, $event)"
                                                         type="text"
                                                         inputmode="numeric"
-                                                        class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full"
+                                                        :disabled="!product.productTypeId"
+                                                        class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500"
                                                     />
                                                 </div>
                                             </template>
@@ -139,17 +148,17 @@
                                     <div class="flex flex-wrap items-end gap-4">
                                         <div class="text-sm font-semibold text-gray-700">Ширина(м)</div>
                                         <div class="w-[140px]">
-                                            <input x-model="position.width" @input="sanitizeDecimalInObject(position, 'width', $event)" type="text" inputmode="decimal" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
+                                            <input :disabled="!product.material" x-model="position.width" @focus="clearDefaultZero($event, 'decimal')" @blur="restoreDefaultOnBlur(position, 'width', '0', $event)" @input="sanitizeDecimalInObject(position, 'width', $event)" type="text" inputmode="decimal" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500" />
                                         </div>
 
                                         <div class="ml-4 text-sm font-semibold text-gray-700">Висота(м)</div>
                                         <div class="w-[140px]">
-                                            <input x-model="position.height" @input="sanitizeDecimalInObject(position, 'height', $event)" type="text" inputmode="decimal" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
+                                            <input :disabled="!product.material" x-model="position.height" @focus="clearDefaultZero($event, 'decimal')" @blur="restoreDefaultOnBlur(position, 'height', '0', $event)" @input="sanitizeDecimalInObject(position, 'height', $event)" type="text" inputmode="decimal" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500" />
                                         </div>
 
                                         <div class="ml-4 text-sm font-semibold text-gray-700">Кількісь(шт)</div>
                                         <div class="w-[120px]">
-                                            <input x-model="position.qty" @input="sanitizeIntegerInObject(position, 'qty', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
+                                            <input :disabled="!product.material" x-model="position.qty" @focus="clearDefaultZero($event, 'integer')" @blur="restoreDefaultOnBlur(position, 'qty', '0', $event)" @input="sanitizeIntegerInObject(position, 'qty', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500" />
                                         </div>
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
                                             <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
@@ -161,11 +170,11 @@
                                         <div class="text-sm font-semibold text-gray-700">Шари друку (шт):</div>
                                         <div class="ml-10 text-sm font-semibold text-gray-700">CMYK</div>
                                         <div class="w-[90px]">
-                                            <input x-model="position.cmyk" @input="sanitizeIntegerInObject(position, 'cmyk', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
+                                            <input x-model="position.cmyk" @focus="clearDefaultZero($event, 'integer')" @blur="restoreDefaultOnBlur(position, 'cmyk', '0', $event)" @input="sanitizeIntegerInObject(position, 'cmyk', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
                                         </div>
                                         <div class="text-sm font-semibold text-gray-700">Білий</div>
                                         <div class="w-[90px]">
-                                            <input x-model="position.white" @input="sanitizeIntegerInObject(position, 'white', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
+                                            <input x-model="position.white" @focus="clearDefaultZero($event, 'integer')" @blur="restoreDefaultOnBlur(position, 'white', '0', $event)" @input="sanitizeIntegerInObject(position, 'white', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
                                         </div>
                                         <div x-show="!isUvLayersValid(position)" class="text-xs font-semibold text-red-600">
                                             Для УФ Друк потрібно, щоб CMYK або Білий були більше 0.
@@ -175,28 +184,40 @@
                             </template>
 
                             <div>
-                                <button type="button" @click="addPosition(product)" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                                <button type="button" @click="addPosition(product)" :disabled="!product.material" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed">
                                     Додати позицію (лише для однотипного матеріалу)
                                 </button>
                             </div>
                         </div>
 
-                        <div class="border border-gray-300 rounded-lg p-4 bg-white">
+                        <div x-show="product.positions.length === 1" class="border border-gray-300 rounded-lg p-4 bg-white">
                             <div class="flex items-center gap-3">
                                 <div class="font-semibold text-gray-800" x-text="`Послуги до виробу #${productIndex + 1}`"></div>
                                 <div class="inline-flex items-center gap-4">
                                     <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                        <input type="radio" :name="`services_enabled_${product.uid}`" value="0" x-model="product.servicesEnabledRaw">
+                                        <input
+                                            type="radio"
+                                            :name="`services_enabled_${product.uid}`"
+                                            value="0"
+                                            x-model="product.servicesEnabledRaw"
+                                            :disabled="!product.material"
+                                        >
                                         <span>ні</span>
                                     </label>
                                     <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                        <input type="radio" :name="`services_enabled_${product.uid}`" value="1" x-model="product.servicesEnabledRaw">
+                                        <input
+                                            type="radio"
+                                            :name="`services_enabled_${product.uid}`"
+                                            value="1"
+                                            x-model="product.servicesEnabledRaw"
+                                            :disabled="!product.material"
+                                        >
                                         <span>так</span>
                                     </label>
                                 </div>
                             </div>
 
-                            <div x-show="product.servicesEnabledRaw === '1'" class="mt-4 space-y-3">
+                            <div x-show="product.material && product.servicesEnabledRaw === '1'" class="mt-4 space-y-3">
                                 <div x-show="isServiceBlockVisible(product, 'lamination')" class="border border-gray-200 rounded-md p-3 space-y-2">
                                     <div class="flex flex-wrap items-center gap-3">
                                         <div class="font-medium text-gray-700">Ламінування</div>
@@ -208,9 +229,9 @@
                                     </div>
                                     <div x-show="product.services.lamination !== 'Без'" class="flex flex-wrap items-end gap-3">
                                         <div class="text-sm text-gray-700">Ширина(м)</div>
-                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <input type="text" :value="getFirstPositionValue(product, 'width', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="text-sm text-gray-700">Висота(м)</div>
-                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <input type="text" :value="getFirstPositionValue(product, 'height', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
                                             <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
@@ -232,6 +253,8 @@
                                         <div class="text-sm text-gray-700">Довжина порізки(м.п.)</div>
                                         <input
                                             x-model="product.services.cuttingLength"
+                                            @focus="clearDefaultZero($event, 'integer')"
+                                            @blur="restoreDefaultOnBlur(product.services, 'cuttingLength', '0', $event)"
                                             @input="sanitizeIntegerInObject(product.services, 'cuttingLength', $event)"
                                             type="text"
                                             inputmode="numeric"
@@ -250,6 +273,8 @@
                                         <div class="ml-[40px]"></div>
                                         <input
                                             x-model="product.services.weedingPrice"
+                                            @focus="clearDefaultZero($event, 'decimal')"
+                                            @blur="restoreDefaultOnBlur(product.services, 'weedingPrice', '0.00', $event)"
                                             @input="sanitizeDecimalInObject(product.services, 'weedingPrice', $event)"
                                             type="text"
                                             inputmode="decimal"
@@ -259,11 +284,11 @@
                                     </div>
                                     <div class="flex flex-wrap items-end gap-3">
                                         <div class="text-sm text-gray-700">Ширина(м)</div>
-                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <input type="text" :value="getFirstPositionValue(product, 'width', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="text-sm text-gray-700">Висота(м)</div>
-                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <input type="text" :value="getFirstPositionValue(product, 'height', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="text-sm text-gray-700">Кількість(шт)</div>
-                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
                                             <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
@@ -277,11 +302,11 @@
                                     </div>
                                     <div class="flex flex-wrap items-end gap-3">
                                         <div class="text-sm text-gray-700">Ширина(м)</div>
-                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <input type="text" :value="getFirstPositionValue(product, 'width', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="text-sm text-gray-700">Висота(м)</div>
-                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <input type="text" :value="getFirstPositionValue(product, 'height', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="text-sm text-gray-700">Кількість(шт)</div>
-                                        <input type="text" value="0" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
                                             <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
@@ -302,6 +327,8 @@
                                         <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_eyelets_mode_${product.uid}`" value="Штуки" x-model="product.services.eyeletsMode"><span>Штуки</span></label>
                                         <input
                                             x-model="product.services.eyeletsValue"
+                                            @focus="clearDefaultZero($event, 'integer')"
+                                            @blur="restoreDefaultOnBlur(product.services, 'eyeletsValue', '0', $event)"
                                             @input="sanitizeIntegerInObject(product.services, 'eyeletsValue', $event)"
                                             type="text"
                                             inputmode="numeric"
@@ -318,6 +345,8 @@
                                         <div class="text-sm text-gray-700">Довжина порізки (м.п.)</div>
                                         <input
                                             x-model="product.services.solderingLength"
+                                            @focus="clearDefaultZero($event, 'integer')"
+                                            @blur="restoreDefaultOnBlur(product.services, 'solderingLength', '0', $event)"
                                             @input="sanitizeIntegerInObject(product.services, 'solderingLength', $event)"
                                             type="text"
                                             inputmode="numeric"
@@ -334,7 +363,7 @@
                                     <div class="font-medium text-gray-700">Дизайн</div>
                                     <div class="ml-10 font-medium text-gray-700">сума(грн)</div>
                                     <div class="w-[120px]">
-                                        <input x-model="product.services.designAmount" @input="sanitizeDecimalInObject(product.services, 'designAmount', $event)" type="text" inputmode="decimal" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
+                                        <input x-model="product.services.designAmount" @focus="clearDefaultZero($event, 'decimal')" @blur="restoreDefaultOnBlur(product.services, 'designAmount', '0.00', $event)" @input="sanitizeDecimalInObject(product.services, 'designAmount', $event)" type="text" inputmode="decimal" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
                                     </div>
                                     <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
                                         <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
@@ -346,7 +375,7 @@
                                     <div class="font-medium text-gray-700">Пакування</div>
                                     <div class="ml-10 font-medium text-gray-700">Кількість (шт)</div>
                                     <div class="w-[120px]">
-                                        <input x-model="product.services.packagingQty" @input="sanitizeIntegerInObject(product.services, 'packagingQty', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
+                                        <input x-model="product.services.packagingQty" @focus="clearDefaultZero($event, 'integer')" @blur="restoreDefaultOnBlur(product.services, 'packagingQty', '0', $event)" @input="sanitizeIntegerInObject(product.services, 'packagingQty', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
                                     </div>
                                     <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
                                         <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
@@ -427,6 +456,8 @@
                 thicknessByMaterial: config.thicknessByMaterial || {},
                 materialTypeByMaterial: config.materialTypeByMaterial || {},
                 materialCategoryByMaterial: config.materialCategoryByMaterial || {},
+                materialCategoriesByMaterial: config.materialCategoriesByMaterial || {},
+                typeCategoryMatrix: config.typeCategoryMatrix || {},
                 priceOptions: config.priceOptions || [],
                 selectedClientId: '',
                 priceType: 'retail',
@@ -493,6 +524,60 @@
                     return selected?.name || '';
                 },
 
+                normalizeForCompare(value) {
+                    return (value || '').toString().trim().toLowerCase();
+                },
+
+                isProductType(productTypeId, expectedName) {
+                    return this.normalizeForCompare(this.getProductTypeName(productTypeId)) === this.normalizeForCompare(expectedName);
+                },
+
+                isCustomSheetMaterial(material) {
+                    return this.normalizeMaterial(material) === 'матеріал замовника листовий';
+                },
+
+                isCustomRollMaterial(material) {
+                    return this.normalizeMaterial(material) === 'матеріал замовника рулонний';
+                },
+
+                isAllowedCustomSheetMaterial(productTypeId) {
+                    return !this.isProductType(productTypeId, 'Сольвентний друк');
+                },
+
+                isAllowedCustomRollMaterial(productTypeId) {
+                    return (
+                        this.isProductType(productTypeId, 'УФ друк') ||
+                        this.isProductType(productTypeId, 'Сольвентний друк') ||
+                        this.isProductType(productTypeId, 'Чиста порізка')
+                    );
+                },
+
+                isMaterialAllowedForProductType(product, material) {
+                    if (!product.productTypeId) {
+                        return true;
+                    }
+
+                    if (this.isCustomSheetMaterial(material)) {
+                        return this.isAllowedCustomSheetMaterial(product.productTypeId);
+                    }
+
+                    if (this.isCustomRollMaterial(material)) {
+                        return this.isAllowedCustomRollMaterial(product.productTypeId);
+                    }
+
+                    const categories = this.materialCategoriesByMaterial[material] || [];
+                    if (!Array.isArray(categories) || categories.length === 0) {
+                        return false;
+                    }
+
+                    const matrixForType = this.typeCategoryMatrix[String(product.productTypeId)] || {};
+                    return categories.some((categoryName) => matrixForType[categoryName] === true);
+                },
+
+                getAllowedMaterials(product) {
+                    return this.materials.filter((material) => this.isMaterialAllowedForProductType(product, material));
+                },
+
                 isUvPrintProduct(product) {
                     const name = this.getProductTypeName(product.productTypeId).toLowerCase().replace(/\s+/g, ' ').trim();
                     return name.includes('уф друк') || name.includes('уф-друк');
@@ -507,6 +592,9 @@
                 addPosition(product) {
                     this.ensureCuttingValue(product);
                     product.positions.push(this.createPosition());
+                    if (product.positions.length > 1) {
+                        product.servicesEnabledRaw = '0';
+                    }
                 },
 
                 removePosition(product, positionIndex) {
@@ -514,6 +602,9 @@
                         return;
                     }
                     product.positions.splice(positionIndex, 1);
+                    if (product.positions.length > 1) {
+                        product.servicesEnabledRaw = '0';
+                    }
                 },
 
                 addProduct() {
@@ -527,6 +618,12 @@
                         return;
                     }
                     this.products.splice(productIndex, 1);
+                },
+
+                getFirstPositionValue(product, fieldName, defaultValue = '0') {
+                    const firstPosition = product?.positions?.[0];
+                    const raw = firstPosition ? String(firstPosition[fieldName] ?? '').trim() : '';
+                    return raw === '' ? defaultValue : raw;
                 },
 
                 normalizeMaterial(value) {
@@ -621,6 +718,10 @@
                 },
 
                 showThicknessForMaterial(material) {
+                    if (!material) {
+                        return false;
+                    }
+
                     if (this.isCustomerMaterial(material)) {
                         return true;
                     }
@@ -660,12 +761,24 @@
                     product.manualThickness = '';
                     product.manualThicknessError = '';
 
+                    if (!product.material) {
+                        product.servicesEnabledRaw = '0';
+                    }
+
                     const options = this.getThicknessOptions(product.material);
                     if (options.length === 1) {
                         product.thickness = options[0];
                     }
 
                     this.ensureCuttingValue(product);
+                },
+
+                onProductTypeChanged(product) {
+                    const allowed = this.getAllowedMaterials(product);
+                    if (product.material && !allowed.includes(product.material)) {
+                        product.material = '';
+                    }
+                    this.onMaterialChanged(product);
                 },
 
                 onManualThicknessInput(product, event) {
@@ -685,6 +798,41 @@
                     event.target.value = this[fieldName];
                 },
 
+                sanitizeUrgencyInput(event) {
+                    const raw = String(event.target?.value ?? '');
+                    const inputType = String(event?.inputType ?? '');
+                    const isDeleting = inputType.startsWith('delete');
+                    const digits = raw.replace(/\D/g, '').slice(0, 3);
+                    let value = '';
+
+                    if (digits.length === 1) {
+                        // Allow full cleanup with Backspace: do not force trailing dot while deleting.
+                        value = isDeleting ? `${digits[0]}` : `${digits[0]}.`;
+                    } else if (digits.length === 2) {
+                        value = `${digits[0]}.${digits[1]}`;
+                    } else if (digits.length === 3) {
+                        value = `${digits[0]}.${digits[1]}${digits[2]}`;
+                    }
+
+                    this.urgencyCoefficient = value;
+                    event.target.value = value;
+                },
+
+                normalizeUrgencyOnBlur(event) {
+                    let value = String(event.target?.value ?? '').trim();
+                    if (value === '' || value === '.') {
+                        value = '1.00';
+                    }
+
+                    const parsed = parseFloat(value);
+                    const safeValue = Number.isFinite(parsed) ? parsed : 1;
+                    const clamped = Math.min(9.99, Math.max(0.01, safeValue));
+                    const formatted = clamped.toFixed(2);
+
+                    this.urgencyCoefficient = formatted;
+                    event.target.value = formatted;
+                },
+
                 sanitizeDecimalInObject(target, fieldName, event) {
                     target[fieldName] = this.sanitizeDecimalValue(event.target.value);
                     event.target.value = target[fieldName];
@@ -693,6 +841,30 @@
                 sanitizeIntegerInObject(target, fieldName, event) {
                     target[fieldName] = this.sanitizeIntegerValue(event.target.value);
                     event.target.value = target[fieldName];
+                },
+
+                clearDefaultZero(event, type = 'integer') {
+                    const raw = String(event.target?.value ?? '');
+                    if (type === 'decimal') {
+                        if (raw === '0' || raw === '0.0' || raw === '0.00') {
+                            event.target.value = '';
+                        }
+                        return;
+                    }
+
+                    if (raw === '0') {
+                        event.target.value = '';
+                    }
+                },
+
+                restoreDefaultOnBlur(target, fieldName, defaultValue, event) {
+                    const value = String(event.target?.value ?? '').trim();
+                    if (value !== '') {
+                        return;
+                    }
+
+                    target[fieldName] = defaultValue;
+                    event.target.value = defaultValue;
                 },
 
                 sanitizeDecimalValue(raw) {
@@ -708,11 +880,23 @@
                     if (value.startsWith('.')) {
                         value = '0' + value;
                     }
+
+                    if (value.includes('.')) {
+                        const [intPart, decPart] = value.split('.', 2);
+                        const normalizedInt = intPart.replace(/^0+(?=\d)/, '') || '0';
+                        value = normalizedInt + '.' + (decPart ?? '');
+                    } else {
+                        value = value.replace(/^0+(?=\d)/, '');
+                    }
                     return value;
                 },
 
                 sanitizeIntegerValue(raw) {
-                    return String(raw || '').replace(/\D/g, '');
+                    const digits = String(raw || '').replace(/\D/g, '');
+                    if (digits === '') {
+                        return '';
+                    }
+                    return digits.replace(/^0+(?=\d)/, '');
                 },
             };
         }

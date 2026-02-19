@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Orders;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\ProductCategory;
+use App\Models\ProductTypeCategoryRule;
 use App\Models\ProductType;
 use App\Models\Tariff;
 use Illuminate\Http\Request;
@@ -124,6 +125,36 @@ class OrderController extends Controller
             ->filter(fn ($category, $material) => $material !== '' && $category !== null)
             ->toArray();
 
+        $materialCategoriesByMaterial = Tariff::query()
+            ->where('is_active', true)
+            ->whereHas('productGroup')
+            ->with('productGroup:id,name')
+            ->get(['product_group_id', 'category'])
+            ->groupBy(fn (Tariff $tariff) => (string) optional($tariff->productGroup)->name)
+            ->map(function ($items) {
+                return $items
+                    ->pluck('category')
+                    ->filter(fn ($category) => $category !== null && trim((string) $category) !== '')
+                    ->map(fn ($category) => trim((string) $category))
+                    ->unique()
+                    ->values()
+                    ->all();
+            })
+            ->filter(fn ($categories, $material) => $material !== '' && !empty($categories))
+            ->toArray();
+
+        $typeCategoryMatrix = ProductTypeCategoryRule::query()
+            ->with(['productType:id', 'productCategory:id,name'])
+            ->get()
+            ->groupBy('product_type_id')
+            ->map(function ($items) {
+                return $items
+                    ->filter(fn (ProductTypeCategoryRule $rule) => $rule->is_enabled && $rule->productCategory?->name)
+                    ->mapWithKeys(fn (ProductTypeCategoryRule $rule) => [trim((string) $rule->productCategory->name) => true])
+                    ->toArray();
+            })
+            ->toArray();
+
         return view('orders.calculation', [
             'clients' => $clients,
             'productTypes' => $productTypes,
@@ -131,6 +162,8 @@ class OrderController extends Controller
             'thicknessByMaterial' => $thicknessByMaterial,
             'materialTypeByMaterial' => $materialTypeByMaterial,
             'materialCategoryByMaterial' => $materialCategoryByMaterial,
+            'materialCategoriesByMaterial' => $materialCategoriesByMaterial,
+            'typeCategoryMatrix' => $typeCategoryMatrix,
             'priceOptions' => [
                 ['value' => 'retail', 'label' => 'Роздрібна ціна'],
                 ['value' => 'wholesale', 'label' => 'Оптова ціна'],
