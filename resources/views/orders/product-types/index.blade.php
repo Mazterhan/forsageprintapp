@@ -5,8 +5,8 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('Тип виробу') }}
             </h2>
-            <a href="{{ route('orders.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                {{ __('Повернутись до замовлень') }}
+            <a href="{{ route('admin.editgroupsandcategories') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                {{ __('Повернутись до довідників, груп та категорій') }}
             </a>
         </div>
     </x-slot>
@@ -26,7 +26,7 @@
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-                    <form method="POST" action="{{ route('orders.product-types.store') }}" id="product-types-form" class="space-y-4">
+                    <form method="POST" action="{{ route('admin.product-types.store') }}" id="product-types-form" class="space-y-4">
                         @csrf
 
                         <div id="type-fields" class="space-y-3">
@@ -71,6 +71,70 @@
                                 </div>
                             </div>
                         </div>
+
+                        @php
+                            $oldMatrix = old('matrix', []);
+                        @endphp
+                        @if (!empty($types) && isset($categories) && $categories->count() > 0)
+                            <div class="pt-4">
+                                <div class="font-semibold text-gray-800 mb-2">
+                                    {{ __('Матриця доступності типів виробу по категоріях товарів') }}
+                                </div>
+                                <div class="overflow-x-auto border border-gray-300 rounded-md">
+                                    <table class="min-w-full border-collapse border border-gray-300">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-300">
+                                                    {{ __('Категорія товарів') }}
+                                                </th>
+                                                @foreach ($types as $typeName)
+                                                    <th class="px-3 py-2 text-center text-xs font-bold text-gray-800 border border-gray-300">
+                                                        {{ $typeName }}
+                                                    </th>
+                                                @endforeach
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white">
+                                            @foreach ($categories as $category)
+                                                <tr class="{{ $loop->odd ? '[background-color:#DDEBF7]' : 'bg-white' }}">
+                                                    <td class="px-3 py-2 text-sm text-gray-900 whitespace-nowrap border border-gray-300">
+                                                        {{ $category->name }}
+                                                    </td>
+                                                    @foreach ($types as $typeName)
+                                                        @php
+                                                            $key = $category->id . '|' . $typeName;
+                                                            $checked = (string) data_get($oldMatrix, $category->id . '.' . $typeName, array_key_exists($key, $rules ?? []) ? (($rules[$key] ?? false) ? '1' : '0') : '0');
+                                                        @endphp
+                                                        <td class="px-3 py-2 text-center border border-gray-300">
+                                                            <div class="inline-flex items-center gap-3">
+                                                                <label class="inline-flex items-center gap-1 text-xs text-gray-700">
+                                                                    <input
+                                                                        type="radio"
+                                                                        name="matrix[{{ $category->id }}][{{ $typeName }}]"
+                                                                        value="1"
+                                                                        {{ $checked === '1' ? 'checked' : '' }}
+                                                                    >
+                                                                    <span>{{ __('так') }}</span>
+                                                                </label>
+                                                                <label class="inline-flex items-center gap-1 text-xs text-gray-700">
+                                                                    <input
+                                                                        type="radio"
+                                                                        name="matrix[{{ $category->id }}][{{ $typeName }}]"
+                                                                        value="0"
+                                                                        {{ $checked !== '1' ? 'checked' : '' }}
+                                                                    >
+                                                                    <span>{{ __('ні') }}</span>
+                                                                </label>
+                                                            </div>
+                                                        </td>
+                                                    @endforeach
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endif
 
                         <div class="pt-2">
                             <button type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 active:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">

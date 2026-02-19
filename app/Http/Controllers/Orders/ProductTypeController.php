@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Orders;
 
 use App\Http\Controllers\Controller;
+use App\Models\ProductCategory;
+use App\Models\ProductTypeCategoryRule;
 use App\Models\ProductType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,8 +21,32 @@ class ProductTypeController extends Controller
             ->pluck('name')
             ->all();
 
+        $categories = ProductCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'name']);
+
+        $rules = [];
+        if (!empty($types) && $categories->isNotEmpty()) {
+            $rules = ProductTypeCategoryRule::query()
+                ->with('productType:id,name')
+                ->whereIn('product_category_id', $categories->pluck('id'))
+                ->get()
+                ->mapWithKeys(function (ProductTypeCategoryRule $rule) {
+                    $typeName = $rule->productType?->name;
+                    if ($typeName === null || $typeName === '') {
+                        return [];
+                    }
+
+                    return [((string) $rule->product_category_id).'|'.$typeName => (bool) $rule->is_enabled];
+                })
+                ->toArray();
+        }
+
         return view('orders.product-types.index', [
             'types' => $types,
+            'categories' => $categories,
+            'rules' => $rules,
         ]);
     }
 
@@ -29,6 +55,7 @@ class ProductTypeController extends Controller
         $data = $request->validate([
             'types' => ['nullable', 'array'],
             'types.*' => ['nullable', 'string', 'max:255'],
+            'matrix' => ['nullable', 'array'],
         ]);
 
         $rawTypes = collect($data['types'] ?? [])
@@ -55,13 +82,17 @@ class ProductTypeController extends Controller
         if ($hasDuplicates) {
             return redirect()
                 ->route('orders.product-types.index')
-                ->withInput(['types' => $uniqueTypes->all()])
+                ->withInput([
+                    'types' => $uniqueTypes->all(),
+                    'matrix' => (array) ($data['matrix'] ?? []),
+                ])
                 ->withErrors(['types' => __('Знайдено дублікати. Кожен тип виробу має бути унікальним.')]);
         }
 
-        $types = $uniqueTypes;
+        $types = $uniqueTypes->all();
+        $matrixRaw = (array) ($data['matrix'] ?? []);
 
-        DB::transaction(function () use ($types): void {
+        DB::transaction(function () use ($types, $matrixRaw): void {
             ProductType::query()->delete();
 
             foreach ($types as $index => $name) {
@@ -69,6 +100,46 @@ class ProductTypeController extends Controller
                     'name' => $name,
                     'sort_order' => $index + 1,
                 ]);
+            }
+
+            ProductTypeCategoryRule::query()->delete();
+
+            if (empty($types)) {
+                return;
+            }
+
+            $nameToId = ProductType::query()
+                ->pluck('id', 'name')
+                ->toArray();
+
+            $rows = [];
+            foreach ($matrixRaw as $categoryId => $perType) {
+                if (!is_array($perType)) {
+                    continue;
+                }
+
+                foreach ($perType as $typeName => $flag) {
+                    $typeName = trim((string) $typeName);
+                    if ($typeName === '' || !isset($nameToId[$typeName])) {
+                        continue;
+                    }
+
+                    if ((string) $flag !== '1') {
+                        continue;
+                    }
+
+                    $rows[] = [
+                        'product_category_id' => (int) $categoryId,
+                        'product_type_id' => (int) $nameToId[$typeName],
+                        'is_enabled' => true,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+
+            if (!empty($rows)) {
+                ProductTypeCategoryRule::query()->insert($rows);
             }
         });
 
