@@ -186,17 +186,29 @@
                                 <div class="font-semibold text-gray-800" x-text="`Послуги до виробу #${productIndex + 1}`"></div>
                                 <div class="inline-flex items-center gap-4">
                                     <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                        <input type="radio" :name="`services_enabled_${product.uid}`" value="0" x-model="product.servicesEnabledRaw">
+                                        <input
+                                            type="radio"
+                                            :name="`services_enabled_${product.uid}`"
+                                            value="0"
+                                            x-model="product.servicesEnabledRaw"
+                                            :disabled="!product.material"
+                                        >
                                         <span>ні</span>
                                     </label>
                                     <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                        <input type="radio" :name="`services_enabled_${product.uid}`" value="1" x-model="product.servicesEnabledRaw">
+                                        <input
+                                            type="radio"
+                                            :name="`services_enabled_${product.uid}`"
+                                            value="1"
+                                            x-model="product.servicesEnabledRaw"
+                                            :disabled="!product.material"
+                                        >
                                         <span>так</span>
                                     </label>
                                 </div>
                             </div>
 
-                            <div x-show="product.servicesEnabledRaw === '1'" class="mt-4 space-y-3">
+                            <div x-show="product.material && product.servicesEnabledRaw === '1'" class="mt-4 space-y-3">
                                 <div x-show="isServiceBlockVisible(product, 'lamination')" class="border border-gray-200 rounded-md p-3 space-y-2">
                                     <div class="flex flex-wrap items-center gap-3">
                                         <div class="font-medium text-gray-700">Ламінування</div>
@@ -659,6 +671,10 @@
                     product.thickness = '';
                     product.manualThickness = '';
                     product.manualThicknessError = '';
+
+                    if (!product.material) {
+                        product.servicesEnabledRaw = '0';
+                    }
 
                     const options = this.getThicknessOptions(product.material);
                     if (options.length === 1) {
