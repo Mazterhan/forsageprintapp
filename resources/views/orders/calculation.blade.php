@@ -64,14 +64,25 @@
                                 class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full"
                             />
                         </div>
+                        <div class="ml-auto">
+                            <button
+                                type="button"
+                                @click="addProduct()"
+                                :disabled="!canShowAddProductButton()"
+                                class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-semibold text-gray-800"
+                                :style="`background-color: ${canShowAddProductButton() ? '#0FA10B' : '#F3F4F6'};`"
+                            >
+                                Додати виріб
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <template x-for="(product, productIndex) in products" :key="product.uid">
                     <div class="space-y-4">
-                        <div class="border border-gray-300 rounded-lg p-4 space-y-4 bg-white">
+                        <div x-show="product.isExpanded" class="border border-gray-300 rounded-lg p-4 space-y-4 bg-white">
                             <div class="flex flex-wrap items-end gap-4">
-                                <div class="text-sm font-semibold text-gray-700" x-text="`Тип виробу #${productIndex + 1}`"></div>
+                                <div class="text-sm font-semibold text-gray-700" x-text="`Тип виробу #${displayProductNumber(productIndex)}`"></div>
                                 <div class="min-w-[240px]">
                                     <select x-model="product.productTypeId" @change="onProductTypeChanged(product)" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full">
                                         <option value="">Оберіть тип виробу</option>
@@ -190,9 +201,9 @@
                             </div>
                         </div>
 
-                        <div x-show="product.positions.length === 1" class="border border-gray-300 rounded-lg p-4 bg-white">
+                        <div x-show="product.isExpanded && product.positions.length === 1" class="border border-gray-300 rounded-lg p-4 bg-white">
                             <div class="flex items-center gap-3">
-                                <div class="font-semibold text-gray-800" x-text="`Послуги до виробу #${productIndex + 1}`"></div>
+                                <div class="font-semibold text-gray-800" x-text="`Послуги до виробу #${displayProductNumber(productIndex)}`"></div>
                                 <div class="inline-flex items-center gap-4">
                                     <label class="inline-flex items-center gap-2 text-sm text-gray-700">
                                         <input
@@ -232,6 +243,8 @@
                                         <input type="text" :value="getFirstPositionValue(product, 'width', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="text-sm text-gray-700">Висота(м)</div>
                                         <input type="text" :value="getFirstPositionValue(product, 'height', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="text-sm text-gray-700">Кількість(шт)</div>
+                                        <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
                                             <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
@@ -387,23 +400,48 @@
 
                         <div class="border border-gray-300 rounded-lg p-4 space-y-3" style="background-color: #FCEEDF;">
                             <div class="flex flex-wrap items-center gap-3">
-                                <div class="font-bold text-gray-800" x-text="products.length > 1 ? `Вартість виробу #${productIndex + 1}` : 'Вартість загальна (грн)'"></div>
+                                <div class="font-bold text-gray-800" x-text="products.length > 1 ? `Вартість виробу #${displayProductNumber(productIndex)}` : 'Вартість загальна (грн)'"></div>
                                 <input type="text" value="0.00" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                 <div class="ml-10 font-bold text-gray-800">Собівартість (грн)</div>
                                 <input type="text" value="0.00" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <button type="button" @click.prevent.stop="noop()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-gray-900" style="background-color: #27E349;">
-                                    Прорахувати
-                                </button>
-                                <div class="flex items-center gap-2">
+                                <div x-show="!product.isExpanded && products.length > 1" class="ml-auto flex items-center gap-2">
                                     <button
-                                        x-show="products.length > 1"
+                                        type="button"
+                                        @click="product.isExpanded = true"
+                                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white"
+                                        style="background-color: #698DE3;"
+                                        x-text="`Розгорнути деталі виробу #${displayProductNumber(productIndex)}`"
+                                    ></button>
+                                    <button
+                                        x-show="products.length > 1 && productIndex !== 0"
                                         type="button"
                                         @click="removeProduct(productIndex)"
                                         class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white"
                                         style="background-color: #EF795A;"
-                                        x-text="`Видалити тип виробу #${productIndex + 1}`"
+                                        x-text="`Видалити тип виробу #${displayProductNumber(productIndex)}`"
+                                    ></button>
+                                </div>
+                            </div>
+                            <div x-show="product.isExpanded" class="flex items-center justify-between">
+                                <button type="button" @click.prevent.stop="noop()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-gray-900" style="background-color: #27E349;">
+                                    Прорахувати
+                                </button>
+                                <div class="ml-auto flex items-center gap-2">
+                                    <button
+                                        x-show="products.length > 1"
+                                        type="button"
+                                        @click="product.isExpanded = false"
+                                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white"
+                                        style="background-color: #698DE3;"
+                                        x-text="`Згорнути деталі виробу #${displayProductNumber(productIndex)}`"
+                                    ></button>
+                                    <button
+                                        x-show="products.length > 1 && productIndex !== 0"
+                                        type="button"
+                                        @click="removeProduct(productIndex)"
+                                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white"
+                                        style="background-color: #EF795A;"
+                                        x-text="`Видалити тип виробу #${displayProductNumber(productIndex)}`"
                                     ></button>
                                     <button x-show="products.length === 1" type="button" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white" style="background-color: #698DE3;">
                                         Зберегти заявку
@@ -413,17 +451,6 @@
                         </div>
                     </div>
                 </template>
-
-                <div>
-                    <button
-                        type="button"
-                        @click="addProduct()"
-                        class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-semibold text-gray-800"
-                        style="background-color: #FCEEDF;"
-                    >
-                        Додати виріб
-                    </button>
-                </div>
 
                 <template x-if="products.length > 1">
                     <div class="flex items-end justify-between gap-4">
@@ -473,6 +500,7 @@
                 createProduct() {
                     return {
                         uid: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                        isExpanded: true,
                         productTypeId: '',
                         material: '',
                         thickness: '',
@@ -610,7 +638,10 @@
                 addProduct() {
                     const product = this.createProduct();
                     this.ensureCuttingValue(product);
-                    this.products.push(product);
+                    this.products.forEach((item) => {
+                        item.isExpanded = false;
+                    });
+                    this.products.unshift(product);
                 },
 
                 removeProduct(productIndex) {
@@ -618,6 +649,19 @@
                         return;
                     }
                     this.products.splice(productIndex, 1);
+                },
+
+                canShowAddProductButton() {
+                    if (!Array.isArray(this.products) || this.products.length === 0) {
+                        return false;
+                    }
+
+                    const currentProduct = this.products[0];
+                    return Boolean(currentProduct?.productTypeId) && Boolean(currentProduct?.material);
+                },
+
+                displayProductNumber(productIndex) {
+                    return this.products.length - productIndex;
                 },
 
                 getFirstPositionValue(product, fieldName, defaultValue = '0') {

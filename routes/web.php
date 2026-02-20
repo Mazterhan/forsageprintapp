@@ -119,6 +119,8 @@ Route::middleware('auth')
     ->name('tariffs.')
     ->group(function () {
         Route::get('/', [TariffController::class, 'index'])->name('index');
+        Route::get('/create', [TariffController::class, 'create'])->name('create');
+        Route::post('/', [TariffController::class, 'store'])->name('store');
         Route::get('/{tariff}', [TariffController::class, 'show'])->name('show');
         Route::patch('/{tariff}', [TariffController::class, 'update'])->name('update');
         Route::post('/{tariff}/history/{history}/revert', [TariffController::class, 'revertHistory'])->name('history.revert');
