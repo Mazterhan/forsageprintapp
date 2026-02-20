@@ -243,6 +243,8 @@
                                         <input type="text" :value="getFirstPositionValue(product, 'width', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="text-sm text-gray-700">Висота(м)</div>
                                         <input type="text" :value="getFirstPositionValue(product, 'height', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="text-sm text-gray-700">Кількість(шт)</div>
+                                        <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
                                             <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
