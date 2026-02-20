@@ -416,6 +416,7 @@
 
                 <div>
                     <button
+                        x-show="canShowAddProductButton()"
                         type="button"
                         @click="addProduct()"
                         class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-semibold text-gray-800"
@@ -618,6 +619,15 @@
                         return;
                     }
                     this.products.splice(productIndex, 1);
+                },
+
+                canShowAddProductButton() {
+                    if (!Array.isArray(this.products) || this.products.length === 0) {
+                        return false;
+                    }
+
+                    const currentProduct = this.products[this.products.length - 1];
+                    return Boolean(currentProduct?.productTypeId) && Boolean(currentProduct?.material);
                 },
 
                 getFirstPositionValue(product, fieldName, defaultValue = '0') {
