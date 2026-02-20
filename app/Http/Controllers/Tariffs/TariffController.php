@@ -20,6 +20,90 @@ use Illuminate\View\View;
 
 class TariffController extends Controller
 {
+    public function create(): View
+    {
+        $productCategories = ProductCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->pluck('name')
+            ->all();
+
+        $productGroups = ProductGroup::query()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        return view('tariffs.create', [
+            'internalCode' => $this->generateManualInternalCode(),
+            'productCategories' => $productCategories,
+            'productGroups' => $productGroups,
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $categoryOptions = ProductCategory::query()->pluck('name')->all();
+
+        $payload = $request->all();
+        $productGroupName = trim((string) ($payload['product_group_name'] ?? ''));
+        if ($productGroupName !== '') {
+            $payload['product_group_id'] = ProductGroup::query()
+                ->where('name', $productGroupName)
+                ->value('id');
+        } elseif (! $request->filled('product_group_id')) {
+            $payload['product_group_id'] = null;
+        }
+
+        $data = Validator::make($payload, [
+            'name' => ['required', 'string', 'max:255'],
+            'category' => ['required', 'string', 'max:255', Rule::in($categoryOptions)],
+            'product_group_id' => ['nullable', 'integer', 'exists:product_groups,id'],
+            'sale_price' => ['required', 'numeric', 'min:0'],
+            'wholesale_price' => ['required', 'numeric', 'min:0'],
+            'urgent_price' => ['required', 'numeric', 'min:0'],
+            'roll_width_m' => ['nullable', 'numeric', 'min:0'],
+            'roll_length_m' => ['nullable', 'numeric', 'min:0'],
+            'sheet_thickness_mm' => ['nullable', 'numeric', 'min:0'],
+        ])->validate();
+
+        $duplicateNameExists = Tariff::query()
+            ->where('name', $data['name'])
+            ->exists();
+
+        if ($duplicateNameExists) {
+            return redirect()
+                ->route('tariffs.create')
+                ->withInput()
+                ->withErrors(['name' => __('Позиція з такою назвою вже існує.')]);
+        }
+
+        foreach (['roll_width_m', 'roll_length_m', 'sheet_thickness_mm'] as $dimensionField) {
+            if (array_key_exists($dimensionField, $data) && $data[$dimensionField] !== null && $data[$dimensionField] !== '') {
+                $data[$dimensionField] = round((float) $data[$dimensionField], 2);
+            }
+        }
+
+        $internalCode = $this->generateManualInternalCode();
+
+        $tariff = Tariff::query()->create([
+            'internal_code' => $internalCode,
+            'name' => $data['name'],
+            'category' => $data['category'],
+            'product_group_id' => $data['product_group_id'],
+            'sale_price' => $data['sale_price'],
+            'wholesale_price' => $data['wholesale_price'],
+            'urgent_price' => $data['urgent_price'],
+            'roll_width_m' => $data['roll_width_m'] ?? null,
+            'roll_length_m' => $data['roll_length_m'] ?? null,
+            'sheet_thickness_mm' => $data['sheet_thickness_mm'] ?? null,
+            'is_active' => true,
+        ]);
+
+        return redirect()
+            ->route('tariffs.index')
+            ->with('status', __('Позицію успішно створено.'));
+    }
+
     public function index(Request $request): View
     {
         $childInternalCodes = TariffCrossLink::query()
@@ -494,5 +578,14 @@ class TariffController extends Controller
         return redirect()
             ->route('tariffs.index')
             ->with('status', __('Tariff deactivated.'));
+    }
+
+    private function generateManualInternalCode(): string
+    {
+        do {
+            $code = 'MAN-1-'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
+        } while (Tariff::query()->where('internal_code', $code)->exists());
+
+        return $code;
     }
 }

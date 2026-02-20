@@ -1,9 +1,14 @@
 <x-app-layout>
     @section('title', $title)
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ $title }}
-        </h2>
+        <div class="flex items-center justify-between">
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                {{ $title }}
+            </h2>
+            <a href="{{ route('tariffs.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                {{ __('додати позицію') }}
+            </a>
+        </div>
     </x-slot>
 
     <div class="py-12">
