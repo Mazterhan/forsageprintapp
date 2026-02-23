@@ -32,7 +32,7 @@
                     priceOptions: @js($priceOptions),
                 })"
             >
-                <div class="border-2 border-gray-700 rounded-lg p-4" style="background-color: #FCEEDF;">
+                <div class="sticky top-0 z-30 border-2 border-gray-700 rounded-lg p-4 shadow-sm" style="background-color: #FCEEDF;">
                     <div class="flex flex-wrap items-end gap-4">
                         <div class="text-sm font-semibold text-gray-700">Замовник</div>
                         <div class="min-w-[260px] flex-1">
