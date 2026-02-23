@@ -19,7 +19,7 @@
     <div class="py-12">
         <div class="max-w-[1700px] mx-auto px-6 sm:px-8 lg:px-12">
             <div
-                class="space-y-5"
+                class="space-y-5 overflow-visible"
                 x-data="orderCalculation({
                     clients: @js($clients),
                     productTypes: @js($productTypes),
@@ -32,16 +32,51 @@
                     priceOptions: @js($priceOptions),
                 })"
             >
-                <div class="sticky top-0 z-30 border-2 border-gray-700 rounded-lg p-4 shadow-sm" style="background-color: #FCEEDF;">
+                <div class="sticky top-0 z-[9999] isolate overflow-visible border-2 border-gray-700 rounded-lg p-4 shadow-sm" style="background-color: #FCEEDF;">
                     <div class="flex flex-wrap items-end gap-4">
                         <div class="text-sm font-semibold text-gray-700">Замовник</div>
                         <div class="min-w-[260px] flex-1">
-                            <select x-model="selectedClientId" @change="onClientChanged()" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full">
-                                <option value="">Оберіть замовника</option>
-                                <template x-for="client in clients" :key="client.id">
-                                    <option :value="String(client.id)" x-text="client.name"></option>
-                                </template>
-                            </select>
+                            <div class="relative z-[10000] overflow-visible" @click.outside="showClientDropdown = false">
+                                <div class="relative overflow-hidden rounded-md">
+                                    <input
+                                        x-model="selectedClientQuery"
+                                        @input="onClientInputChanged(); showClientDropdown = true"
+                                        @focus="showClientDropdown = true"
+                                        @keydown.escape="showClientDropdown = false"
+                                        @blur="handleClientInputBlur()"
+                                        type="text"
+                                        autocomplete="off"
+                                        class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full pr-10 text-left"
+                                        placeholder="Оберіть замовника"
+                                    />
+                                    <button
+                                        type="button"
+                                        @click="showClientDropdown = !showClientDropdown"
+                                        class="absolute inset-y-0 right-0 z-10 flex w-10 items-center justify-center rounded-r-md border-l border-gray-200 bg-white text-gray-500 hover:text-gray-700"
+                                    >
+                                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div
+                                    x-show="showClientDropdown"
+                                    x-transition
+                                    class="absolute z-[10001] mt-1 w-full rounded-md border border-gray-300 bg-white shadow-lg max-h-64 overflow-auto text-left"
+                                >
+                                    <template x-if="getFilteredClients().length === 0">
+                                        <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
+                                    </template>
+                                    <template x-for="client in getFilteredClients()" :key="`client-option-${client.id}`">
+                                        <button
+                                            type="button"
+                                            @mousedown.prevent="selectClient(client)"
+                                            class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                            x-text="client.name"
+                                        ></button>
+                                    </template>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="text-sm font-semibold text-gray-700">Прайс</div>
@@ -80,7 +115,7 @@
 
                 <template x-for="(product, productIndex) in products" :key="product.uid">
                     <div class="space-y-4">
-                        <div x-show="product.isExpanded" class="border border-gray-300 rounded-lg p-4 space-y-4 bg-white">
+                        <div x-show="product.isExpanded" class="relative z-0 border border-gray-300 rounded-lg p-4 space-y-4 bg-white">
                             <div class="flex flex-wrap items-end gap-4">
                                 <div class="text-sm font-semibold text-gray-700" x-text="`Тип виробу #${displayProductNumber(productIndex)}`"></div>
                                 <div class="min-w-[240px]">
@@ -94,17 +129,49 @@
 
                                 <div class="ml-4 text-sm font-semibold text-gray-700">Матеріал</div>
                                 <div class="w-[220px]">
-                                    <select
-                                        x-model="product.material"
-                                        @change="onMaterialChanged(product)"
-                                        :disabled="!product.productTypeId"
-                                        class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500"
-                                    >
-                                        <option value="">Оберіть матеріал</option>
-                                        <template x-for="material in getAllowedMaterials(product)" :key="material">
-                                            <option :value="material" x-text="material"></option>
-                                        </template>
-                                    </select>
+                                    <div class="relative" @click.outside="product.showMaterialDropdown = false">
+                                        <div class="relative overflow-hidden rounded-md">
+                                            <input
+                                                x-model="product.materialQuery"
+                                                @input="onMaterialInputChanged(product); product.showMaterialDropdown = true"
+                                                @focus="if (product.productTypeId) product.showMaterialDropdown = true"
+                                                @keydown.escape="product.showMaterialDropdown = false"
+                                                @blur="handleMaterialInputBlur(product)"
+                                                type="text"
+                                                autocomplete="off"
+                                                :disabled="!product.productTypeId"
+                                                class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full pr-10 text-left disabled:bg-gray-100 disabled:text-gray-500"
+                                                placeholder="Оберіть матеріал"
+                                            />
+                                            <button
+                                                type="button"
+                                                @click="if (product.productTypeId) { product.showMaterialDropdown = !product.showMaterialDropdown }"
+                                                :disabled="!product.productTypeId"
+                                                class="absolute inset-y-0 right-0 z-10 flex w-10 items-center justify-center rounded-r-md border-l border-gray-200 bg-white text-gray-500 hover:text-gray-700 disabled:bg-gray-100 disabled:text-gray-400"
+                                            >
+                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        <div
+                                            x-show="product.productTypeId && product.showMaterialDropdown"
+                                            x-transition
+                                            class="absolute z-[300] mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
+                                        >
+                                            <template x-if="getFilteredMaterials(product).length === 0">
+                                                <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
+                                            </template>
+                                            <template x-for="material in getFilteredMaterials(product)" :key="`material-option-${product.uid}-${material}`">
+                                                <button
+                                                    type="button"
+                                                    @mousedown.prevent="selectMaterial(product, material)"
+                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                                    x-text="material"
+                                                ></button>
+                                            </template>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <template x-if="showThicknessForMaterial(product.material)">
@@ -487,6 +554,8 @@
                 typeCategoryMatrix: config.typeCategoryMatrix || {},
                 priceOptions: config.priceOptions || [],
                 selectedClientId: '',
+                selectedClientQuery: '',
+                showClientDropdown: false,
                 priceType: 'retail',
                 urgencyCoefficient: '1.00',
                 isPriceTypeLocked: false,
@@ -503,6 +572,8 @@
                         isExpanded: true,
                         productTypeId: '',
                         material: '',
+                        materialQuery: '',
+                        showMaterialDropdown: false,
                         thickness: '',
                         manualThickness: '',
                         manualThicknessError: '',
@@ -537,6 +608,7 @@
                 onClientChanged() {
                     const client = this.clients.find((item) => String(item.id) === String(this.selectedClientId));
                     if (client) {
+                        this.selectedClientQuery = client.name || '';
                         this.priceType = client.price_type || 'retail';
                         this.isPriceTypeLocked = true;
                     } else {
@@ -545,6 +617,93 @@
                             this.priceType = 'retail';
                         }
                     }
+                },
+
+                onClientInputChanged() {
+                    const query = String(this.selectedClientQuery || '').trim();
+                    if (query === '') {
+                        this.selectedClientId = '';
+                        this.onClientChanged();
+                        return;
+                    }
+
+                    const normalize = (value) => this.normalizeForCompare(value);
+                    const exact = this.clients.find((client) => normalize(client.name) === normalize(query));
+                    if (exact) {
+                        this.selectedClientId = String(exact.id);
+                        this.onClientChanged();
+                        return;
+                    }
+
+                    // Manual input is allowed; pricing lock applies only when a known client is matched.
+                    this.selectedClientId = '';
+                    this.onClientChanged();
+                },
+
+                handleClientInputBlur() {
+                    this.applyClientAutoMatch();
+                    setTimeout(() => {
+                        this.showClientDropdown = false;
+                    }, 120);
+                },
+
+                getFilteredClients() {
+                    const normalize = (value) => this.normalizeForCompare(value);
+                    const query = normalize(this.selectedClientQuery || '');
+                    if (!query) {
+                        return this.clients.slice(0, 50);
+                    }
+
+                    return this.clients
+                        .filter((client) => normalize(client.name).includes(query))
+                        .slice(0, 50);
+                },
+
+                selectClient(client) {
+                    this.selectedClientQuery = client.name || '';
+                    this.selectedClientId = String(client.id);
+                    this.onClientChanged();
+                    this.showClientDropdown = false;
+                },
+
+                applyClientAutoMatch() {
+                    const query = String(this.selectedClientQuery || '').trim();
+                    if (query === '') {
+                        this.selectedClientId = '';
+                        this.onClientChanged();
+                        return;
+                    }
+
+                    const normalize = (value) => this.normalizeForCompare(value);
+                    const normalizedQuery = normalize(query);
+                    const exact = this.clients.find((client) => normalize(client.name) === normalizedQuery);
+                    if (exact) {
+                        this.selectedClientId = String(exact.id);
+                        this.onClientChanged();
+                        return;
+                    }
+
+                    const startsWithMatches = this.clients.filter((client) =>
+                        normalize(client.name).startsWith(normalizedQuery)
+                    );
+                    if (startsWithMatches.length === 1) {
+                        this.selectedClientId = String(startsWithMatches[0].id);
+                        this.onClientChanged();
+                        return;
+                    }
+
+                    const containsMatches = this.clients.filter((client) =>
+                        normalize(client.name).includes(normalizedQuery)
+                    );
+                    if (containsMatches.length === 1) {
+                        this.selectedClientId = String(containsMatches[0].id);
+                        this.onClientChanged();
+                        return;
+                    }
+
+                    // Keep manual value when match is ambiguous or not found.
+                    this.selectedClientId = '';
+                    this.onClientChanged();
                 },
 
                 getProductTypeName(productTypeId) {
@@ -604,6 +763,114 @@
 
                 getAllowedMaterials(product) {
                     return this.materials.filter((material) => this.isMaterialAllowedForProductType(product, material));
+                },
+
+                getFilteredMaterials(product) {
+                    const allowed = this.getAllowedMaterials(product);
+                    const query = this.normalizeForCompare(product.materialQuery || '');
+                    if (!query) {
+                        return allowed.slice(0, 50);
+                    }
+
+                    return allowed
+                        .filter((material) => this.normalizeForCompare(material).includes(query))
+                        .slice(0, 50);
+                },
+
+                onMaterialInputChanged(product) {
+                    if (!product.productTypeId) {
+                        return;
+                    }
+
+                    const query = String(product.materialQuery || '').trim();
+                    const allowed = this.getAllowedMaterials(product);
+
+                    if (query === '') {
+                        if (product.material !== '') {
+                            product.material = '';
+                            this.onMaterialChanged(product);
+                        }
+                        return;
+                    }
+
+                    const exact = allowed.find((material) =>
+                        this.normalizeForCompare(material) === this.normalizeForCompare(query)
+                    );
+
+                    if (exact) {
+                        if (product.material !== exact) {
+                            product.material = exact;
+                            this.onMaterialChanged(product);
+                        }
+                        product.materialQuery = exact;
+                        return;
+                    }
+
+                    if (product.material !== '') {
+                        product.material = '';
+                        this.onMaterialChanged(product);
+                    }
+                },
+
+                handleMaterialInputBlur(product) {
+                    this.applyMaterialAutoMatch(product);
+                    setTimeout(() => {
+                        product.showMaterialDropdown = false;
+                    }, 120);
+                },
+
+                selectMaterial(product, material) {
+                    product.material = material;
+                    product.materialQuery = material;
+                    this.onMaterialChanged(product);
+                    product.showMaterialDropdown = false;
+                },
+
+                applyMaterialAutoMatch(product) {
+                    const query = String(product.materialQuery || '').trim();
+                    const allowed = this.getAllowedMaterials(product);
+
+                    if (query === '') {
+                        if (product.material !== '') {
+                            product.material = '';
+                            this.onMaterialChanged(product);
+                        }
+                        return;
+                    }
+
+                    const normalize = (value) => this.normalizeForCompare(value);
+                    const normalizedQuery = normalize(query);
+
+                    const exact = allowed.find((material) => normalize(material) === normalizedQuery);
+                    if (exact) {
+                        if (product.material !== exact) {
+                            product.material = exact;
+                            this.onMaterialChanged(product);
+                        }
+                        product.materialQuery = exact;
+                        return;
+                    }
+
+                    const startsWithMatches = allowed.filter((material) => normalize(material).startsWith(normalizedQuery));
+                    if (startsWithMatches.length === 1) {
+                        product.material = startsWithMatches[0];
+                        product.materialQuery = startsWithMatches[0];
+                        this.onMaterialChanged(product);
+                        return;
+                    }
+
+                    const containsMatches = allowed.filter((material) => normalize(material).includes(normalizedQuery));
+                    if (containsMatches.length === 1) {
+                        product.material = containsMatches[0];
+                        product.materialQuery = containsMatches[0];
+                        this.onMaterialChanged(product);
+                        return;
+                    }
+
+                    if (product.material !== '') {
+                        product.material = '';
+                        this.onMaterialChanged(product);
+                    }
                 },
 
                 isUvPrintProduct(product) {
@@ -804,6 +1071,9 @@
                     product.thickness = '';
                     product.manualThickness = '';
                     product.manualThicknessError = '';
+                    if (product.material) {
+                        product.materialQuery = product.material;
+                    }
 
                     if (!product.material) {
                         product.servicesEnabledRaw = '0';
@@ -821,7 +1091,12 @@
                     const allowed = this.getAllowedMaterials(product);
                     if (product.material && !allowed.includes(product.material)) {
                         product.material = '';
+                        product.materialQuery = '';
                     }
+                    if (product.materialQuery && !allowed.some((item) => this.normalizeForCompare(item) === this.normalizeForCompare(product.materialQuery))) {
+                        product.materialQuery = '';
+                    }
+                    product.showMaterialDropdown = false;
                     this.onMaterialChanged(product);
                 },
 

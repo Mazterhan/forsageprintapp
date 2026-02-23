@@ -27,6 +27,10 @@ class TariffController extends Controller
             ->orderBy('name')
             ->pluck('name')
             ->all();
+        $materialTypeByCategory = ProductCategory::query()
+            ->whereNotNull('material_type')
+            ->pluck('material_type', 'name')
+            ->all();
 
         $productGroups = ProductGroup::query()
             ->orderBy('sort_order')
@@ -36,6 +40,7 @@ class TariffController extends Controller
         return view('tariffs.create', [
             'internalCode' => $this->generateManualInternalCode(),
             'productCategories' => $productCategories,
+            'materialTypeByCategory' => $materialTypeByCategory,
             'productGroups' => $productGroups,
         ]);
     }
@@ -228,6 +233,10 @@ class TariffController extends Controller
             ->orderBy('name')
             ->pluck('name')
             ->all();
+        $materialTypeByCategory = ProductCategory::query()
+            ->whereNotNull('material_type')
+            ->pluck('material_type', 'name')
+            ->all();
         $productGroups = ProductGroup::query()
             ->orderBy('sort_order')
             ->orderBy('name')
@@ -325,6 +334,7 @@ class TariffController extends Controller
             'tariff' => $tariff,
             'subcontractors' => $subcontractors,
             'productCategories' => $productCategories,
+            'materialTypeByCategory' => $materialTypeByCategory,
             'productGroups' => $productGroups,
             'history' => $history,
             'crossLinks' => $crossLinks,

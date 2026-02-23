@@ -1,5 +1,5 @@
 <x-app-layout>
-    @section('title', __('Картка товару'))
+    @section('title', $tariff->name ?: __('Картка товару'))
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
             {{ __('Картка товару') }}
@@ -44,7 +44,7 @@
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                            <div class="md:col-span-6">
+                            <div class="md:col-span-4">
                                 <x-input-label for="category" :value="__('Категорія')" />
                                 <input
                                     id="category"
@@ -63,7 +63,7 @@
                                 <x-input-error class="mt-2" :messages="$errors->get('category')" />
                             </div>
 
-                            <div class="md:col-span-6">
+                            <div class="md:col-span-4">
                                 <x-input-label for="product_group_id" :value="__('Внутрішня назва товару (Група товарів)')" />
                                 @php
                                     $currentGroupName = old('product_group_name');
@@ -87,6 +87,16 @@
                                 </datalist>
                                 <input type="hidden" id="product_group_id" name="product_group_id" value="{{ (int) old('product_group_id', $tariff->product_group_id) ?: '' }}">
                                 <x-input-error class="mt-2" :messages="$errors->get('product_group_id')" />
+                            </div>
+
+                            <div class="md:col-span-4">
+                                <x-text-input
+                                    id="material_type_display"
+                                    type="text"
+                                    class="mt-7 block w-full bg-gray-100 text-gray-700"
+                                    value=""
+                                    disabled
+                                />
                             </div>
                         </div>
 
@@ -279,6 +289,8 @@
             const supplierInput = document.getElementById('cross_supplier_id_input');
             const itemInput = document.getElementById('cross_item_input');
             const categorySelect = document.getElementById('category');
+            const materialTypeDisplayInput = document.getElementById('material_type_display');
+            const materialTypeByCategory = @json($materialTypeByCategory ?? []);
             const productGroupNameInput = document.getElementById('product_group_name');
             const productGroupIdInput = document.getElementById('product_group_id');
             const productGroupOptions = Array.from(document.querySelectorAll('#product-group-options option'));
@@ -335,8 +347,33 @@
                 }
             };
 
+            const normalizeValue = (value) => String(value || '').trim().toLowerCase();
+            const updateMaterialTypeDisplay = () => {
+                if (!categorySelect || !materialTypeDisplayInput) {
+                    return;
+                }
+
+                const selectedCategory = String(categorySelect.value || '').trim();
+                if (selectedCategory === '') {
+                    materialTypeDisplayInput.value = '';
+                    return;
+                }
+
+                const selectedNormalized = normalizeValue(selectedCategory);
+                const matchedCategory = Object.keys(materialTypeByCategory).find(
+                    (categoryName) => normalizeValue(categoryName) === selectedNormalized
+                );
+
+                materialTypeDisplayInput.value = matchedCategory
+                    ? (materialTypeByCategory[matchedCategory] || '')
+                    : '';
+            };
+
             categorySelect?.addEventListener('change', updateSizeFieldsVisibility);
+            categorySelect?.addEventListener('input', updateMaterialTypeDisplay);
+            categorySelect?.addEventListener('change', updateMaterialTypeDisplay);
             updateSizeFieldsVisibility();
+            updateMaterialTypeDisplay();
 
             const syncProductGroupId = () => {
                 if (!productGroupNameInput || !productGroupIdInput) {
