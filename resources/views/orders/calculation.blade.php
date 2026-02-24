@@ -758,6 +758,12 @@
                     }
 
                     const matrixForType = this.typeCategoryMatrix[String(product.productTypeId)] || {};
+                    // Fallback: if matrix is not configured for the selected product type,
+                    // do not hide tariff materials completely.
+                    if (Object.keys(matrixForType).length === 0) {
+                        return true;
+                    }
+
                     return categories.some((categoryName) => matrixForType[categoryName] === true);
                 },
 
