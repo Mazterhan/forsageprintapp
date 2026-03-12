@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Price;
 
 use App\Http\Controllers\Controller;
 use App\Models\PriceItem;
+use App\Models\PriceItemHistory;
 use App\Models\ProductCategory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -115,9 +116,12 @@ class PriceController extends Controller
 
     public function show(PriceItem $priceItem): View
     {
+        $priceItem->load(['histories.user']);
+
         return view('price.show', [
             'item' => $priceItem,
             'title' => $priceItem->name ?: __('Позиція'),
+            'history' => $priceItem->histories,
         ]);
     }
 
@@ -128,14 +132,91 @@ class PriceController extends Controller
             'purchase_price' => ['required', 'numeric', 'min:0'],
         ])->validate();
 
-        $priceItem->update([
-            'service_price' => $data['service_price'],
-            'purchase_price' => $data['purchase_price'],
-        ]);
+        $newServicePrice = $this->parseDecimal($data['service_price']);
+        $newPurchasePrice = $this->parseDecimal($data['purchase_price']);
+        $hasChanges = $this->hasPriceChanges($priceItem, $newServicePrice, $newPurchasePrice);
+
+        if ($hasChanges) {
+            $priceItem->update([
+                'service_price' => $newServicePrice,
+                'purchase_price' => $newPurchasePrice,
+            ]);
+
+            $this->recordHistory($priceItem, $newServicePrice, $newPurchasePrice, (int) $request->user()->id);
+        }
 
         return redirect()
             ->route('price.show', $priceItem)
             ->with('status', __('Позицію оновлено.'));
+    }
+
+    public function bulkUpdate(Request $request): RedirectResponse
+    {
+        $payload = $request->input('items', []);
+        if (!is_array($payload) || $payload === []) {
+            return redirect()->route('price.index');
+        }
+
+        $itemIds = array_map('intval', array_keys($payload));
+        $items = PriceItem::query()
+            ->whereIn('id', $itemIds)
+            ->get()
+            ->keyBy('id');
+
+        foreach ($payload as $id => $values) {
+            $id = (int) $id;
+            if (!isset($items[$id]) || !is_array($values)) {
+                continue;
+            }
+
+            $item = $items[$id];
+            $validated = Validator::make($values, [
+                'service_price' => ['required', 'numeric', 'min:0'],
+                'purchase_price' => ['required', 'numeric', 'min:0'],
+            ])->validate();
+
+            $newServicePrice = $this->parseDecimal($validated['service_price']);
+            $newPurchasePrice = $this->parseDecimal($validated['purchase_price']);
+            $hasChanges = $this->hasPriceChanges($item, $newServicePrice, $newPurchasePrice);
+
+            if (! $hasChanges) {
+                continue;
+            }
+
+            $item->update([
+                'service_price' => $newServicePrice,
+                'purchase_price' => $newPurchasePrice,
+            ]);
+
+            $this->recordHistory($item, $newServicePrice, $newPurchasePrice, (int) $request->user()->id);
+        }
+
+        return redirect()
+            ->route('price.index')
+            ->with('status', __('Зміни збережено.'));
+    }
+
+    public function revertHistory(Request $request, PriceItem $priceItem, PriceItemHistory $history): RedirectResponse
+    {
+        if ($history->price_item_id !== $priceItem->id) {
+            abort(404);
+        }
+
+        $priceItem->update([
+            'service_price' => $history->service_price,
+            'purchase_price' => $history->purchase_price,
+        ]);
+
+        $this->recordHistory(
+            $priceItem,
+            (float) $history->service_price,
+            (float) $history->purchase_price,
+            (int) $request->user()->id
+        );
+
+        return redirect()
+            ->route('price.show', $priceItem)
+            ->with('status', __('Ціну оновлено з історії.'));
     }
 
     public function toggle(PriceItem $priceItem): RedirectResponse
@@ -167,5 +248,32 @@ class PriceController extends Controller
         } while (PriceItem::query()->where('internal_code', $code)->exists());
 
         return $code;
+    }
+
+    private function hasPriceChanges(PriceItem $item, float $newServicePrice, float $newPurchasePrice): bool
+    {
+        return round((float) $item->service_price, 2) !== round($newServicePrice, 2)
+            || round((float) $item->purchase_price, 2) !== round($newPurchasePrice, 2);
+    }
+
+    private function parseDecimal(mixed $value): float
+    {
+        return round((float) str_replace(',', '.', (string) $value), 2);
+    }
+
+    private function recordHistory(PriceItem $item, float $servicePrice, float $purchasePrice, int $userId): void
+    {
+        $markupPercent = null;
+        if ($purchasePrice > 0) {
+            $markupPercent = round((($servicePrice - $purchasePrice) / $purchasePrice) * 100, 2);
+        }
+
+        PriceItemHistory::query()->create([
+            'price_item_id' => $item->id,
+            'service_price' => $servicePrice,
+            'purchase_price' => $purchasePrice,
+            'markup_percent' => $markupPercent,
+            'user_id' => $userId,
+        ]);
     }
 }

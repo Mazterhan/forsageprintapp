@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PriceItem extends Model
 {
@@ -35,5 +36,9 @@ class PriceItem extends Model
         'for_customer_material' => 'boolean',
         'is_active' => 'boolean',
     ];
-}
 
+    public function histories(): HasMany
+    {
+        return $this->hasMany(PriceItemHistory::class)->latest('created_at');
+    }
+}

@@ -134,8 +134,10 @@ Route::middleware('auth')
     ->name('price.')
     ->group(function () {
         Route::get('/', [PriceController::class, 'index'])->name('index');
+        Route::patch('/bulk-update', [PriceController::class, 'bulkUpdate'])->name('bulk-update');
         Route::get('/{priceItem}', [PriceController::class, 'show'])->name('show');
         Route::patch('/{priceItem}', [PriceController::class, 'update'])->name('update');
+        Route::post('/{priceItem}/history/{history}/revert', [PriceController::class, 'revertHistory'])->name('history.revert');
         Route::patch('/{priceItem}/toggle', [PriceController::class, 'toggle'])->name('toggle');
     });
 
