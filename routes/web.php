@@ -10,6 +10,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Pricing\PricingController;
 use App\Http\Controllers\Pricing\PricingItemController;
 use App\Http\Controllers\Pricing\SubcontractorController;
+use App\Http\Controllers\Price\PriceController;
 use App\Http\Controllers\Purchases\PurchaseController;
 use App\Http\Controllers\Purchases\PurchaseImportController;
 use App\Http\Controllers\Purchases\PurchaseReviewController;
@@ -127,6 +128,21 @@ Route::middleware('auth')
         Route::patch('/{tariff}/deactivate', [TariffController::class, 'deactivate'])->name('deactivate');
         Route::post('/{tariff}/cross-links', [TariffController::class, 'storeCrossLink'])->name('cross-links.store');
     });
+
+Route::middleware('auth')
+    ->prefix('price')
+    ->name('price.')
+    ->group(function () {
+        Route::get('/', [PriceController::class, 'index'])->name('index');
+        Route::get('/{priceItem}', [PriceController::class, 'show'])->name('show');
+        Route::patch('/{priceItem}', [PriceController::class, 'update'])->name('update');
+        Route::patch('/{priceItem}/toggle', [PriceController::class, 'toggle'])->name('toggle');
+    });
+
+Route::middleware('auth')->group(function () {
+    Route::get('/new_item', [PriceController::class, 'create'])->name('price.create');
+    Route::post('/new_item', [PriceController::class, 'store'])->name('price.store');
+});
 
 Route::middleware(['auth', 'role:admin'])
     ->prefix('admin')
