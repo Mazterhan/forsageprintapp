@@ -29,7 +29,6 @@
                     materialCategoryByMaterial: @js($materialCategoryByMaterial),
                     materialCategoriesByMaterial: @js($materialCategoriesByMaterial),
                     typeCategoryMatrix: @js($typeCategoryMatrix),
-                    priceOptions: @js($priceOptions),
                 })"
             >
                 <div class="sticky top-0 z-[9999] isolate overflow-visible border-2 border-gray-700 rounded-lg p-4 shadow-sm" style="background-color: #FCEEDF;">
@@ -77,15 +76,6 @@
                                     </template>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="text-sm font-semibold text-gray-700">Прайс</div>
-                        <div class="min-w-[220px]">
-                            <select x-model="priceType" :disabled="isPriceTypeLocked" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500">
-                                <template x-for="option in priceOptions" :key="option.value">
-                                    <option :value="option.value" x-text="option.label"></option>
-                                </template>
-                            </select>
                         </div>
 
                         <div class="text-sm font-semibold text-gray-700">Коефіцієнт терміновості</div>
@@ -552,13 +542,10 @@
                 materialCategoryByMaterial: config.materialCategoryByMaterial || {},
                 materialCategoriesByMaterial: config.materialCategoriesByMaterial || {},
                 typeCategoryMatrix: config.typeCategoryMatrix || {},
-                priceOptions: config.priceOptions || [],
                 selectedClientId: '',
                 selectedClientQuery: '',
                 showClientDropdown: false,
-                priceType: 'retail',
                 urgencyCoefficient: '1.00',
-                isPriceTypeLocked: false,
                 products: [],
 
                 init() {
@@ -609,13 +596,6 @@
                     const client = this.clients.find((item) => String(item.id) === String(this.selectedClientId));
                     if (client) {
                         this.selectedClientQuery = client.name || '';
-                        this.priceType = client.price_type || 'retail';
-                        this.isPriceTypeLocked = true;
-                    } else {
-                        this.isPriceTypeLocked = false;
-                        if (!this.priceOptions.find((option) => option.value === this.priceType)) {
-                            this.priceType = 'retail';
-                        }
                     }
                 },
 

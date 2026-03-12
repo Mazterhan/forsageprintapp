@@ -95,10 +95,6 @@
                                         </th>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка РЦ %</th>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Роздрібна ціна</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка Опт %</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Оптова ціна</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка VIP %</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">VIP ціна</th>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                                             @php
                                                 $nextDirection = $currentSort === 'imported_at' && $currentDirection === 'asc' ? 'desc' : 'asc';
@@ -124,17 +120,6 @@
                                                 $retailPrice = (float) $item->import_price * (1 + ((float) $retailPercent / 100));
                                             }
 
-                                            $wholesalePercent = $item->markup_wholesale_percent ?? 30;
-                                            $wholesalePrice = $item->wholesale_price;
-                                            if ($wholesalePrice === null && $item->import_price !== null) {
-                                                $wholesalePrice = (float) $item->import_price * (1 + ((float) $wholesalePercent / 100));
-                                            }
-
-                                            $vipPercent = $item->markup_vip_percent ?? 40;
-                                            $vipPrice = $item->vip_price;
-                                            if ($vipPrice === null && $item->import_price !== null) {
-                                                $vipPrice = (float) $item->import_price * (1 + ((float) $vipPercent / 100));
-                                            }
                                         @endphp
                                         <tr data-import-price="{{ $item->import_price ?? 0 }}">
                                             <td class="px-4 py-2 text-sm text-gray-700">
@@ -158,18 +143,6 @@
                                             <td class="px-4 py-2 text-sm text-gray-700">
                                                 <input type="text" name="markup_price[{{ $item->id }}]" value="{{ $retailPrice !== null ? number_format((float) $retailPrice, 2, '.', '') : '' }}" class="w-24 border-gray-300 rounded-md shadow-sm text-sm markup-price">
                                             </td>
-                                            <td class="px-4 py-2 text-sm text-gray-700">
-                                                <input type="text" name="markup_wholesale_percent[{{ $item->id }}]" value="{{ number_format((float) $wholesalePercent, 2, '.', '') }}" class="w-20 border-gray-300 rounded-md shadow-sm text-sm markup-wholesale-percent">
-                                            </td>
-                                            <td class="px-4 py-2 text-sm text-gray-700">
-                                                <input type="text" name="wholesale_price[{{ $item->id }}]" value="{{ $wholesalePrice !== null ? number_format((float) $wholesalePrice, 2, '.', '') : '' }}" class="w-24 border-gray-300 rounded-md shadow-sm text-sm wholesale-price">
-                                            </td>
-                                            <td class="px-4 py-2 text-sm text-gray-700">
-                                                <input type="text" name="markup_vip_percent[{{ $item->id }}]" value="{{ number_format((float) $vipPercent, 2, '.', '') }}" class="w-20 border-gray-300 rounded-md shadow-sm text-sm markup-vip-percent">
-                                            </td>
-                                            <td class="px-4 py-2 text-sm text-gray-700">
-                                                <input type="text" name="vip_price[{{ $item->id }}]" value="{{ $vipPrice !== null ? number_format((float) $vipPrice, 2, '.', '') : '' }}" class="w-24 border-gray-300 rounded-md shadow-sm text-sm vip-price">
-                                            </td>
                                             <td class="px-4 py-2 text-sm text-gray-700">{{ optional($item->last_changed_at)->format('Y-m-d H:i') }}</td>
                                             <td class="px-4 py-2 text-sm text-gray-700">
                                                 <div class="flex items-center gap-3">
@@ -184,7 +157,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="13" class="px-4 py-6 text-center text-sm text-gray-500">
+                                            <td colspan="9" class="px-4 py-6 text-center text-sm text-gray-500">
                                                 {{ __('No pricing items found.') }}
                                             </td>
                                         </tr>
@@ -225,10 +198,6 @@
             const importPrice = parseFloat(row.getAttribute('data-import-price')) || 0;
             const percentInput = row.querySelector('.markup-percent');
             const priceInput = row.querySelector('.markup-price');
-            const wholesalePercentInput = row.querySelector('.markup-wholesale-percent');
-            const wholesalePriceInput = row.querySelector('.wholesale-price');
-            const vipPercentInput = row.querySelector('.markup-vip-percent');
-            const vipPriceInput = row.querySelector('.vip-price');
 
             const bindPair = (percentEl, priceEl) => {
                 if (!percentEl || !priceEl) {
@@ -249,8 +218,6 @@
             };
 
             bindPair(percentInput, priceInput);
-            bindPair(wholesalePercentInput, wholesalePriceInput);
-            bindPair(vipPercentInput, vipPriceInput);
         });
     </script>
 </x-app-layout>

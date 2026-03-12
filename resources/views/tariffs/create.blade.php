@@ -78,16 +78,6 @@
                                 <x-text-input id="sale_price" name="sale_price" type="text" class="mt-1 block w-full" value="{{ old('sale_price') }}" required />
                                 <x-input-error class="mt-2" :messages="$errors->get('sale_price')" />
                             </div>
-                            <div class="md:col-span-4">
-                                <x-input-label for="wholesale_price" :value="__('Оптова ціна')" />
-                                <x-text-input id="wholesale_price" name="wholesale_price" type="text" class="mt-1 block w-full" value="{{ old('wholesale_price') }}" required />
-                                <x-input-error class="mt-2" :messages="$errors->get('wholesale_price')" />
-                            </div>
-                            <div class="md:col-span-4">
-                                <x-input-label for="urgent_price" :value="__('VIP ціна')" />
-                                <x-text-input id="urgent_price" name="urgent_price" type="text" class="mt-1 block w-full" value="{{ old('urgent_price') }}" required />
-                                <x-input-error class="mt-2" :messages="$errors->get('urgent_price')" />
-                            </div>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">

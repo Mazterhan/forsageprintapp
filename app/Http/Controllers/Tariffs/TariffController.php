@@ -64,8 +64,6 @@ class TariffController extends Controller
             'category' => ['required', 'string', 'max:255', Rule::in($categoryOptions)],
             'product_group_id' => ['nullable', 'integer', 'exists:product_groups,id'],
             'sale_price' => ['required', 'numeric', 'min:0'],
-            'wholesale_price' => ['required', 'numeric', 'min:0'],
-            'urgent_price' => ['required', 'numeric', 'min:0'],
             'roll_width_m' => ['nullable', 'numeric', 'min:0'],
             'roll_length_m' => ['nullable', 'numeric', 'min:0'],
             'sheet_thickness_mm' => ['nullable', 'numeric', 'min:0'],
@@ -96,8 +94,6 @@ class TariffController extends Controller
             'category' => $data['category'],
             'product_group_id' => $data['product_group_id'],
             'sale_price' => $data['sale_price'],
-            'wholesale_price' => $data['wholesale_price'],
-            'urgent_price' => $data['urgent_price'],
             'roll_width_m' => $data['roll_width_m'] ?? null,
             'roll_length_m' => $data['roll_length_m'] ?? null,
             'sheet_thickness_mm' => $data['sheet_thickness_mm'] ?? null,
@@ -121,7 +117,6 @@ class TariffController extends Controller
             ->get();
 
         $subcontractorIds = array_filter((array) $request->query('subcontractors', []));
-        $extraPriceFilters = array_filter((array) $request->query('extra_prices', []));
         $category = (string) $request->query('category', '');
         $productGroupId = (string) $request->query('product_group_id', '');
         $search = (string) $request->query('search', '');
@@ -140,19 +135,12 @@ class TariffController extends Controller
             ->orderBy('name')
             ->get();
 
-        $extraPriceOptions = [
-            'wholesale' => 'оптова ціна',
-            'urgent' => 'VIP ціна',
-        ];
-
         $sortMap = [
             'internal_code' => 'tariffs.internal_code',
             'name' => 'tariffs.name',
             'category' => 'tariffs.category',
             'product_group' => 'product_groups.name',
             'sale_price' => 'tariffs.sale_price',
-            'wholesale_price' => 'tariffs.wholesale_price',
-            'urgent_price' => 'tariffs.urgent_price',
             'subcontractor' => 'subcontractors.name',
         ];
 
@@ -191,24 +179,13 @@ class TariffController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        $selectedExtraLabels = collect($extraPriceFilters)
-            ->filter(fn ($key) => array_key_exists($key, $extraPriceOptions))
-            ->map(fn ($key) => $extraPriceOptions[$key])
-            ->values()
-            ->all();
-
         $title = 'Прайс: роздрібна ціна';
-        if (! empty($selectedExtraLabels)) {
-            $title .= ' + '.implode(' + ', $selectedExtraLabels);
-        }
 
         return view('tariffs.index', [
             'tariffs' => $tariffs,
             'subcontractors' => $subcontractors,
             'categories' => $categories,
             'productGroups' => $productGroups,
-            'extraPriceOptions' => $extraPriceOptions,
-            'selectedExtraPrices' => $extraPriceFilters,
             'title' => $title,
             'filters' => [
                 'subcontractors' => $subcontractorIds,
@@ -217,7 +194,6 @@ class TariffController extends Controller
                 'search' => $search,
                 'price_from' => $priceFrom,
                 'price_to' => $priceTo,
-                'extra_prices' => $extraPriceFilters,
             ],
         ]);
     }
@@ -268,10 +244,6 @@ class TariffController extends Controller
                         'import_price' => $item->price_vat,
                         'markup_percent' => null,
                         'markup_price' => null,
-                        'markup_wholesale_percent' => null,
-                        'wholesale_price' => null,
-                        'markup_vip_percent' => null,
-                        'vip_price' => null,
                         'internal_code' => $item->internal_code,
                         'supplier' => $item->supplier,
                         'user' => null,
@@ -429,8 +401,6 @@ class TariffController extends Controller
             'double_sided' => ['nullable', 'string', 'max:255'],
             'subcontractor_id' => ['nullable', 'integer', 'exists:subcontractors,id'],
             'sale_price' => ['nullable', 'numeric', 'min:0'],
-            'wholesale_price' => ['nullable', 'numeric', 'min:0'],
-            'urgent_price' => ['nullable', 'numeric', 'min:0'],
         ])->validate();
 
         foreach (['roll_width_m', 'roll_length_m', 'sheet_thickness_mm'] as $dimensionField) {
@@ -443,16 +413,8 @@ class TariffController extends Controller
 
         $importPrice = $tariff->purchase_price;
         $markupPercent = null;
-        $markupWholesalePercent = null;
-        $markupVipPercent = null;
         if ($importPrice !== null && (float) $importPrice > 0 && $tariff->sale_price !== null) {
             $markupPercent = ((float) $tariff->sale_price / (float) $importPrice - 1) * 100;
-        }
-        if ($importPrice !== null && (float) $importPrice > 0 && $tariff->wholesale_price !== null) {
-            $markupWholesalePercent = ((float) $tariff->wholesale_price / (float) $importPrice - 1) * 100;
-        }
-        if ($importPrice !== null && (float) $importPrice > 0 && $tariff->urgent_price !== null) {
-            $markupVipPercent = ((float) $tariff->urgent_price / (float) $importPrice - 1) * 100;
         }
 
         PricingHistory::create([
@@ -464,10 +426,6 @@ class TariffController extends Controller
             'import_price' => $importPrice,
             'markup_percent' => $markupPercent,
             'markup_price' => $tariff->sale_price,
-            'markup_wholesale_percent' => $markupWholesalePercent,
-            'wholesale_price' => $tariff->wholesale_price,
-            'markup_vip_percent' => $markupVipPercent,
-            'vip_price' => $tariff->urgent_price,
             'changed_by' => $request->user()?->id,
             'changed_at' => now(),
             'source' => 'tariff',
@@ -493,8 +451,6 @@ class TariffController extends Controller
 
         $tariff->update([
             'sale_price' => $history->markup_price,
-            'wholesale_price' => $history->wholesale_price,
-            'urgent_price' => $history->vip_price,
         ]);
 
         PricingHistory::create([
@@ -506,10 +462,6 @@ class TariffController extends Controller
             'import_price' => $history->import_price,
             'markup_percent' => $history->markup_percent,
             'markup_price' => $history->markup_price,
-            'markup_wholesale_percent' => $history->markup_wholesale_percent,
-            'wholesale_price' => $history->wholesale_price,
-            'markup_vip_percent' => $history->markup_vip_percent,
-            'vip_price' => $history->vip_price,
             'changed_by' => $request->user()?->id,
             'changed_at' => now(),
             'source' => 'revert',
@@ -532,34 +484,16 @@ class TariffController extends Controller
         $importPrice = $latestPurchase?->price_vat ?? $tariff->purchase_price;
 
         $markupPercent = 50.0;
-        $markupWholesalePercent = 30.0;
-        $markupVipPercent = 40.0;
 
         if ($importPrice !== null && (float) $importPrice > 0) {
             if ($tariff->sale_price !== null) {
                 $markupPercent = (((float) $tariff->sale_price / (float) $importPrice) - 1) * 100;
-            }
-            if ($tariff->wholesale_price !== null) {
-                $markupWholesalePercent = (((float) $tariff->wholesale_price / (float) $importPrice) - 1) * 100;
-            }
-            if ($tariff->urgent_price !== null) {
-                $markupVipPercent = (((float) $tariff->urgent_price / (float) $importPrice) - 1) * 100;
             }
         }
 
         $resolvedMarkupPrice = $tariff->sale_price;
         if ($resolvedMarkupPrice === null && $importPrice !== null) {
             $resolvedMarkupPrice = (float) $importPrice * (1 + ($markupPercent / 100));
-        }
-
-        $resolvedWholesalePrice = $tariff->wholesale_price;
-        if ($resolvedWholesalePrice === null && $importPrice !== null) {
-            $resolvedWholesalePrice = (float) $importPrice * (1 + ($markupWholesalePercent / 100));
-        }
-
-        $resolvedVipPrice = $tariff->urgent_price;
-        if ($resolvedVipPrice === null && $importPrice !== null) {
-            $resolvedVipPrice = (float) $importPrice * (1 + ($markupVipPercent / 100));
         }
 
         PricingItem::updateOrCreate(
@@ -575,10 +509,6 @@ class TariffController extends Controller
                 'import_price' => $importPrice,
                 'markup_percent' => $markupPercent,
                 'markup_price' => $resolvedMarkupPrice,
-                'markup_wholesale_percent' => $markupWholesalePercent,
-                'wholesale_price' => $resolvedWholesalePrice,
-                'markup_vip_percent' => $markupVipPercent,
-                'vip_price' => $resolvedVipPrice,
                 'last_changed_at' => now(),
                 'last_imported_at' => $latestPurchase?->imported_at ?? now(),
                 'is_active' => true,

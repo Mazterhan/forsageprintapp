@@ -22,7 +22,7 @@ class OrderController extends Controller
         $clients = Client::query()
             ->where('status', 'active')
             ->orderBy('name')
-            ->get(['id', 'name', 'price_type']);
+            ->get(['id', 'name']);
 
         $productTypes = ProductType::query()
             ->orderBy('sort_order')
@@ -164,11 +164,6 @@ class OrderController extends Controller
             'materialCategoryByMaterial' => $materialCategoryByMaterial,
             'materialCategoriesByMaterial' => $materialCategoriesByMaterial,
             'typeCategoryMatrix' => $typeCategoryMatrix,
-            'priceOptions' => [
-                ['value' => 'retail', 'label' => 'Роздрібна ціна'],
-                ['value' => 'wholesale', 'label' => 'Оптова ціна'],
-                ['value' => 'vip', 'label' => 'VIP ціна'],
-            ],
         ]);
     }
 

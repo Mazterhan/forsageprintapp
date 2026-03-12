@@ -16,7 +16,6 @@ class Client extends Model
         'type',
         'status',
         'category',
-        'price_type',
         'is_vip',
         'notes',
         'tags',
