@@ -7,15 +7,7 @@ use App\Http\Controllers\Orders\ClientController;
 use App\Http\Controllers\Orders\OrderController;
 use App\Http\Controllers\Orders\ProductTypeController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\Pricing\PricingController;
-use App\Http\Controllers\Pricing\PricingItemController;
-use App\Http\Controllers\Pricing\SubcontractorController;
 use App\Http\Controllers\Price\PriceController;
-use App\Http\Controllers\Purchases\PurchaseController;
-use App\Http\Controllers\Purchases\PurchaseImportController;
-use App\Http\Controllers\Purchases\PurchaseReviewController;
-use App\Http\Controllers\Purchases\SupplierController;
-use App\Http\Controllers\Tariffs\TariffController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -76,59 +68,6 @@ Route::middleware(['auth', 'role:admin|manager'])
         Route::patch('/clients/{client}/deactivate', [ClientController::class, 'deactivate'])->name('clients.deactivate');
     });
 
-Route::middleware(['auth', 'role:admin|manager'])
-    ->prefix('purchases')
-    ->name('purchases.')
-    ->group(function () {
-        Route::get('/', [PurchaseController::class, 'index'])->name('index');
-        Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
-        Route::get('/suppliers/create', [SupplierController::class, 'create'])->name('suppliers.create');
-        Route::post('/suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
-        Route::get('/suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
-        Route::patch('/suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
-        Route::patch('/suppliers/{supplier}/toggle-active', [SupplierController::class, 'toggleActive'])->name('suppliers.toggle');
-        Route::post('/suppliers/{supplier}/documents', [SupplierController::class, 'storeDocument'])->name('suppliers.documents.store');
-        Route::get('/suppliers/documents/{document}', [SupplierController::class, 'downloadDocument'])->name('suppliers.documents.download');
-        Route::get('/import_file', [PurchaseImportController::class, 'create'])->name('import.create');
-        Route::get('/import_template', [PurchaseImportController::class, 'downloadTemplate'])->name('import.template');
-        Route::get('/import_template_xlsx', [PurchaseImportController::class, 'downloadTemplateXlsx'])->name('import.template.xlsx');
-        Route::post('/import_file', [PurchaseImportController::class, 'store'])->name('import.store');
-        Route::get('/{purchase}/review', [PurchaseReviewController::class, 'show'])->name('review');
-    });
-
-Route::middleware(['auth', 'role:admin|manager'])
-    ->prefix('pricing')
-    ->name('pricing.')
-    ->group(function () {
-        Route::get('/', [PricingController::class, 'index'])->name('index');
-        Route::post('/apply', [PricingController::class, 'applyBulk'])->name('apply.bulk');
-        Route::post('/items/{pricingItem}/apply', [PricingController::class, 'applySingle'])->name('apply.single');
-        Route::post('/items/{pricingItem}/deactivate', [PricingController::class, 'deactivate'])->name('items.deactivate');
-        Route::get('/items/{pricingItem}', [PricingItemController::class, 'show'])->name('items.show');
-        Route::patch('/items/{pricingItem}', [PricingItemController::class, 'update'])->name('items.update');
-
-        Route::get('/subcontractors', [SubcontractorController::class, 'index'])->name('subcontractors.index');
-        Route::get('/subcontractors/create', [SubcontractorController::class, 'create'])->name('subcontractors.create');
-        Route::post('/subcontractors', [SubcontractorController::class, 'store'])->name('subcontractors.store');
-        Route::get('/subcontractors/{subcontractor}', [SubcontractorController::class, 'edit'])->name('subcontractors.edit');
-        Route::patch('/subcontractors/{subcontractor}', [SubcontractorController::class, 'update'])->name('subcontractors.update');
-        Route::patch('/subcontractors/{subcontractor}/toggle', [SubcontractorController::class, 'toggle'])->name('subcontractors.toggle');
-    });
-
-Route::middleware('auth')
-    ->prefix('tariffs')
-    ->name('tariffs.')
-    ->group(function () {
-        Route::get('/', [TariffController::class, 'index'])->name('index');
-        Route::get('/create', [TariffController::class, 'create'])->name('create');
-        Route::post('/', [TariffController::class, 'store'])->name('store');
-        Route::get('/{tariff}', [TariffController::class, 'show'])->name('show');
-        Route::patch('/{tariff}', [TariffController::class, 'update'])->name('update');
-        Route::post('/{tariff}/history/{history}/revert', [TariffController::class, 'revertHistory'])->name('history.revert');
-        Route::patch('/{tariff}/deactivate', [TariffController::class, 'deactivate'])->name('deactivate');
-        Route::post('/{tariff}/cross-links', [TariffController::class, 'storeCrossLink'])->name('cross-links.store');
-    });
-
 Route::middleware('auth')
     ->prefix('price')
     ->name('price.')
@@ -164,8 +103,6 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('/departments/{department}/edit', [DepartmentController::class, 'edit'])->name('departments.edit');
         Route::patch('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
         Route::view('/editgroupsandcategories', 'admin.editgroupsandcategories')->name('editgroupsandcategories');
-        Route::get('/editgroupsandcategories/product-groups', [EditGroupsAndCategoriesController::class, 'productGroups'])->name('product-groups.index');
-        Route::post('/editgroupsandcategories/product-groups', [EditGroupsAndCategoriesController::class, 'storeProductGroups'])->name('product-groups.store');
         Route::get('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'productCategories'])->name('product-categories.index');
         Route::post('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'storeProductCategories'])->name('product-categories.store');
         Route::get('/editgroupsandcategories/product-types', [ProductTypeController::class, 'index'])->name('product-types.index');
