@@ -111,6 +111,18 @@
                         </div>
                     </div>
 
+                    <div class="w-full min-w-0">
+                        <x-input-label for="comment" :value="__('Коментар')" />
+                        <textarea
+                            id="comment"
+                            name="comment"
+                            form="price-item-update-form"
+                            rows="3"
+                            class="mt-1 block w-full min-w-0 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm resize-y"
+                        >{{ old('comment', $item->comment) }}</textarea>
+                        <x-input-error class="mt-2" :messages="$errors->get('comment')" />
+                    </div>
+
                     <div class="flex items-center gap-4">
                         <button form="price-item-update-form" type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">
                             {{ __('Зберегти') }}

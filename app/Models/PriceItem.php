@@ -20,6 +20,7 @@ class PriceItem extends Model
         'service_price',
         'purchase_price',
         'measurement_unit',
+        'comment',
         'for_customer_material',
         'width_m',
         'length_m',

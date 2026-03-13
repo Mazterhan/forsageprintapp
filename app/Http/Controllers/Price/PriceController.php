@@ -143,6 +143,7 @@ class PriceController extends Controller
             'service_price' => ['nullable', 'numeric', 'min:0'],
             'purchase_price' => ['nullable', 'numeric', 'min:0'],
             'measurement_unit' => ['required', 'string', 'in:м2,шт.,м.п.'],
+            'comment' => ['nullable', 'string', 'max:2000'],
             'for_customer_material' => ['nullable', 'boolean'],
             'width_m' => ['nullable', 'numeric', 'min:0'],
             'length_m' => ['nullable', 'numeric', 'min:0'],
@@ -214,6 +215,7 @@ class PriceController extends Controller
                 'service_price' => $data['service_price'] ?? null,
                 'purchase_price' => $data['purchase_price'] ?? null,
                 'measurement_unit' => $data['measurement_unit'] ?? null,
+                'comment' => trim((string) ($data['comment'] ?? '')) !== '' ? trim((string) $data['comment']) : null,
                 'for_customer_material' => $forCustomerMaterial,
                 'width_m' => $modelType === 'Матеріал' ? ($data['width_m'] ?? null) : null,
                 'length_m' => $modelType === 'Матеріал' ? ($data['length_m'] ?? null) : null,
@@ -244,19 +246,26 @@ class PriceController extends Controller
         $data = Validator::make($request->all(), [
             'service_price' => ['nullable', 'numeric', 'min:0'],
             'purchase_price' => ['nullable', 'numeric', 'min:0'],
+            'comment' => ['nullable', 'string', 'max:2000'],
         ])->validate();
 
         $newServicePrice = $this->parseDecimal($data['service_price']);
         $newPurchasePrice = $this->parseDecimal($data['purchase_price']);
+        $newComment = trim((string) ($data['comment'] ?? ''));
+        $newComment = $newComment !== '' ? $newComment : null;
         $hasChanges = $this->hasPriceChanges($priceItem, $newServicePrice, $newPurchasePrice);
+        $hasCommentChanges = ($priceItem->comment ?? null) !== $newComment;
 
-        if ($hasChanges) {
+        if ($hasChanges || $hasCommentChanges) {
             $priceItem->update([
                 'service_price' => $newServicePrice,
                 'purchase_price' => $newPurchasePrice,
+                'comment' => $newComment,
             ]);
 
-            $this->recordHistory($priceItem, $newServicePrice, $newPurchasePrice, (int) $request->user()->id);
+            if ($hasChanges) {
+                $this->recordHistory($priceItem, $newServicePrice, $newPurchasePrice, (int) $request->user()->id);
+            }
         }
 
         return redirect()

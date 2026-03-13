@@ -99,6 +99,17 @@
                             </div>
                         </div>
 
+                        <div class="w-full min-w-0">
+                            <x-input-label for="comment" :value="__('Коментар')" />
+                            <textarea
+                                id="comment"
+                                name="comment"
+                                rows="3"
+                                class="mt-1 block w-full min-w-0 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm resize-y"
+                            >{{ old('comment') }}</textarea>
+                            <x-input-error class="mt-2" :messages="$errors->get('comment')" />
+                        </div>
+
                         <div class="flex items-center gap-4">
                             <x-primary-button id="create-price-item-submit">{{ __('Додати позицію') }}</x-primary-button>
                             <a href="{{ route('price.index') }}" class="inline-flex items-center px-4 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-200">
