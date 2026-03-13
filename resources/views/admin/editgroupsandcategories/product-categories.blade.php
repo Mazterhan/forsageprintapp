@@ -45,7 +45,6 @@
                             @endphp
                             @foreach ($initialRows as $index => $row)
                                 <div class="entry-row">
-                                    <label class="block font-medium text-sm text-gray-700" for="category_{{ $index }}">{{ __('Категорія товарів') }}</label>
                                     <div class="mt-1 flex items-center gap-2">
                                         <input
                                             id="category_{{ $index }}"
@@ -55,7 +54,7 @@
                                             class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full category-input"
                                         >
                                         <select name="material_types[]" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-[180px] material-type-select">
-                                            <option value="">{{ __('Тип матеріалу') }}</option>
+                                            <option value="" disabled @selected(($row['material_type'] ?? '') === '') hidden>{{ __('Тип матеріалу') }}</option>
                                             @foreach ($materialTypeOptions as $option)
                                                 <option value="{{ $option }}" @selected(($row['material_type'] ?? '') === $option)>{{ $option }}</option>
                                             @endforeach
@@ -67,7 +66,6 @@
                                 </div>
                             @endforeach
                             <div class="entry-row">
-                                <label class="block font-medium text-sm text-gray-700" for="category_new">{{ __('Категорія товарів') }}</label>
                                 <div class="mt-1 flex items-center gap-2">
                                     <input
                                         id="category_new"
@@ -77,7 +75,7 @@
                                         class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full category-input"
                                     >
                                     <select name="material_types[]" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-[180px] material-type-select">
-                                        <option value="">{{ __('Тип матеріалу') }}</option>
+                                        <option value="" selected disabled hidden>{{ __('Тип матеріалу') }}</option>
                                         @foreach ($materialTypeOptions as $option)
                                             <option value="{{ $option }}">{{ $option }}</option>
                                         @endforeach
@@ -112,7 +110,6 @@
                 const wrapper = document.createElement('div');
                 wrapper.className = 'entry-row';
                 wrapper.innerHTML = `
-                    <label class="block font-medium text-sm text-gray-700" for="category_${index}">Категорія товарів</label>
                     <div class="mt-1 flex items-center gap-2">
                         <input
                             id="category_${index}"
@@ -122,7 +119,7 @@
                             class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full category-input"
                         >
                         <select name="material_types[]" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-[180px] material-type-select">
-                            <option value="">Тип матеріалу</option>
+                            <option value="" selected disabled hidden>Тип матеріалу</option>
                             <option value="Листовий">Листовий</option>
                             <option value="Рулонний">Рулонний</option>
                             <option value="Без типу матеріалу">Без типу матеріалу</option>
