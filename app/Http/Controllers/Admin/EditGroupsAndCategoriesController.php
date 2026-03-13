@@ -84,10 +84,11 @@ class EditGroupsAndCategoriesController extends Controller
         $categories = ProductCategory::query()
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->get(['name', 'material_type'])
+            ->get(['name', 'material_type', 'code'])
             ->map(fn (ProductCategory $category) => [
                 'name' => $category->name,
                 'material_type' => $category->material_type,
+                'code' => $category->code,
             ])
             ->all();
 
@@ -110,10 +111,13 @@ class EditGroupsAndCategoriesController extends Controller
             'categories.*' => ['nullable', 'string', 'max:255'],
             'material_types' => ['nullable', 'array'],
             'material_types.*' => ['nullable', 'string', 'in:Листовий,Рулонний,Без типу матеріалу'],
+            'category_codes' => ['nullable', 'array'],
+            'category_codes.*' => ['nullable', 'string', 'max:4', 'regex:/^[A-Za-z0-9]+$/'],
         ]);
         $validator->after(function ($validator) use ($request, $materialTypeOptions): void {
             $categories = (array) $request->input('categories', []);
             $materialTypes = (array) $request->input('material_types', []);
+            $categoryCodes = (array) $request->input('category_codes', []);
 
             foreach ($categories as $index => $name) {
                 $normalizedName = trim((string) $name);
@@ -126,6 +130,12 @@ class EditGroupsAndCategoriesController extends Controller
                     $validator->errors()->add('categories', __('Оберіть "Тип матеріалу" для кожної категорії товарів.'));
                     break;
                 }
+
+                $code = trim((string) ($categoryCodes[$index] ?? ''));
+                if ($code === '' || ! preg_match('/^[A-Za-z0-9]{1,4}$/', $code)) {
+                    $validator->errors()->add('categories', __('Задайте код . Тільки латинськи символи та(або) цифри!'));
+                    break;
+                }
             }
         });
 
@@ -136,6 +146,7 @@ class EditGroupsAndCategoriesController extends Controller
                 return [
                     'name' => trim((string) $name),
                     'material_type' => trim((string) (($data['material_types'][$index] ?? ''))),
+                    'code' => strtoupper(trim((string) (($data['category_codes'][$index] ?? '')))),
                 ];
             })
             ->filter(fn (array $row) => $row['name'] !== '')
@@ -163,6 +174,7 @@ class EditGroupsAndCategoriesController extends Controller
                 ->withInput([
                     'categories' => $uniqueRows->pluck('name')->all(),
                     'material_types' => $uniqueRows->pluck('material_type')->all(),
+                    'category_codes' => $uniqueRows->pluck('code')->all(),
                 ])
                 ->withErrors(['categories' => __('Знайдено дублікати. Кожна категорія товарів має бути унікальною.')]);
         }
@@ -176,6 +188,7 @@ class EditGroupsAndCategoriesController extends Controller
                 ProductCategory::create([
                     'name' => $row['name'],
                     'material_type' => $row['material_type'],
+                    'code' => $row['code'],
                     'sort_order' => $index + 1,
                 ]);
             }

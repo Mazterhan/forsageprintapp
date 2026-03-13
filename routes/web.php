@@ -139,6 +139,7 @@ Route::middleware('auth')
         Route::patch('/{priceItem}', [PriceController::class, 'update'])->name('update');
         Route::post('/{priceItem}/history/{history}/revert', [PriceController::class, 'revertHistory'])->name('history.revert');
         Route::patch('/{priceItem}/toggle', [PriceController::class, 'toggle'])->name('toggle');
+        Route::patch('/{priceItem}/hide', [PriceController::class, 'hide'])->name('hide');
     });
 
 Route::middleware('auth')->group(function () {

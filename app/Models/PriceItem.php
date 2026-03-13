@@ -25,6 +25,7 @@ class PriceItem extends Model
         'length_m',
         'thickness_mm',
         'is_active',
+        'visible',
     ];
 
     protected $casts = [
@@ -35,6 +36,7 @@ class PriceItem extends Model
         'thickness_mm' => 'decimal:2',
         'for_customer_material' => 'boolean',
         'is_active' => 'boolean',
+        'visible' => 'boolean',
     ];
 
     public function histories(): HasMany

@@ -34,11 +34,13 @@
                             @php
                                 $oldCategories = old('categories');
                                 $oldMaterialTypes = old('material_types');
+                                $oldCategoryCodes = old('category_codes');
                                 $initialRows = is_array($oldCategories)
-                                    ? collect($oldCategories)->map(function ($name, $index) use ($oldMaterialTypes) {
+                                    ? collect($oldCategories)->map(function ($name, $index) use ($oldMaterialTypes, $oldCategoryCodes) {
                                         return [
                                             'name' => $name,
                                             'material_type' => is_array($oldMaterialTypes) ? ($oldMaterialTypes[$index] ?? '') : '',
+                                            'code' => is_array($oldCategoryCodes) ? ($oldCategoryCodes[$index] ?? '') : '',
                                         ];
                                     })->all()
                                     : $categories;
@@ -59,6 +61,14 @@
                                                 <option value="{{ $option }}" @selected(($row['material_type'] ?? '') === $option)>{{ $option }}</option>
                                             @endforeach
                                         </select>
+                                        <input
+                                            name="category_codes[]"
+                                            type="text"
+                                            value="{{ $row['code'] ?? '' }}"
+                                            maxlength="4"
+                                            pattern="[A-Za-z0-9]{1,4}"
+                                            class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-[110px] category-code-input"
+                                        >
                                         <button type="button" class="remove-entry inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-50 whitespace-nowrap">
                                             {{ __('Удалить') }}
                                         </button>
@@ -80,6 +90,14 @@
                                             <option value="{{ $option }}">{{ $option }}</option>
                                         @endforeach
                                     </select>
+                                    <input
+                                        name="category_codes[]"
+                                        type="text"
+                                        value=""
+                                        maxlength="4"
+                                        pattern="[A-Za-z0-9]{1,4}"
+                                        class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-[110px] category-code-input"
+                                    >
                                     <button type="button" class="remove-entry inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-50 whitespace-nowrap">
                                         {{ __('Удалить') }}
                                     </button>
@@ -124,6 +142,14 @@
                             <option value="Рулонний">Рулонний</option>
                             <option value="Без типу матеріалу">Без типу матеріалу</option>
                         </select>
+                        <input
+                            name="category_codes[]"
+                            type="text"
+                            value=""
+                            maxlength="4"
+                            pattern="[A-Za-z0-9]{1,4}"
+                            class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-[110px] category-code-input"
+                        >
                         <button type="button" class="remove-entry inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-50 whitespace-nowrap">
                             Удалить
                         </button>
@@ -157,6 +183,10 @@
 
             container.addEventListener('input', (event) => {
                 if (!(event.target instanceof HTMLInputElement)) return;
+                if (event.target.classList.contains('category-code-input')) {
+                    event.target.value = event.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 4);
+                    return;
+                }
                 if (!event.target.classList.contains('category-input')) return;
                 ensureTrailingEmptyField();
                 syncRemoveButtons();
@@ -175,19 +205,32 @@
 
             form?.addEventListener('submit', (event) => {
                 const rows = Array.from(container.querySelectorAll('.entry-row'));
-                const hasMissingMaterialType = rows.some((row) => {
+                let hasMissingMaterialType = false;
+                let hasInvalidCode = false;
+
+                rows.forEach((row) => {
                     const categoryInput = row.querySelector('.category-input');
                     const materialTypeSelect = row.querySelector('.material-type-select');
-                    if (!(categoryInput instanceof HTMLInputElement)) return false;
-                    if (!(materialTypeSelect instanceof HTMLSelectElement)) return false;
-                    if (categoryInput.value.trim() === '') return false;
-                    return materialTypeSelect.value.trim() === '';
+                    const categoryCodeInput = row.querySelector('.category-code-input');
+                    if (!(categoryInput instanceof HTMLInputElement)) return;
+                    if (!(materialTypeSelect instanceof HTMLSelectElement)) return;
+                    if (!(categoryCodeInput instanceof HTMLInputElement)) return;
+                    if (categoryInput.value.trim() === '') return;
+                    const code = categoryCodeInput.value.trim();
+                    if (materialTypeSelect.value.trim() === '') {
+                        hasMissingMaterialType = true;
+                    }
+                    if (code === '' || !/^[A-Za-z0-9]{1,4}$/.test(code)) {
+                        hasInvalidCode = true;
+                    }
                 });
 
-                if (hasMissingMaterialType) {
+                if (hasMissingMaterialType || hasInvalidCode) {
                     event.preventDefault();
                     if (clientError) {
-                        clientError.textContent = 'Оберіть "Тип матеріалу" для кожної категорії товарів.';
+                        clientError.textContent = hasMissingMaterialType
+                            ? 'Оберіть "Тип матеріалу" для кожної категорії товарів.'
+                            : 'Задайте код . Тільки латинськи символи та(або) цифри!';
                         clientError.classList.remove('hidden');
                     }
                     return;

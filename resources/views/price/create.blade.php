@@ -26,7 +26,7 @@
                                 <x-input-error class="mt-2" :messages="$errors->get('name')" />
                             </div>
                             <div class="md:col-span-4">
-                                <x-input-label for="model_type" :value="__('Модел позиції')" />
+                                <x-input-label for="model_type" :value="__('Модель позиції')" />
                                 <select id="model_type" name="model_type" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
                                     <option value="" disabled @selected(old('model_type') === null) hidden>{{ __('Оберіть модель') }}</option>
                                     <option value="Матеріал" @selected(old('model_type') === 'Матеріал')>{{ __('Матеріал') }}</option>
@@ -59,14 +59,14 @@
 
                         <div id="price-row" class="grid grid-cols-1 md:grid-cols-12 gap-4">
                             <div class="md:col-span-3">
-                                <x-input-label for="service_price" :value="__('Розрахункова вартість')" />
-                                <x-text-input id="service_price" name="service_price" type="text" class="mt-1 block w-full" value="{{ old('service_price') }}" />
-                                <x-input-error class="mt-2" :messages="$errors->get('service_price')" />
-                            </div>
-                            <div class="md:col-span-3">
                                 <x-input-label for="purchase_price" :value="__('Закупівельна вартість')" />
                                 <x-text-input id="purchase_price" name="purchase_price" type="text" class="mt-1 block w-full" value="{{ old('purchase_price') }}" />
                                 <x-input-error class="mt-2" :messages="$errors->get('purchase_price')" />
+                            </div>
+                            <div class="md:col-span-3">
+                                <x-input-label for="service_price" :value="__('Розрахункова вартість')" />
+                                <x-text-input id="service_price" name="service_price" type="text" class="mt-1 block w-full" value="{{ old('service_price') }}" />
+                                <x-input-error class="mt-2" :messages="$errors->get('service_price')" />
                             </div>
                             <div class="md:col-span-2">
                                 <x-input-label for="markup_percent" :value="__('Націнка %')" />
@@ -100,7 +100,7 @@
                         </div>
 
                         <div class="flex items-center gap-4">
-                            <x-primary-button>{{ __('Додати позицію') }}</x-primary-button>
+                            <x-primary-button id="create-price-item-submit">{{ __('Додати позицію') }}</x-primary-button>
                             <a href="{{ route('price.index') }}" class="inline-flex items-center px-4 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-200">
                                 {{ __('Відхилити') }}
                             </a>
@@ -121,11 +121,13 @@
             const serviceToggleWrap = document.getElementById('service-toggle-wrap');
             const forCustomerInput = document.getElementById('for_customer_material');
             const forCustomerToggle = document.getElementById('for_customer_material_toggle');
+            const submitButton = document.getElementById('create-price-item-submit');
             const servicePriceInput = document.getElementById('service_price');
             const purchasePriceInput = document.getElementById('purchase_price');
             const markupPercentInput = document.getElementById('markup_percent');
             let isDirty = false;
             let isSyncingMarkup = false;
+            let isSubmitting = false;
 
             const syncForCustomerValue = () => {
                 if (!forCustomerToggle || !forCustomerInput) {
@@ -232,8 +234,15 @@
             });
 
             form?.addEventListener('submit', () => {
+                if (isSubmitting) {
+                    return;
+                }
+                isSubmitting = true;
                 syncForCustomerValue();
                 isDirty = false;
+                if (submitButton) {
+                    submitButton.setAttribute('disabled', 'disabled');
+                }
             });
 
             window.addEventListener('beforeunload', (event) => {
@@ -250,3 +259,4 @@
         })();
     </script>
 </x-app-layout>
+

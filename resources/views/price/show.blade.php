@@ -18,6 +18,21 @@
                     {{ __('Використовується для розрахунку з матеріалом замовника') }}
                 </div>
             @endif
+            @php
+                $formatCellNumber = static function ($value): string {
+                    if ($value === null) {
+                        return '';
+                    }
+                    $float = (float) $value;
+                    if (abs($float) < 0.00001) {
+                        return '';
+                    }
+                    if (abs($float - round($float)) < 0.00001) {
+                        return (string) (int) round($float);
+                    }
+                    return rtrim(rtrim(number_format($float, 2, '.', ''), '0'), '.');
+                };
+            @endphp
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 space-y-6">
@@ -27,7 +42,7 @@
                             <x-text-input type="text" class="mt-1 block w-full" :value="$item->name" disabled />
                         </div>
                         <div class="w-44 shrink-0">
-                            <x-input-label :value="__('Модел позиції')" />
+                            <x-input-label :value="__('Модель позиції')" />
                             <x-text-input type="text" class="mt-1 block w-full" :value="$item->model_type" disabled />
                         </div>
                         <div class="w-48 shrink-0">
@@ -60,7 +75,7 @@
                                     name="service_price"
                                     type="text"
                                     class="mt-1 block w-full"
-                                    :value="old('service_price', $item->service_price !== null ? number_format((float) $item->service_price, 2, '.', '') : '')"
+                                    :value="old('service_price', $formatCellNumber($item->service_price))"
                                 />
                                 <x-input-error class="mt-2" :messages="$errors->get('service_price')" />
                             </div>
@@ -71,7 +86,7 @@
                                     name="purchase_price"
                                     type="text"
                                     class="mt-1 block w-full"
-                                    :value="old('purchase_price', $item->purchase_price !== null ? number_format((float) $item->purchase_price, 2, '.', '') : '')"
+                                    :value="old('purchase_price', $formatCellNumber($item->purchase_price))"
                                 />
                                 <x-input-error class="mt-2" :messages="$errors->get('purchase_price')" />
                             </div>
@@ -82,7 +97,7 @@
                                     type="text"
                                     class="mt-1 block w-full"
                                     value="{{ $item->purchase_price !== null && (float) $item->purchase_price > 0 && $item->service_price !== null
-                                        ? number_format((((float) $item->service_price - (float) $item->purchase_price) / (float) $item->purchase_price) * 100, 2, '.', '')
+                                        ? $formatCellNumber((((float) $item->service_price - (float) $item->purchase_price) / (float) $item->purchase_price) * 100)
                                         : '' }}"
                                 />
                             </div>
@@ -110,6 +125,15 @@
                                 {{ $item->is_active ? __('Деактивувати') : __('Активувати') }}
                             </button>
                         </form>
+                        @if (! $item->is_active && $item->visible)
+                            <form method="POST" action="{{ route('price.hide', $item) }}">
+                                @csrf
+                                @method('PATCH')
+                                <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md text-sm text-white hover:bg-red-500">
+                                    {{ __('Видалити') }}
+                                </button>
+                            </form>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -179,6 +203,12 @@
             };
 
             const round2 = (value) => Math.round(value * 100) / 100;
+            const formatDisplay = (value) => {
+                if (!Number.isFinite(value) || Math.abs(value) < 0.00001) return '';
+                const rounded = round2(value);
+                if (Math.abs(rounded - Math.round(rounded)) < 0.00001) return String(Math.round(rounded));
+                return String(rounded).replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'');
+            };
 
             const syncMarkup = () => {
                 if (isSyncing) return;
@@ -188,7 +218,7 @@
                     markupPercentInput.value = '';
                     return;
                 }
-                markupPercentInput.value = round2(((service - purchase) / purchase) * 100).toFixed(2);
+                markupPercentInput.value = formatDisplay(((service - purchase) / purchase) * 100);
             };
 
             const syncServicePrice = () => {
@@ -198,7 +228,7 @@
                 if (!Number.isFinite(purchase) || purchase <= 0 || !Number.isFinite(markup)) return;
 
                 isSyncing = true;
-                servicePriceInput.value = round2(purchase * (1 + (markup / 100))).toFixed(2);
+                servicePriceInput.value = formatDisplay(purchase * (1 + (markup / 100)));
                 isSyncing = false;
             };
 
@@ -211,3 +241,4 @@
         })();
     </script>
 </x-app-layout>
+

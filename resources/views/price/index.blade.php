@@ -23,6 +23,73 @@
                         @csrf
                         @method('PATCH')
                     </form>
+                    @php
+                        $formatCellNumber = static function ($value): string {
+                            if ($value === null) {
+                                return '';
+                            }
+                            $float = (float) $value;
+                            if (abs($float) < 0.00001) {
+                                return '';
+                            }
+                            if (abs($float - round($float)) < 0.00001) {
+                                return (string) (int) round($float);
+                            }
+                            return rtrim(rtrim(number_format($float, 2, '.', ''), '0'), '.');
+                        };
+                    @endphp
+
+                    <form method="GET" action="{{ route('price.index') }}" class="mb-4 flex flex-wrap items-end gap-3">
+                        <div>
+                            <x-input-label for="search" :value="__('Пошук')" />
+                            <x-text-input
+                                id="search"
+                                name="search"
+                                type="text"
+                                class="mt-1 block"
+                                style="width: 500px;"
+                                :value="$search"
+                                placeholder="{{ __('Пошук за назвою товару або внутрішнім кодом') }}"
+                            />
+                        </div>
+                        <div>
+                            <x-input-label for="category" :value="__('Матеріал')" />
+                            <select id="category" name="category" class="mt-1 block w-52 border-gray-300 rounded-md shadow-sm">
+                                <option value="">{{ __('Усі') }}</option>
+                                @foreach ($categoryOptions as $option)
+                                    @if ($option === 'Послуга')
+                                        @continue
+                                    @endif
+                                    <option value="{{ $option }}" @selected($category === $option)>{{ $option }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <x-input-label for="status" :value="__('Статус')" />
+                            <select id="status" name="status" class="mt-1 block w-44 border-gray-300 rounded-md shadow-sm">
+                                <option value="">{{ __('Усі') }}</option>
+                                <option value="active" @selected($status === 'active')>{{ __('Активний') }}</option>
+                                <option value="inactive" @selected($status === 'inactive')>{{ __('Неактивний') }}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <x-input-label for="model_type_filter" :value="__('Модель позиції')" />
+                            <select id="model_type_filter" name="model_type" class="mt-1 block w-44 border-gray-300 rounded-md shadow-sm">
+                                <option value="">{{ __('Усі') }}</option>
+                                @foreach ($modelTypeOptions as $option)
+                                    <option value="{{ $option }}" @selected($modelType === $option)>{{ $option }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="ml-auto flex items-center gap-2 pb-[1px]">
+                            <button type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">
+                                {{ __('Застосувати') }}
+                            </button>
+                            <a href="{{ route('price.index') }}" class="inline-flex items-center px-4 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-200">
+                                {{ __('Скинути') }}
+                            </a>
+                        </div>
+                    </form>
 
                     <div class="w-full overflow-x-auto">
                         <table class="min-w-full w-full divide-y divide-gray-200">
@@ -113,15 +180,15 @@
                                                 {{ $item->name }}
                                             </a>
                                         </td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $item->category }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $item->category ?: ($item->model_type === 'Послуга' ? 'Послуга' : '') }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">
                                             <input
                                                 form="price-bulk-update-form"
                                                 type="text"
                                                 name="items[{{ $item->id }}][purchase_price]"
-                                                value="{{ $item->purchase_price !== null ? number_format((float) $item->purchase_price, 2, '.', '') : '0.00' }}"
+                                                value="{{ $formatCellNumber($item->purchase_price) }}"
                                                 class="price-edit-field price-purchase w-28 border-gray-300 rounded-md shadow-sm text-sm"
-                                                data-original="{{ $item->purchase_price !== null ? number_format((float) $item->purchase_price, 2, '.', '') : '0.00' }}"
+                                                data-original="{{ $formatCellNumber($item->purchase_price) }}"
                                                 data-row-id="{{ $item->id }}"
                                             />
                                         </td>
@@ -129,7 +196,7 @@
                                             @php
                                                 $rowMarkup = '';
                                                 if ($item->purchase_price !== null && (float) $item->purchase_price > 0 && $item->service_price !== null) {
-                                                    $rowMarkup = number_format((((float) $item->service_price - (float) $item->purchase_price) / (float) $item->purchase_price) * 100, 2, '.', '');
+                                                    $rowMarkup = $formatCellNumber((((float) $item->service_price - (float) $item->purchase_price) / (float) $item->purchase_price) * 100);
                                                 }
                                             @endphp
                                             <input
@@ -145,9 +212,9 @@
                                                 form="price-bulk-update-form"
                                                 type="text"
                                                 name="items[{{ $item->id }}][service_price]"
-                                                value="{{ $item->service_price !== null ? number_format((float) $item->service_price, 2, '.', '') : '0.00' }}"
+                                                value="{{ $formatCellNumber($item->service_price) }}"
                                                 class="price-edit-field price-service w-28 border-gray-300 rounded-md shadow-sm text-sm text-center"
-                                                data-original="{{ $item->service_price !== null ? number_format((float) $item->service_price, 2, '.', '') : '0.00' }}"
+                                                data-original="{{ $formatCellNumber($item->service_price) }}"
                                                 data-row-id="{{ $item->id }}"
                                             />
                                         </td>
@@ -195,6 +262,16 @@
             };
 
             const round2 = (value) => Math.round(value * 100) / 100;
+            const formatDisplay = (value) => {
+                if (!Number.isFinite(value) || Math.abs(value) < 0.00001) {
+                    return '';
+                }
+                const rounded = round2(value);
+                if (Math.abs(rounded - Math.round(rounded)) < 0.00001) {
+                    return String(Math.round(rounded));
+                }
+                return String(rounded).replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'');
+            };
 
             const markDirtyState = (input) => {
                 const original = String(input.dataset.original ?? '').trim();
@@ -218,7 +295,7 @@
                     const m = parseNumber(markup.value);
                     if (Number.isFinite(p) && p > 0 && Number.isFinite(m)) {
                         isSyncing = true;
-                        service.value = round2(p * (1 + (m / 100))).toFixed(2);
+                        service.value = formatDisplay(p * (1 + (m / 100)));
                         isSyncing = false;
                     }
                 } else {
@@ -226,7 +303,7 @@
                     const s = parseNumber(service.value);
                     if (Number.isFinite(p) && p > 0 && Number.isFinite(s)) {
                         isSyncing = true;
-                        markup.value = round2(((s - p) / p) * 100).toFixed(2);
+                        markup.value = formatDisplay(((s - p) / p) * 100);
                         isSyncing = false;
                     } else {
                         markup.value = '';
