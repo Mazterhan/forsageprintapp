@@ -18,7 +18,7 @@
                         </x-nav-link>
                     @endif
                     <x-nav-link :href="route('price.index')" :active="request()->routeIs('price.*')">
-                        {{ __('ПРАЙС2') }}
+                        {{ __('Прайс') }}
                     </x-nav-link>
                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                         <x-nav-link :href="route('admin.index')" :active="request()->routeIs('admin.index')">
@@ -86,7 +86,7 @@
                 </x-responsive-nav-link>
             @endif
             <x-responsive-nav-link :href="route('price.index')" :active="request()->routeIs('price.*')">
-                {{ __('ПРАЙС2') }}
+                {{ __('Прайс') }}
             </x-responsive-nav-link>
             @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                 <x-responsive-nav-link :href="route('admin.index')" :active="request()->routeIs('admin.index')">
