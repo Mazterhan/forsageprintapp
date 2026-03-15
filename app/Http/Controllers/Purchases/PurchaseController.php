@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Purchases;
-
+ 
 use App\Http\Controllers\Controller;
 use App\Models\PurchaseItem;
 use App\Models\Supplier;
