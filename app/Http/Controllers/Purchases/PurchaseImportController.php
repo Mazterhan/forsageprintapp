@@ -256,21 +256,14 @@ class PurchaseImportController extends Controller
                 if ($pricing) {
                     if ((float) $pricing->import_price !== (float) $item['price_vat']) {
                         $markupPercent = $pricing->markup_percent ?? 50;
-                        $markupWholesalePercent = $pricing->markup_wholesale_percent ?? 30;
-                        $markupVipPercent = $pricing->markup_vip_percent ?? 40;
-                    $markupPrice = $item['price_vat'] * (1 + ($markupPercent / 100));
-                    $wholesalePrice = $item['price_vat'] * (1 + ($markupWholesalePercent / 100));
-                    $vipPrice = $item['price_vat'] * (1 + ($markupVipPercent / 100));
+                        $markupPrice = $item['price_vat'] * (1 + ($markupPercent / 100));
 
-                    $pricing->update([
-                        'import_price' => $item['price_vat'],
-                        'markup_price' => $markupPrice,
-                        'wholesale_price' => $wholesalePrice,
-                        'vip_price' => $vipPrice,
-                        'last_changed_at' => now(),
-                    ]);
-
-                }
+                        $pricing->update([
+                            'import_price' => $item['price_vat'],
+                            'markup_price' => $markupPrice,
+                            'last_changed_at' => now(),
+                        ]);
+                    }
 
                 continue;
             }
@@ -280,11 +273,7 @@ class PurchaseImportController extends Controller
                 $resolvedProductGroup = $tariff?->product_group_id;
                 $resolvedSubcontractor = $tariff?->subcontractor_id;
                 $markupPercent = 50;
-                $markupWholesalePercent = 30;
-                $markupVipPercent = 40;
                 $markupPrice = $item['price_vat'] * (1 + ($markupPercent / 100));
-                $wholesalePrice = $item['price_vat'] * (1 + ($markupWholesalePercent / 100));
-                $vipPrice = $item['price_vat'] * (1 + ($markupVipPercent / 100));
 
                 PricingItem::create([
                     'internal_code' => $compareCode,
@@ -295,10 +284,6 @@ class PurchaseImportController extends Controller
                     'import_price' => $item['price_vat'],
                     'markup_percent' => $markupPercent,
                     'markup_price' => $markupPrice,
-                    'markup_wholesale_percent' => $markupWholesalePercent,
-                    'wholesale_price' => $wholesalePrice,
-                    'markup_vip_percent' => $markupVipPercent,
-                    'vip_price' => $vipPrice,
                     'last_changed_at' => now(),
                     'is_active' => true,
                     'supplier_id' => $supplierId,

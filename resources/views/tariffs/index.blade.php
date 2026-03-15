@@ -26,25 +26,6 @@
                             <label class="block font-medium text-sm text-gray-700" for="search">Пошук за назвою</label>
                             <input id="search" name="search" type="text" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full" value="{{ $filters['search'] }}" />
                         </div>
-                        <div class="flex-1 min-w-[180px]" x-data="{ open: false }">
-                            <label class="block font-medium text-sm text-gray-700">Показати додаткові ціни</label>
-                            <div class="relative mt-1">
-                                <button type="button" @click="open = !open" class="block w-full border border-gray-300 rounded-md shadow-sm bg-white text-sm text-gray-700 text-left px-3 py-2 pr-8">
-                                    {{ __('Вибрати ціни') }}
-                                </button>
-                                <svg class="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                                </svg>
-                                <div x-show="open" @click.outside="open = false" class="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-sm max-h-60 overflow-y-auto">
-                                    @foreach ($extraPriceOptions as $key => $label)
-                                        <label class="flex items-center gap-2 px-3 py-2 text-sm text-gray-700">
-                                            <input type="checkbox" name="extra_prices[]" value="{{ $key }}" class="rounded border-gray-300" @checked(in_array($key, $selectedExtraPrices, true))>
-                                            <span>{{ $label }}</span>
-                                        </label>
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
                         <div class="flex-1 min-w-[180px]">
                             <label class="block font-medium text-sm text-gray-700" for="category">Категорія</label>
                             <select id="category" name="category" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full">
@@ -155,23 +136,6 @@
                                             @endif
                                         </a>
                                     </th>
-                                    @foreach ($selectedExtraPrices as $extraKey)
-                                        @php
-                                            $extraLabel = $extraPriceOptions[$extraKey] ?? $extraKey;
-                                            $sortKey = $extraKey === 'wholesale' ? 'wholesale_price' : ($extraKey === 'urgent' ? 'urgent_price' : $extraKey);
-                                            $nextDirection = $currentSort === $sortKey && $currentDirection === 'asc' ? 'desc' : 'asc';
-                                        @endphp
-                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                                            <a href="{{ route('tariffs.index', array_merge(request()->query(), ['sort' => $sortKey, 'direction' => $nextDirection])) }}" class="inline-flex items-center gap-1 justify-center">
-                                                {{ $extraLabel }}
-                                                @if ($currentSort === $sortKey)
-                                                    <span class="text-gray-600">{{ $currentDirection === 'asc' ? '▲' : '▼' }}</span>
-                                                @else
-                                                    <span class="text-gray-400">↕</span>
-                                                @endif
-                                            </a>
-                                        </th>
-                                    @endforeach
                                     @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дія</th>
                                     @endif
@@ -189,16 +153,6 @@
                                         <td class="px-4 py-2 text-sm text-gray-700 text-right">{{ $tariff->category }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $tariff->productGroup?->name }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700 text-center">{{ number_format((float) $tariff->sale_price, 2, '.', '') }}</td>
-                                        @foreach ($selectedExtraPrices as $extraKey)
-                                            @php
-                                                $extraValue = $extraKey === 'wholesale'
-                                                    ? $tariff->wholesale_price
-                                                    : ($extraKey === 'urgent' ? $tariff->urgent_price : null);
-                                            @endphp
-                                            <td class="px-4 py-2 text-sm text-gray-700 text-center">
-                                                {{ $extraValue !== null ? number_format((float) $extraValue, 2, '.', '') : '' }}
-                                            </td>
-                                        @endforeach
                                         @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
                                             <td class="px-4 py-2 text-sm text-gray-700 text-center">
                                                 <form method="POST" action="{{ route('tariffs.deactivate', $tariff) }}">
@@ -213,7 +167,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">
+                                        <td colspan="{{ (Auth::user()->role === 'admin' || Auth::user()->role === 'manager') ? 6 : 5 }}" class="px-4 py-6 text-center text-sm text-gray-500">
                                             {{ __('No tariffs found.') }}
                                         </td>
                                     </tr>

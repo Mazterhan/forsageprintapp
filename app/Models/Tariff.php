@@ -33,16 +33,12 @@ class Tariff extends Model
         'subcontractor_id',
         'purchase_price',
         'sale_price',
-        'wholesale_price',
-        'urgent_price',
         'is_active',
     ];
 
     protected $casts = [
         'purchase_price' => 'decimal:4',
         'sale_price' => 'decimal:4',
-        'wholesale_price' => 'decimal:2',
-        'urgent_price' => 'decimal:2',
         'roll_width_m' => 'decimal:2',
         'roll_length_m' => 'decimal:2',
         'sheet_thickness_mm' => 'decimal:2',
@@ -59,11 +55,6 @@ class Tariff extends Model
     public function productGroup(): BelongsTo
     {
         return $this->belongsTo(ProductGroup::class);
-    }
-
-    public function clientPrices(): HasMany
-    {
-        return $this->hasMany(TariffClientPrice::class);
     }
 
     public function crossLinks(): HasMany

@@ -130,14 +130,6 @@
                                 <x-input-label for="sale_price" :value="__('Роздрібна ціна')" />
                                 <x-text-input id="sale_price" name="sale_price" type="text" class="mt-1 block w-full" value="{{ old('sale_price', $tariff->sale_price !== null ? number_format((float) $tariff->sale_price, 2, '.', '') : '') }}" />
                             </div>
-                            <div class="md:col-span-4">
-                                <x-input-label for="wholesale_price" :value="__('Оптова ціна')" />
-                                <x-text-input id="wholesale_price" name="wholesale_price" type="text" class="mt-1 block w-full" value="{{ old('wholesale_price', $tariff->wholesale_price !== null ? number_format((float) $tariff->wholesale_price, 2, '.', '') : '') }}" />
-                            </div>
-                            <div class="md:col-span-4">
-                                <x-input-label for="urgent_price" :value="__('VIP ціна')" />
-                                <x-text-input id="urgent_price" name="urgent_price" type="text" class="mt-1 block w-full" value="{{ old('urgent_price', $tariff->urgent_price !== null ? number_format((float) $tariff->urgent_price, 2, '.', '') : '') }}" />
-                            </div>
                         </div>
 
                         <div class="space-y-3">
@@ -224,10 +216,6 @@
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Закупівельна ціна</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка РЦ %</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Роздрібна ціна</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка Опт %</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Оптова ціна</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка VIP %</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">VIP ціна</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Внутрішній код</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Постачальник</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Користувач</th>
@@ -241,10 +229,6 @@
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $row->import_price !== null ? number_format((float) $row->import_price, 2, '.', '') : '' }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_percent !== null ? number_format((float) $row->markup_percent, 2, '.', '') : '' }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_price !== null ? number_format((float) $row->markup_price, 2, '.', '') : '' }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_wholesale_percent !== null ? number_format((float) $row->markup_wholesale_percent, 2, '.', '') : '' }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->wholesale_price !== null ? number_format((float) $row->wholesale_price, 2, '.', '') : '' }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_vip_percent !== null ? number_format((float) $row->markup_vip_percent, 2, '.', '') : '' }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->vip_price !== null ? number_format((float) $row->vip_price, 2, '.', '') : '' }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $row->internal_code }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $row->supplier?->name }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $row->user?->name }}</td>
@@ -265,7 +249,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="12" class="px-4 py-6 text-center text-sm text-gray-500">
+                                        <td colspan="8" class="px-4 py-6 text-center text-sm text-gray-500">
                                             {{ __('No history yet.') }}
                                         </td>
                                     </tr>

@@ -29,7 +29,6 @@
                     materialCategoryByMaterial: @js($materialCategoryByMaterial),
                     materialCategoriesByMaterial: @js($materialCategoriesByMaterial),
                     typeCategoryMatrix: @js($typeCategoryMatrix),
-                    priceOptions: @js($priceOptions),
                 })"
             >
                 <div class="sticky top-0 z-[9999] isolate overflow-visible border-2 border-gray-700 rounded-lg p-4 shadow-sm" style="background-color: #FCEEDF;">
@@ -79,15 +78,6 @@
                             </div>
                         </div>
 
-                        <div class="text-sm font-semibold text-gray-700">Прайс</div>
-                        <div class="min-w-[220px]">
-                            <select x-model="priceType" :disabled="isPriceTypeLocked" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500">
-                                <template x-for="option in priceOptions" :key="option.value">
-                                    <option :value="option.value" x-text="option.label"></option>
-                                </template>
-                            </select>
-                        </div>
-
                         <div class="text-sm font-semibold text-gray-700">Коефіцієнт терміновості</div>
                         <div class="w-[140px]">
                             <input
@@ -128,9 +118,9 @@
                                 </div>
 
                                 <div class="ml-4 text-sm font-semibold text-gray-700">Матеріал</div>
-                                <div class="w-[220px]">
+                                <div style="width: 330px;">
                                     <div class="relative" @click.outside="product.showMaterialDropdown = false">
-                                        <div class="relative overflow-hidden rounded-md">
+                                        <div class="mt-1 flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
                                             <input
                                                 x-model="product.materialQuery"
                                                 @input="onMaterialInputChanged(product); product.showMaterialDropdown = true"
@@ -140,14 +130,14 @@
                                                 type="text"
                                                 autocomplete="off"
                                                 :disabled="!product.productTypeId"
-                                                class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full pr-10 text-left disabled:bg-gray-100 disabled:text-gray-500"
+                                                class="block w-full border-0 bg-transparent pr-3 text-left focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
                                                 placeholder="Оберіть матеріал"
                                             />
                                             <button
                                                 type="button"
                                                 @click="if (product.productTypeId) { product.showMaterialDropdown = !product.showMaterialDropdown }"
                                                 :disabled="!product.productTypeId"
-                                                class="absolute inset-y-0 right-0 z-10 flex w-10 items-center justify-center rounded-r-md border-l border-gray-200 bg-white text-gray-500 hover:text-gray-700 disabled:bg-gray-100 disabled:text-gray-400"
+                                                class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
                                             >
                                                 <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                     <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -552,13 +542,10 @@
                 materialCategoryByMaterial: config.materialCategoryByMaterial || {},
                 materialCategoriesByMaterial: config.materialCategoriesByMaterial || {},
                 typeCategoryMatrix: config.typeCategoryMatrix || {},
-                priceOptions: config.priceOptions || [],
                 selectedClientId: '',
                 selectedClientQuery: '',
                 showClientDropdown: false,
-                priceType: 'retail',
                 urgencyCoefficient: '1.00',
-                isPriceTypeLocked: false,
                 products: [],
 
                 init() {
@@ -609,13 +596,6 @@
                     const client = this.clients.find((item) => String(item.id) === String(this.selectedClientId));
                     if (client) {
                         this.selectedClientQuery = client.name || '';
-                        this.priceType = client.price_type || 'retail';
-                        this.isPriceTypeLocked = true;
-                    } else {
-                        this.isPriceTypeLocked = false;
-                        if (!this.priceOptions.find((option) => option.value === this.priceType)) {
-                            this.priceType = 'retail';
-                        }
                     }
                 },
 
@@ -1039,14 +1019,7 @@
                         return false;
                     }
 
-                    if (this.isCustomerMaterial(material)) {
-                        return true;
-                    }
-                    if (this.isCustomerRollMaterial(material)) {
-                        return false;
-                    }
-
-                    return this.getMaterialType(material) !== 'Рулонний';
+                    return this.isCustomerMaterial(material);
                 },
 
                 noop() {

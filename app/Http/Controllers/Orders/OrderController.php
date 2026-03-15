@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Orders;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\PriceItem;
 use App\Models\ProductCategory;
 use App\Models\ProductTypeCategoryRule;
 use App\Models\ProductType;
-use App\Models\Tariff;
 use Illuminate\Http\Request;
 
 class OrderController extends Controller
@@ -22,20 +22,23 @@ class OrderController extends Controller
         $clients = Client::query()
             ->where('status', 'active')
             ->orderBy('name')
-            ->get(['id', 'name', 'price_type']);
+            ->get(['id', 'name']);
 
         $productTypes = ProductType::query()
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $materials = Tariff::query()
+        $materialItems = PriceItem::query()
             ->where('is_active', true)
-            ->whereHas('productGroup')
-            ->with('productGroup:id,name')
-            ->get()
-            ->pluck('productGroup.name')
-            ->filter()
+            ->where('visible', true)
+            ->where('model_type', 'Матеріал')
+            ->get(['name', 'category', 'material_type', 'thickness_mm']);
+
+        $materials = $materialItems
+            ->pluck('name')
+            ->map(fn ($name) => trim((string) $name))
+            ->filter(fn ($name) => $name !== '')
             ->unique()
             ->sort()
             ->values()
@@ -50,16 +53,11 @@ class OrderController extends Controller
 
         sort($materials, SORT_NATURAL | SORT_FLAG_CASE);
 
-        $thicknessByMaterial = Tariff::query()
-            ->where('is_active', true)
-            ->whereNotNull('sheet_thickness_mm')
-            ->whereHas('productGroup')
-            ->with('productGroup:id,name')
-            ->get()
-            ->groupBy(fn (Tariff $tariff) => (string) optional($tariff->productGroup)->name)
+        $thicknessByMaterial = $materialItems
+            ->groupBy(fn (PriceItem $item) => trim((string) $item->name))
             ->map(function ($items) {
                 return $items
-                    ->pluck('sheet_thickness_mm')
+                    ->pluck('thickness_mm')
                     ->filter(fn ($value) => $value !== null && $value !== '')
                     ->map(fn ($value) => number_format((float) $value, 2, '.', ''))
                     ->unique()
@@ -75,15 +73,18 @@ class OrderController extends Controller
             ->pluck('material_type', 'name')
             ->toArray();
 
-        $materialTypeByMaterial = Tariff::query()
-            ->where('is_active', true)
-            ->whereHas('productGroup')
-            ->with('productGroup:id,name')
-            ->get(['product_group_id', 'category'])
-            ->groupBy(fn (Tariff $tariff) => (string) optional($tariff->productGroup)->name)
+        $materialTypeByMaterial = $materialItems
+            ->groupBy(fn (PriceItem $item) => trim((string) $item->name))
             ->map(function ($items) use ($materialTypeByCategory) {
                 $types = $items
-                    ->map(fn (Tariff $tariff) => $materialTypeByCategory[$tariff->category] ?? null)
+                    ->map(function (PriceItem $item) use ($materialTypeByCategory) {
+                        $directType = trim((string) ($item->material_type ?? ''));
+                        if ($directType !== '') {
+                            return $directType;
+                        }
+                        $category = trim((string) ($item->category ?? ''));
+                        return $category !== '' ? ($materialTypeByCategory[$category] ?? null) : null;
+                    })
                     ->filter(fn ($type) => $type !== null && $type !== '')
                     ->unique()
                     ->values()
@@ -98,12 +99,8 @@ class OrderController extends Controller
             ->filter(fn ($type, $material) => $material !== '' && $type !== null)
             ->toArray();
 
-        $materialCategoryByMaterial = Tariff::query()
-            ->where('is_active', true)
-            ->whereHas('productGroup')
-            ->with('productGroup:id,name')
-            ->get(['product_group_id', 'category'])
-            ->groupBy(fn (Tariff $tariff) => (string) optional($tariff->productGroup)->name)
+        $materialCategoryByMaterial = $materialItems
+            ->groupBy(fn (PriceItem $item) => trim((string) $item->name))
             ->map(function ($items) {
                 $categories = $items
                     ->pluck('category')
@@ -125,12 +122,8 @@ class OrderController extends Controller
             ->filter(fn ($category, $material) => $material !== '' && $category !== null)
             ->toArray();
 
-        $materialCategoriesByMaterial = Tariff::query()
-            ->where('is_active', true)
-            ->whereHas('productGroup')
-            ->with('productGroup:id,name')
-            ->get(['product_group_id', 'category'])
-            ->groupBy(fn (Tariff $tariff) => (string) optional($tariff->productGroup)->name)
+        $materialCategoriesByMaterial = $materialItems
+            ->groupBy(fn (PriceItem $item) => trim((string) $item->name))
             ->map(function ($items) {
                 return $items
                     ->pluck('category')
@@ -164,11 +157,6 @@ class OrderController extends Controller
             'materialCategoryByMaterial' => $materialCategoryByMaterial,
             'materialCategoriesByMaterial' => $materialCategoriesByMaterial,
             'typeCategoryMatrix' => $typeCategoryMatrix,
-            'priceOptions' => [
-                ['value' => 'retail', 'label' => 'Роздрібна ціна'],
-                ['value' => 'wholesale', 'label' => 'Оптова ціна'],
-                ['value' => 'vip', 'label' => 'VIP ціна'],
-            ],
         ]);
     }
 

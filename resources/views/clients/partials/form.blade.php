@@ -30,15 +30,6 @@
             <label class="block font-medium text-sm text-gray-700" for="category">Категорія</label>
             <input id="category" name="category" type="text" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full" value="{{ old('category', $client->category ?? '') }}">
         </div>
-        <div>
-            <label class="block font-medium text-sm text-gray-700" for="price_type">Прайс</label>
-            <select id="price_type" name="price_type" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full" required>
-                <option value="">Оберіть</option>
-                <option value="retail" @selected(old('price_type', $client->price_type ?? '') === 'retail')>Роздрібна ціна</option>
-                <option value="wholesale" @selected(old('price_type', $client->price_type ?? '') === 'wholesale')>Оптова ціна</option>
-                <option value="vip" @selected(old('price_type', $client->price_type ?? '') === 'vip')>VIP ціна</option>
-            </select>
-        </div>
         <div class="flex items-center gap-2">
             <input type="hidden" name="is_vip" value="0">
             <input id="is_vip" name="is_vip" type="checkbox" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm" @checked(old('is_vip', $client->is_vip ?? false))>

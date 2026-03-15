@@ -12,6 +12,7 @@ class ProductCategory extends Model
     protected $fillable = [
         'name',
         'material_type',
+        'code',
         'sort_order',
     ];
 }
