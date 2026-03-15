@@ -28,6 +28,8 @@
                     materialTypeByMaterial: @js($materialTypeByMaterial),
                     materialCategoryByMaterial: @js($materialCategoryByMaterial),
                     materialCategoriesByMaterial: @js($materialCategoriesByMaterial),
+                    materialPriceByMaterial: @js($materialPriceByMaterial),
+                    servicePriceByCode: @js($servicePriceByCode),
                     typeCategoryMatrix: @js($typeCategoryMatrix),
                 })"
             >
@@ -229,7 +231,7 @@
                                             <input :disabled="!product.material" x-model="position.qty" @focus="clearDefaultZero($event, 'integer')" @blur="restoreDefaultOnBlur(position, 'qty', '0', $event)" @input="sanitizeIntegerInObject(position, 'qty', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500" />
                                         </div>
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
-                                            <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <input type="text" :value="formatMoney(getPositionCost(product, position))" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
                                     </div>
@@ -541,6 +543,8 @@
                 materialTypeByMaterial: config.materialTypeByMaterial || {},
                 materialCategoryByMaterial: config.materialCategoryByMaterial || {},
                 materialCategoriesByMaterial: config.materialCategoriesByMaterial || {},
+                materialPriceByMaterial: config.materialPriceByMaterial || {},
+                servicePriceByCode: config.servicePriceByCode || {},
                 typeCategoryMatrix: config.typeCategoryMatrix || {},
                 selectedClientId: '',
                 selectedClientQuery: '',
@@ -1195,6 +1199,127 @@
                         return '';
                     }
                     return digits.replace(/^0+(?=\d)/, '');
+                },
+
+                toNumber(value) {
+                    const normalized = String(value ?? '').replace(',', '.').trim();
+                    if (normalized === '') {
+                        return NaN;
+                    }
+                    const parsed = parseFloat(normalized);
+                    return Number.isFinite(parsed) ? parsed : NaN;
+                },
+
+                normalizeMoney(value) {
+                    return Math.round((value + Number.EPSILON) * 100) / 100;
+                },
+
+                formatMoney(value) {
+                    if (!Number.isFinite(value)) {
+                        return '';
+                    }
+                    return this.normalizeMoney(value).toFixed(2);
+                },
+
+                getUrgencyValue() {
+                    const value = this.toNumber(this.urgencyCoefficient);
+                    return Number.isFinite(value) && value > 0 ? value : NaN;
+                },
+
+                getMaterialPrice(material) {
+                    if (!material) {
+                        return NaN;
+                    }
+
+                    const price = this.materialPriceByMaterial[material];
+                    if (price === undefined || price === null) {
+                        return NaN;
+                    }
+
+                    const parsed = this.toNumber(price);
+                    return Number.isFinite(parsed) ? parsed : NaN;
+                },
+
+                getServicePriceByCode(code) {
+                    const price = this.servicePriceByCode?.[code];
+                    const parsed = this.toNumber(price);
+                    return Number.isFinite(parsed) ? parsed : 0;
+                },
+
+                getPositionAreaQty(position) {
+                    const width = this.toNumber(position.width);
+                    const height = this.toNumber(position.height);
+                    const qty = this.toNumber(position.qty);
+
+                    if (!Number.isFinite(width) || !Number.isFinite(height) || !Number.isFinite(qty)) {
+                        return NaN;
+                    }
+
+                    return width * height * qty;
+                },
+
+                resolveMaterialPriceForProduct(product) {
+                    if (this.isCustomerMaterial(product.material) || this.isCustomerRollMaterial(product.material)) {
+                        return 0;
+                    }
+
+                    return this.getMaterialPrice(product.material);
+                },
+
+                getPositionCost(product, position) {
+                    if (!product?.productTypeId || !product?.material) {
+                        return NaN;
+                    }
+
+                    const areaQty = this.getPositionAreaQty(position);
+                    const urgency = this.getUrgencyValue();
+                    if (!Number.isFinite(areaQty) || !Number.isFinite(urgency)) {
+                        return NaN;
+                    }
+
+                    const isUv = this.isProductType(product.productTypeId, 'УФ друк');
+                    const isSolvent = this.isProductType(product.productTypeId, 'Сольвентний друк');
+                    const isCutOnly = this.isProductType(product.productTypeId, 'Чиста порізка');
+
+                    let baseUnitPrice = NaN;
+
+                    if (isUv) {
+                        const cmyk = this.toNumber(position.cmyk);
+                        const white = this.toNumber(position.white);
+                        if (!Number.isFinite(cmyk) || !Number.isFinite(white)) {
+                            return NaN;
+                        }
+
+                        const uvPrintLayerPrice = this.getServicePriceByCode('SERV-011');
+                        const materialPrice = this.resolveMaterialPriceForProduct(product);
+                        if (!Number.isFinite(materialPrice)) {
+                            return NaN;
+                        }
+
+                        baseUnitPrice = ((cmyk + white) * uvPrintLayerPrice) + materialPrice;
+                    } else if (isSolvent) {
+                        const solventServicePrice = this.getServicePriceByCode('SERV-012');
+                        let materialPrice = this.getMaterialPrice(product.material);
+                        if (this.isCustomerRollMaterial(product.material)) {
+                            materialPrice = 0;
+                        }
+                        if (!Number.isFinite(materialPrice)) {
+                            return NaN;
+                        }
+
+                        baseUnitPrice = solventServicePrice + materialPrice;
+                    } else if (isCutOnly) {
+                        const materialPrice = this.resolveMaterialPriceForProduct(product);
+                        if (!Number.isFinite(materialPrice)) {
+                            return NaN;
+                        }
+
+                        baseUnitPrice = materialPrice;
+                    } else {
+                        return NaN;
+                    }
+
+                    return this.normalizeMoney(baseUnitPrice * areaQty * urgency);
                 },
             };
         }

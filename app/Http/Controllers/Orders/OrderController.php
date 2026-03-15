@@ -33,7 +33,7 @@ class OrderController extends Controller
             ->where('is_active', true)
             ->where('visible', true)
             ->where('model_type', 'Матеріал')
-            ->get(['name', 'category', 'material_type', 'thickness_mm']);
+            ->get(['name', 'category', 'material_type', 'thickness_mm', 'service_price']);
 
         $materials = $materialItems
             ->pluck('name')
@@ -136,6 +136,28 @@ class OrderController extends Controller
             ->filter(fn ($categories, $material) => $material !== '' && !empty($categories))
             ->toArray();
 
+        $materialPriceByMaterial = $materialItems
+            ->groupBy(fn (PriceItem $item) => trim((string) $item->name))
+            ->map(function ($items) {
+                $price = $items
+                    ->pluck('service_price')
+                    ->filter(fn ($value) => $value !== null && $value !== '')
+                    ->map(fn ($value) => round((float) $value, 2))
+                    ->first();
+
+                return $price ?? 0.0;
+            })
+            ->filter(fn ($price, $material) => $material !== '')
+            ->toArray();
+
+        $servicePriceByCode = PriceItem::query()
+            ->where('is_active', true)
+            ->where('visible', true)
+            ->whereIn('internal_code', ['SERV-011', 'SERV-012'])
+            ->pluck('service_price', 'internal_code')
+            ->map(fn ($value) => round((float) ($value ?? 0), 2))
+            ->toArray();
+
         $typeCategoryMatrix = ProductTypeCategoryRule::query()
             ->with(['productType:id', 'productCategory:id,name'])
             ->get()
@@ -156,6 +178,8 @@ class OrderController extends Controller
             'materialTypeByMaterial' => $materialTypeByMaterial,
             'materialCategoryByMaterial' => $materialCategoryByMaterial,
             'materialCategoriesByMaterial' => $materialCategoriesByMaterial,
+            'materialPriceByMaterial' => $materialPriceByMaterial,
+            'servicePriceByCode' => $servicePriceByCode,
             'typeCategoryMatrix' => $typeCategoryMatrix,
         ]);
     }
