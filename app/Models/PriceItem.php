@@ -40,6 +40,11 @@ class PriceItem extends Model
         'visible' => 'boolean',
     ];
 
+    public function getRouteKeyName(): string
+    {
+        return 'internal_code';
+    }
+
     public function histories(): HasMany
     {
         return $this->hasMany(PriceItemHistory::class)->latest('created_at');

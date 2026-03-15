@@ -105,7 +105,7 @@ class PriceController extends Controller
 
         return view('price.index', [
             'items' => $items,
-            'title' => __('Прайс2: роздрібна ціна'),
+            'title' => __('Прайс товарів та послуг'),
             'sort' => $sort,
             'direction' => $direction,
             'search' => $search,
