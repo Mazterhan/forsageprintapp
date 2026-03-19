@@ -750,6 +750,11 @@
                         return true;
                     }
 
+                    const materialCategory = this.normalizeText(this.getMaterialCategory(material));
+                    if (materialCategory === 'скотч') {
+                        return false;
+                    }
+
                     if (this.isFilmMaterialRestrictedByType(material) && !this.isProductType(product.productTypeId, 'Сольвентний друк')) {
                         return false;
                     }
@@ -1039,16 +1044,30 @@
 
                 getCuttingOptions(product) {
                     const scenario = this.getServiceScenario(product);
+                    const materialCategory = this.normalizeText(this.getMaterialCategory(product.material));
+
+                    let options = [];
 
                     if (scenario === 'sheet') {
-                        return ['Фреза', 'Лазер'];
+                        options = ['Фреза', 'Лазер'];
+                    } else if (scenario === 'roll_other' || scenario === 'customer_roll') {
+                        options = ['Плотер'];
+                    } else {
+                        options = ['Фреза', 'Лазер', 'Плотер'];
                     }
 
-                    if (scenario === 'roll_other' || scenario === 'customer_roll') {
-                        return ['Плотер'];
+                    // Business restrictions by selected material category:
+                    // - Картон: Фреза недоступна
+                    // - ПВХ або Композит: Лазер недоступний
+                    if (materialCategory === 'картон') {
+                        options = options.filter((option) => option !== 'Фреза');
                     }
 
-                    return ['Фреза', 'Лазер', 'Плотер'];
+                    if (materialCategory === 'пвх' || materialCategory === 'композит') {
+                        options = options.filter((option) => option !== 'Лазер');
+                    }
+
+                    return options;
                 },
 
                 ensureCuttingValue(product) {

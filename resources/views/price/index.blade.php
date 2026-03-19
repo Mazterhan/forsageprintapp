@@ -39,7 +39,7 @@
                         };
                     @endphp
 
-                    <form method="GET" action="{{ route('price.index') }}" class="mb-4 flex flex-wrap items-end gap-3">
+                    <form id="price-filter-form" method="GET" action="{{ route('price.index') }}" class="mb-4 flex flex-wrap items-end gap-3">
                         <div>
                             <x-input-label for="search" :value="__('Пошук')" />
                             <x-text-input
@@ -249,6 +249,16 @@
 
     <script>
         (function () {
+            const filterForm = document.getElementById('price-filter-form');
+            const autoFilterSelectIds = ['category', 'status', 'model_type_filter'];
+            autoFilterSelectIds.forEach((id) => {
+                const select = document.getElementById(id);
+                if (!select || !filterForm) return;
+                select.addEventListener('change', () => {
+                    filterForm.submit();
+                });
+            });
+
             const purchaseInputs = Array.from(document.querySelectorAll('.price-purchase'));
             const serviceInputs = Array.from(document.querySelectorAll('.price-service'));
             const markupInputs = Array.from(document.querySelectorAll('.price-markup'));
