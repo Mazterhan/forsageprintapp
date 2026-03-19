@@ -181,6 +181,34 @@
             };
 
             const round2 = (value) => Math.round(value * 100) / 100;
+            const trimDecimalDisplay = (value) => {
+                if (value === null || value === undefined) return '';
+                const normalized = String(value).trim();
+                if (normalized === '') return '';
+                return normalized.replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'');
+            };
+            const sanitizeThicknessValue = (raw) => {
+                let value = String(raw || '').replace(',', '.').replace(/[^0-9.]/g, '');
+                const firstDot = value.indexOf('.');
+                if (firstDot !== -1) {
+                    value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, '');
+                    const decimals = value.slice(firstDot + 1);
+                    if (decimals.length > 1) {
+                        value = value.slice(0, firstDot + 1) + decimals.slice(0, 1);
+                    }
+                }
+                if (value.startsWith('.')) {
+                    value = '0' + value;
+                }
+                if (value.includes('.')) {
+                    const [intPart, decPart] = value.split('.', 2);
+                    const normalizedInt = intPart.replace(/^0+(?=\d)/, '') || '0';
+                    value = normalizedInt + '.' + (decPart ?? '');
+                } else {
+                    value = value.replace(/^0+(?=\d)/, '');
+                }
+                return trimDecimalDisplay(value);
+            };
 
             const syncMarkupFromPrices = () => {
                 if (isSyncingMarkup) {
@@ -244,6 +272,16 @@
             category?.addEventListener('change', () => {
                 updateMaterialType();
                 isDirty = true;
+            });
+
+            thicknessInput?.addEventListener('input', (event) => {
+                const sanitized = sanitizeThicknessValue(event.target.value);
+                thicknessInput.value = sanitized;
+                isDirty = true;
+            });
+
+            thicknessInput?.addEventListener('blur', () => {
+                thicknessInput.value = sanitizeThicknessValue(thicknessInput.value);
             });
 
             form?.addEventListener('input', () => {

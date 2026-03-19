@@ -166,38 +166,6 @@
                                     </div>
                                 </div>
 
-                                <template x-if="showThicknessForMaterial(product.material)">
-                                    <div class="ml-4 flex items-end gap-3 shrink-0">
-                                        <div class="text-sm font-semibold text-gray-700 whitespace-nowrap">Товщина матеріалу (мм)</div>
-                                        <div class="w-[220px]">
-                                            <template x-if="!isCustomerMaterial(product.material)">
-                                                <select
-                                                    x-model="product.thickness"
-                                                    :disabled="!product.productTypeId || isSingleThicknessOption(product.material)"
-                                                    class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500"
-                                                >
-                                                    <option value="">Оберіть товщину</option>
-                                                    <template x-for="thicknessValue in getThicknessOptions(product.material)" :key="thicknessValue">
-                                                        <option :value="thicknessValue" x-text="thicknessValue"></option>
-                                                    </template>
-                                                </select>
-                                            </template>
-                                            <template x-if="isCustomerMaterial(product.material)">
-                                                <div>
-                                                    <p x-show="product.manualThicknessError" class="mb-1 text-xs text-red-600" x-text="product.manualThicknessError"></p>
-                                                    <input
-                                                        x-model="product.manualThickness"
-                                                        @input="onManualThicknessInput(product, $event)"
-                                                        type="text"
-                                                        inputmode="numeric"
-                                                        :disabled="!product.productTypeId"
-                                                        class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500"
-                                                    />
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </div>
-                                </template>
                             </div>
 
                             <template x-for="(position, positionIndex) in product.positions" :key="position.uid">
@@ -320,6 +288,50 @@
                                                 <option :value="option" x-text="option"></option>
                                             </template>
                                         </select>
+                                        <template x-if="getMaterialType(product.material) === 'Листовий'">
+                                            <div class="ml-4 flex items-center gap-3">
+                                                <div class="text-sm text-gray-700 whitespace-nowrap">Товщина обраного матеріалу (мм)</div>
+                                                <input
+                                                    type="text"
+                                                    :value="getSelectedMaterialThickness(product)"
+                                                    disabled
+                                                    class="w-[120px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700"
+                                                />
+                                            </div>
+                                        </template>
+                                        <template x-if="showThicknessForMaterial(product.material)">
+                                            <div class="ml-4 flex items-center gap-3">
+                                                <div class="text-sm text-gray-700 whitespace-nowrap">Товщина матеріалу (мм)</div>
+                                                <div class="w-[220px]">
+                                                    <template x-if="!isCustomerMaterial(product.material)">
+                                                        <select
+                                                            x-model="product.thickness"
+                                                            :disabled="!product.productTypeId || isSingleThicknessOption(product.material) || product.services.cutting === 'Без порізки'"
+                                                            class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500"
+                                                        >
+                                                            <option value="">Оберіть товщину</option>
+                                                            <template x-for="thicknessValue in getThicknessOptions(product.material)" :key="thicknessValue">
+                                                                <option :value="thicknessValue" x-text="thicknessValue"></option>
+                                                            </template>
+                                                        </select>
+                                                    </template>
+                                                    <template x-if="isCustomerMaterial(product.material)">
+                                                        <div>
+                                                            <p x-show="product.manualThicknessError" class="mb-1 text-xs text-red-600" x-text="product.manualThicknessError"></p>
+                                                            <input
+                                                                x-model="product.manualThickness"
+                                                                @input="onManualThicknessInput(product, $event)"
+                                                                @blur="onManualThicknessBlur(product, $event)"
+                                                                type="text"
+                                                                inputmode="decimal"
+                                                                :disabled="!product.productTypeId || product.services.cutting === 'Без порізки'"
+                                                                class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500"
+                                                            />
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
                                     </div>
                                     <div x-show="product.services.cutting !== 'Без порізки'" class="flex flex-wrap items-end gap-3">
                                         <div class="text-sm text-gray-700">Довжина порізки(м.п.)</div>
@@ -1046,6 +1058,21 @@
                     return this.thicknessByMaterial[material] || [];
                 },
 
+                getSelectedMaterialThickness(product) {
+                    if (!product?.material || this.getMaterialType(product.material) !== 'Листовий') {
+                        return '';
+                    }
+                    const selected = String(product.thickness ?? '').trim();
+                    if (selected !== '') {
+                        return selected;
+                    }
+                    const options = this.getThicknessOptions(product.material);
+                    if (Array.isArray(options) && options.length === 1) {
+                        return String(options[0] ?? '').trim();
+                    }
+                    return '';
+                },
+
                 isSingleThicknessOption(material) {
                     return this.getThicknessOptions(material).length === 1;
                 },
@@ -1084,15 +1111,23 @@
                 },
 
                 onManualThicknessInput(product, event) {
-                    const value = String(event.target.value || '');
+                    const value = this.sanitizeThicknessValue(event.target.value);
                     product.manualThickness = value;
+                    event.target.value = value;
 
                     if (value === '') {
                         product.manualThicknessError = '';
                         return;
                     }
 
-                    product.manualThicknessError = /^\d+$/.test(value) ? '' : 'Дозволені лише цілі числа.';
+                    product.manualThicknessError = '';
+                },
+
+                onManualThicknessBlur(product, event) {
+                    const value = this.sanitizeThicknessValue(event.target.value);
+                    product.manualThickness = value;
+                    event.target.value = value;
+                    product.manualThicknessError = '';
                 },
 
                 sanitizeDecimalField(event, fieldName) {
@@ -1191,6 +1226,37 @@
                         value = value.replace(/^0+(?=\d)/, '');
                     }
                     return value;
+                },
+
+                trimDecimalDisplay(value) {
+                    const normalized = String(value ?? '').trim();
+                    if (normalized === '') {
+                        return '';
+                    }
+                    return normalized.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+                },
+
+                sanitizeThicknessValue(raw) {
+                    let value = String(raw || '').replace(',', '.').replace(/[^0-9.]/g, '');
+                    const firstDot = value.indexOf('.');
+                    if (firstDot !== -1) {
+                        value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, '');
+                        const decimals = value.slice(firstDot + 1);
+                        if (decimals.length > 1) {
+                            value = value.slice(0, firstDot + 1) + decimals.slice(0, 1);
+                        }
+                    }
+                    if (value.startsWith('.')) {
+                        value = '0' + value;
+                    }
+                    if (value.includes('.')) {
+                        const [intPart, decPart] = value.split('.', 2);
+                        const normalizedInt = intPart.replace(/^0+(?=\d)/, '') || '0';
+                        value = normalizedInt + '.' + (decPart ?? '');
+                    } else {
+                        value = value.replace(/^0+(?=\d)/, '');
+                    }
+                    return this.trimDecimalDisplay(value);
                 },
 
                 sanitizeIntegerValue(raw) {

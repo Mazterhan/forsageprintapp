@@ -167,6 +167,12 @@ class PriceController extends Controller
                 if ($selectedMaterialType === 'Листовий' && ($thicknessRaw === null || trim((string) $thicknessRaw) === '')) {
                     $validator->errors()->add('thickness_mm', __('Поле "Товщина (мм)" є обовʼязковим для типу "Листовий".'));
                 }
+                if ($thicknessRaw !== null && trim((string) $thicknessRaw) !== '') {
+                    $normalizedThickness = str_replace(',', '.', trim((string) $thicknessRaw));
+                    if (!preg_match('/^\d+(\.\d{1})?$/', $normalizedThickness)) {
+                        $validator->errors()->add('thickness_mm', __('Поле "Товщина (мм)" має містити число з точністю до 1 знака після крапки.'));
+                    }
+                }
             }
 
             $name = trim((string) $request->input('name'));
@@ -225,7 +231,9 @@ class PriceController extends Controller
                 'for_customer_material' => $forCustomerMaterial,
                 'width_m' => $modelType === 'Матеріал' ? ($data['width_m'] ?? null) : null,
                 'length_m' => $modelType === 'Матеріал' ? ($data['length_m'] ?? null) : null,
-                'thickness_mm' => $modelType === 'Матеріал' ? ($data['thickness_mm'] ?? null) : null,
+                'thickness_mm' => $modelType === 'Матеріал' && isset($data['thickness_mm']) && trim((string) $data['thickness_mm']) !== ''
+                    ? $this->parseThicknessDecimal($data['thickness_mm'])
+                    : null,
                 'is_active' => true,
                 'visible' => true,
             ]);
@@ -433,6 +441,11 @@ class PriceController extends Controller
     private function parseDecimal(mixed $value): float
     {
         return round((float) str_replace(',', '.', (string) $value), 2);
+    }
+
+    private function parseThicknessDecimal(mixed $value): float
+    {
+        return round((float) str_replace(',', '.', (string) $value), 1);
     }
 
     private function recordHistory(PriceItem $item, float $servicePrice, float $purchasePrice, int $userId): void
