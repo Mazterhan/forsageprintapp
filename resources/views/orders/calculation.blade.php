@@ -316,17 +316,25 @@
                                                         </select>
                                                     </template>
                                                     <template x-if="isCustomerMaterial(product.material)">
-                                                        <div>
-                                                            <p x-show="product.manualThicknessError" class="mb-1 text-xs text-red-600" x-text="product.manualThicknessError"></p>
-                                                            <input
-                                                                x-model="product.manualThickness"
-                                                                @input="onManualThicknessInput(product, $event)"
-                                                                @blur="onManualThicknessBlur(product, $event)"
-                                                                type="text"
-                                                                inputmode="decimal"
-                                                                :disabled="!product.productTypeId || product.services.cutting === 'Без порізки'"
-                                                                class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500"
-                                                            />
+                                                        <div class="space-y-1">
+                                                            <div class="flex items-center gap-3 min-w-0">
+                                                                <input
+                                                                    x-model="product.manualThickness"
+                                                                    @input="onManualThicknessInput(product, $event)"
+                                                                    @blur="onManualThicknessBlur(product, $event)"
+                                                                    type="text"
+                                                                    inputmode="decimal"
+                                                                    :disabled="!product.productTypeId || product.services.cutting === 'Без порізки'"
+                                                                    class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block shrink-0 disabled:bg-gray-100 disabled:text-gray-500"
+                                                                />
+                                                                <span
+                                                                    x-show="product.services.cutting !== 'Без порізки' && !String(product.manualThickness || '').trim()"
+                                                                    class="text-sm font-semibold text-red-600 whitespace-nowrap"
+                                                                >
+                                                                    Для листового матеріалу замовника необхідно вказати товщину у мм.
+                                                                </span>
+                                                            </div>
+                                                            <p x-show="product.manualThicknessError" class="text-xs text-red-600" x-text="product.manualThicknessError"></p>
                                                         </div>
                                                     </template>
                                                 </div>
