@@ -3,22 +3,42 @@
 namespace App\Http\Controllers\Orders;
 
 use App\Http\Controllers\Controller;
+use App\Models\PriceItem;
 use App\Models\ProductCategory;
 use App\Models\ProductTypeCategoryRule;
 use App\Models\ProductType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class ProductTypeController extends Controller
 {
     public function index(): View
     {
-        $types = ProductType::query()
+        $hasServiceInternalCodeColumn = Schema::hasColumn('product_types', 'service_internal_code');
+
+        $typesQuery = ProductType::query()
             ->orderBy('sort_order')
-            ->orderBy('id')
-            ->pluck('name')
+            ->orderBy('id');
+
+        if ($hasServiceInternalCodeColumn) {
+            $typesQuery->select(['id', 'name', 'service_internal_code']);
+        } else {
+            $typesQuery->select(['id', 'name']);
+        }
+
+        $types = $typesQuery->get();
+
+        $typeNames = $types->pluck('name')->all();
+
+        $serviceInternalCodes = PriceItem::query()
+            ->where('model_type', 'Послуга')
+            ->where('is_active', true)
+            ->where('visible', true)
+            ->orderBy('internal_code')
+            ->pluck('internal_code')
             ->all();
 
         $categories = ProductCategory::query()
@@ -27,7 +47,7 @@ class ProductTypeController extends Controller
             ->get(['id', 'name']);
 
         $rules = [];
-        if (!empty($types) && $categories->isNotEmpty()) {
+        if (!empty($typeNames) && $categories->isNotEmpty()) {
             $rules = ProductTypeCategoryRule::query()
                 ->with('productType:id,name')
                 ->whereIn('product_category_id', $categories->pluck('id'))
@@ -45,6 +65,8 @@ class ProductTypeController extends Controller
 
         return view('orders.product-types.index', [
             'types' => $types,
+            'typeNames' => $typeNames,
+            'serviceInternalCodes' => $serviceInternalCodes,
             'categories' => $categories,
             'rules' => $rules,
         ]);
@@ -55,12 +77,24 @@ class ProductTypeController extends Controller
         $data = $request->validate([
             'types' => ['nullable', 'array'],
             'types.*' => ['nullable', 'string', 'max:255'],
+            'service_codes' => ['nullable', 'array'],
+            'service_codes.*' => ['nullable', 'string', 'max:64'],
             'matrix' => ['nullable', 'array'],
         ]);
 
         $rawTypes = collect($data['types'] ?? [])
-            ->map(fn ($value) => trim((string) $value))
-            ->filter(fn ($value) => $value !== '')
+            ->map(fn ($value) => trim((string) $value));
+
+        $rawServiceCodes = collect($data['service_codes'] ?? []);
+
+        $typeRows = $rawTypes
+            ->map(function (string $typeName, int $index) use ($rawServiceCodes): array {
+                return [
+                    'name' => trim($typeName),
+                    'service_internal_code' => trim((string) ($rawServiceCodes->get($index, ''))),
+                ];
+            })
+            ->filter(fn (array $row) => $row['name'] !== '')
             ->values();
 
         $normalize = static fn (string $value): string => function_exists('mb_strtolower')
@@ -69,8 +103,8 @@ class ProductTypeController extends Controller
 
         $seen = [];
         $hasDuplicates = false;
-        $uniqueTypes = $rawTypes->filter(function (string $value) use (&$seen, &$hasDuplicates, $normalize): bool {
-            $key = $normalize($value);
+        $uniqueTypes = $typeRows->filter(function (array $row) use (&$seen, &$hasDuplicates, $normalize): bool {
+            $key = $normalize($row['name']);
             if (isset($seen[$key])) {
                 $hasDuplicates = true;
                 return false;
@@ -83,7 +117,8 @@ class ProductTypeController extends Controller
             return redirect()
                 ->route('orders.product-types.index')
                 ->withInput([
-                    'types' => $uniqueTypes->all(),
+                    'types' => $uniqueTypes->pluck('name')->all(),
+                    'service_codes' => $uniqueTypes->pluck('service_internal_code')->all(),
                     'matrix' => (array) ($data['matrix'] ?? []),
                 ])
                 ->withErrors(['types' => __('Знайдено дублікати. Кожен тип виробу має бути унікальним.')]);
@@ -95,11 +130,17 @@ class ProductTypeController extends Controller
         DB::transaction(function () use ($types, $matrixRaw): void {
             ProductType::query()->delete();
 
-            foreach ($types as $index => $name) {
-                ProductType::create([
-                    'name' => $name,
+            foreach ($types as $index => $typeRow) {
+                $payload = [
+                    'name' => $typeRow['name'],
                     'sort_order' => $index + 1,
-                ]);
+                ];
+
+                if (Schema::hasColumn('product_types', 'service_internal_code')) {
+                    $payload['service_internal_code'] = ($typeRow['service_internal_code'] !== '' ? $typeRow['service_internal_code'] : null);
+                }
+
+                ProductType::create($payload);
             }
 
             ProductTypeCategoryRule::query()->delete();

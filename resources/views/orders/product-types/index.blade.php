@@ -32,9 +32,18 @@
                         <div id="type-fields" class="space-y-3">
                             @php
                                 $oldTypes = old('types');
-                                $initialTypes = is_array($oldTypes) ? $oldTypes : $types;
+                                $oldServiceCodes = old('service_codes');
+                                $initialRows = is_array($oldTypes)
+                                    ? collect($oldTypes)->map(fn ($name, $idx) => [
+                                        'name' => $name,
+                                        'service_internal_code' => is_array($oldServiceCodes) ? ($oldServiceCodes[$idx] ?? '') : '',
+                                    ])->all()
+                                    : $types->map(fn ($type) => [
+                                        'name' => $type->name,
+                                        'service_internal_code' => $type->service_internal_code ?? '',
+                                    ])->all();
                             @endphp
-                            @foreach ($initialTypes as $index => $type)
+                            @foreach ($initialRows as $index => $type)
                                 <div class="entry-row">
                                     <label class="block font-medium text-sm text-gray-700" for="type_{{ $index }}">
                                         {{ __('Тип виробу') }}
@@ -44,9 +53,20 @@
                                             id="type_{{ $index }}"
                                             name="types[]"
                                             type="text"
-                                            value="{{ $type }}"
+                                            value="{{ $type['name'] }}"
                                             class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full product-type-input"
                                         >
+                                        <select
+                                            name="service_codes[]"
+                                            class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-56 service-code-select"
+                                        >
+                                            <option value="">{{ __('Внутрішній код послуги') }}</option>
+                                            @foreach ($serviceInternalCodes as $serviceCode)
+                                                <option value="{{ $serviceCode }}" {{ (($type['service_internal_code'] ?? '') === $serviceCode) ? 'selected' : '' }}>
+                                                    {{ $serviceCode }}
+                                                </option>
+                                            @endforeach
+                                        </select>
                                         <button type="button" class="remove-entry inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-50 whitespace-nowrap">
                                             {{ __('Удалить') }}
                                         </button>
@@ -65,6 +85,15 @@
                                         value=""
                                         class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full product-type-input"
                                     >
+                                    <select
+                                        name="service_codes[]"
+                                        class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-56 service-code-select"
+                                    >
+                                        <option value="">{{ __('Внутрішній код послуги') }}</option>
+                                        @foreach ($serviceInternalCodes as $serviceCode)
+                                            <option value="{{ $serviceCode }}">{{ $serviceCode }}</option>
+                                        @endforeach
+                                    </select>
                                     <button type="button" class="remove-entry inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-50 whitespace-nowrap">
                                         {{ __('Удалить') }}
                                     </button>
@@ -75,7 +104,7 @@
                         @php
                             $oldMatrix = old('matrix', []);
                         @endphp
-                        @if (!empty($types) && isset($categories) && $categories->count() > 0)
+                        @if (!empty($typeNames ?? []) && isset($categories) && $categories->count() > 0)
                             <div class="pt-4">
                                 <div class="font-semibold text-gray-800 mb-2">
                                     {{ __('Матриця доступності типів виробу по категоріях товарів') }}
@@ -87,7 +116,7 @@
                                                 <th class="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-300">
                                                     {{ __('Категорія товарів') }}
                                                 </th>
-                                                @foreach ($types as $typeName)
+                                                @foreach (($typeNames ?? []) as $typeName)
                                                     <th class="px-3 py-2 text-center text-xs font-bold text-gray-800 border border-gray-300">
                                                         {{ $typeName }}
                                                     </th>
@@ -100,7 +129,7 @@
                                                     <td class="px-3 py-2 text-sm text-gray-900 whitespace-nowrap border border-gray-300">
                                                         {{ $category->name }}
                                                     </td>
-                                                    @foreach ($types as $typeName)
+                                                    @foreach (($typeNames ?? []) as $typeName)
                                                         @php
                                                             $key = $category->id . '|' . $typeName;
                                                             $checked = (string) data_get($oldMatrix, $category->id . '.' . $typeName, array_key_exists($key, $rules ?? []) ? (($rules[$key] ?? false) ? '1' : '0') : '0');
@@ -152,6 +181,28 @@
             const container = document.getElementById('type-fields');
             if (!container) return;
 
+            const serviceCodeOptions = @json($serviceInternalCodes ?? []);
+
+            const buildServiceCodeSelect = () => {
+                const select = document.createElement('select');
+                select.name = 'service_codes[]';
+                select.className = 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-56 service-code-select';
+
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = 'Внутрішній код послуги';
+                select.appendChild(placeholder);
+
+                serviceCodeOptions.forEach((code) => {
+                    const option = document.createElement('option');
+                    option.value = code;
+                    option.textContent = code;
+                    select.appendChild(option);
+                });
+
+                return select;
+            };
+
             const buildField = () => {
                 const index = container.querySelectorAll('.product-type-input').length;
                 const wrapper = document.createElement('div');
@@ -171,6 +222,11 @@
                         </button>
                     </div>
                 `;
+                const row = wrapper.querySelector('div.mt-1');
+                const removeButton = row?.querySelector('.remove-entry');
+                if (row && removeButton) {
+                    row.insertBefore(buildServiceCodeSelect(), removeButton);
+                }
                 return wrapper;
             };
 
