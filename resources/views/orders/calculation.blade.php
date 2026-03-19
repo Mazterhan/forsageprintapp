@@ -1145,16 +1145,21 @@
                 },
 
                 onProductTypeChanged(product) {
-                    const allowed = this.getAllowedMaterials(product);
-                    if (product.material && !allowed.includes(product.material)) {
-                        product.material = '';
-                        product.materialQuery = '';
-                    }
-                    if (product.materialQuery && !allowed.some((item) => this.normalizeForCompare(item) === this.normalizeForCompare(product.materialQuery))) {
-                        product.materialQuery = '';
-                    }
+                    const selectedProductTypeId = String(product.productTypeId || '');
+                    const resetProduct = this.createProduct();
+
+                    product.productTypeId = selectedProductTypeId;
+                    product.material = resetProduct.material;
+                    product.materialQuery = resetProduct.materialQuery;
                     product.showMaterialDropdown = false;
-                    this.onMaterialChanged(product);
+                    product.thickness = resetProduct.thickness;
+                    product.manualThickness = resetProduct.manualThickness;
+                    product.manualThicknessError = resetProduct.manualThicknessError;
+                    product.positions = [this.createPosition()];
+                    product.servicesEnabledRaw = resetProduct.servicesEnabledRaw;
+                    product.services = { ...resetProduct.services };
+
+                    this.ensureCuttingValue(product);
                 },
 
                 onManualThicknessInput(product, event) {
