@@ -33,7 +33,7 @@ class OrderController extends Controller
             ->where('is_active', true)
             ->where('visible', true)
             ->where('model_type', 'Матеріал')
-            ->get(['name', 'category', 'material_type', 'thickness_mm', 'service_price']);
+            ->get(['internal_code', 'name', 'category', 'material_type', 'thickness_mm', 'service_price']);
 
         $materials = $materialItems
             ->pluck('name')
@@ -150,6 +150,18 @@ class OrderController extends Controller
             ->filter(fn ($price, $material) => $material !== '')
             ->toArray();
 
+        $materialCodeByMaterial = $materialItems
+            ->groupBy(fn (PriceItem $item) => trim((string) $item->name))
+            ->map(function ($items) {
+                return $items
+                    ->pluck('internal_code')
+                    ->filter(fn ($value) => $value !== null && trim((string) $value) !== '')
+                    ->map(fn ($value) => trim((string) $value))
+                    ->first();
+            })
+            ->filter(fn ($code, $material) => $material !== '' && $code !== null)
+            ->toArray();
+
         $servicePriceByCode = PriceItem::query()
             ->where('is_active', true)
             ->where('visible', true)
@@ -179,6 +191,7 @@ class OrderController extends Controller
             'materialCategoryByMaterial' => $materialCategoryByMaterial,
             'materialCategoriesByMaterial' => $materialCategoriesByMaterial,
             'materialPriceByMaterial' => $materialPriceByMaterial,
+            'materialCodeByMaterial' => $materialCodeByMaterial,
             'servicePriceByCode' => $servicePriceByCode,
             'typeCategoryMatrix' => $typeCategoryMatrix,
         ]);

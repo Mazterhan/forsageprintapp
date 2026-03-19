@@ -29,6 +29,7 @@
                     materialCategoryByMaterial: @js($materialCategoryByMaterial),
                     materialCategoriesByMaterial: @js($materialCategoriesByMaterial),
                     materialPriceByMaterial: @js($materialPriceByMaterial),
+                    materialCodeByMaterial: @js($materialCodeByMaterial),
                     servicePriceByCode: @js($servicePriceByCode),
                     typeCategoryMatrix: @js($typeCategoryMatrix),
                 })"
@@ -564,6 +565,7 @@
                 materialCategoryByMaterial: config.materialCategoryByMaterial || {},
                 materialCategoriesByMaterial: config.materialCategoriesByMaterial || {},
                 materialPriceByMaterial: config.materialPriceByMaterial || {},
+                materialCodeByMaterial: config.materialCodeByMaterial || {},
                 servicePriceByCode: config.servicePriceByCode || {},
                 typeCategoryMatrix: config.typeCategoryMatrix || {},
                 selectedClientId: '',
@@ -746,6 +748,10 @@
                 isMaterialAllowedForProductType(product, material) {
                     if (!product.productTypeId) {
                         return true;
+                    }
+
+                    if (this.isFilmMaterialRestrictedByType(material) && !this.isProductType(product.productTypeId, 'Сольвентний друк')) {
+                        return false;
                     }
 
                     if (this.isCustomSheetMaterial(material)) {
@@ -963,6 +969,15 @@
                     return this.materialTypeByMaterial[material] || '';
                 },
 
+                getMaterialCode(material) {
+                    return this.materialCodeByMaterial[material] || '';
+                },
+
+                isFilmMaterialRestrictedByType(material) {
+                    const code = this.getMaterialCode(material);
+                    return code === 'MAT-FLM-010' || code === 'MAT-FLM-011';
+                },
+
                 getMaterialCategory(material) {
                     return this.materialCategoryByMaterial[material] || '';
                 },
@@ -1001,6 +1016,11 @@
 
                 isServiceBlockVisible(product, block) {
                     const scenario = this.getServiceScenario(product);
+                    const materialCode = this.getMaterialCode(product.material);
+
+                    if (block === 'lamination' && (materialCode === 'MAT-FLM-010' || materialCode === 'MAT-FLM-011')) {
+                        return false;
+                    }
 
                     if (scenario === 'sheet') {
                         return !['lamination', 'weeding', 'montage', 'eyelets_soldering'].includes(block);
