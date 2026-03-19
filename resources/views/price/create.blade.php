@@ -38,7 +38,7 @@
 
                         <div id="material-block" class="space-y-4 hidden">
                             <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                                <div class="md:col-span-6">
+                                <div class="md:col-span-4">
                                     <x-input-label for="category" :value="__('Категорія')" />
                                     <select id="category" name="category" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                                         <option value="">{{ __('Оберіть категорію') }}</option>
@@ -50,7 +50,12 @@
                                     </select>
                                     <x-input-error class="mt-2" :messages="$errors->get('category')" />
                                 </div>
-                                <div class="md:col-span-6">
+                                <div id="thickness-wrap" class="md:col-span-4 hidden">
+                                    <x-input-label for="thickness_mm" :value="__('Товщина (мм)')" />
+                                    <x-text-input id="thickness_mm" name="thickness_mm" type="text" class="mt-1 block w-full" value="{{ old('thickness_mm') }}" />
+                                    <x-input-error class="mt-2" :messages="$errors->get('thickness_mm')" />
+                                </div>
+                                <div class="md:col-span-4">
                                     <x-input-label for="material_type_display" :value="__('Тип')" />
                                     <x-text-input id="material_type_display" type="text" class="mt-1 block w-full bg-gray-100" value="" disabled />
                                 </div>
@@ -129,6 +134,8 @@
             const materialBlock = document.getElementById('material-block');
             const category = document.getElementById('category');
             const materialTypeDisplay = document.getElementById('material_type_display');
+            const thicknessWrap = document.getElementById('thickness-wrap');
+            const thicknessInput = document.getElementById('thickness_mm');
             const serviceToggleWrap = document.getElementById('service-toggle-wrap');
             const forCustomerInput = document.getElementById('for_customer_material');
             const forCustomerToggle = document.getElementById('for_customer_material_toggle');
@@ -149,7 +156,17 @@
 
             const updateMaterialType = () => {
                 const selected = category?.selectedOptions?.[0];
-                materialTypeDisplay.value = selected?.dataset?.materialType || '';
+                const currentMaterialType = selected?.dataset?.materialType || '';
+                materialTypeDisplay.value = currentMaterialType;
+
+                const isSheet = currentMaterialType === 'Листовий' && modelType?.value === 'Матеріал';
+                thicknessWrap?.classList.toggle('hidden', !isSheet);
+                if (thicknessInput) {
+                    thicknessInput.required = isSheet;
+                    if (!isSheet) {
+                        thicknessInput.value = '';
+                    }
+                }
             };
 
             const parseNumber = (value) => {
@@ -270,4 +287,3 @@
         })();
     </script>
 </x-app-layout>
-

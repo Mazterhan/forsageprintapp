@@ -161,6 +161,12 @@ class PriceController extends Controller
                 if ($request->input('service_price') === null || $request->input('service_price') === '') {
                     $validator->errors()->add('service_price', __('Поле "Вартість послуги" є обовʼязковим для моделі "Матеріал".'));
                 }
+                $selectedCategory = $categoryMap->get($category);
+                $selectedMaterialType = trim((string) ($selectedCategory?->material_type ?? ''));
+                $thicknessRaw = $request->input('thickness_mm');
+                if ($selectedMaterialType === 'Листовий' && ($thicknessRaw === null || trim((string) $thicknessRaw) === '')) {
+                    $validator->errors()->add('thickness_mm', __('Поле "Товщина (мм)" є обовʼязковим для типу "Листовий".'));
+                }
             }
 
             $name = trim((string) $request->input('name'));
