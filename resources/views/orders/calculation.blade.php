@@ -437,7 +437,7 @@
                                         </div>
                                     </div>
 
-                                    <div x-show="product.services.rolling === '1'" class="flex items-start gap-6 overflow-x-auto pb-1">
+                                    <div x-show="product.services.rolling === '1'" class="flex items-start gap-6 pb-1 overflow-visible">
                                         <div class="space-y-3 border border-gray-200 rounded-md p-3 w-[500px] max-w-full shrink-0">
                                             <div class="grid items-center gap-x-3 relative z-[560]" style="grid-template-columns: 120px 360px;">
                                                 <div class="w-[120px] text-sm text-gray-700">Матеріал П1</div>
@@ -470,8 +470,8 @@
                                                         <div
                                                             x-show="product.services.showRollingP1Dropdown && !product.services.rollingIndividual"
                                                             x-transition
-                                                            class="absolute z-[320] mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
-                                                            style="z-index: 500;"
+                                                            class="absolute mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
+                                                            style="z-index: 9999;"
                                                         >
                                                             <template x-if="getFilteredRollingP1Options(product).length === 0">
                                                                 <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
@@ -520,7 +520,8 @@
                                                         <div
                                                             x-show="product.services.showRollingP2Dropdown && !product.services.rollingIndividual && product.services.rollingMaterialP1"
                                                             x-transition
-                                                            class="absolute z-[320] mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
+                                                            class="absolute mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
+                                                            style="z-index: 9999;"
                                                         >
                                                             <template x-if="getFilteredRollingP2Options(product).length === 0">
                                                                 <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
@@ -548,19 +549,19 @@
                                                             <input
                                                                 x-model="product.services.rollingMaterialIP1Query"
                                                                 @input="onRollingIP1InputChanged(product); product.services.showRollingIP1Dropdown = true"
-                                                                @focus="if (product.services.rolling === '1' && !product.services.rollingIndividual) product.services.showRollingIP1Dropdown = true"
+                                                                @focus="if (product.services.rolling === '1' && product.services.rollingIndividual) product.services.showRollingIP1Dropdown = true"
                                                                 @keydown.escape="product.services.showRollingIP1Dropdown = false"
                                                                 @blur="handleRollingIP1Blur(product)"
                                                                 type="text"
                                                                 autocomplete="off"
-                                                                :disabled="product.services.rollingIndividual"
+                                                                :disabled="!product.services.rollingIndividual"
                                                                 class="block w-full border-0 bg-transparent pr-3 text-left focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
                                                                 placeholder="Оберіть матеріал ІП1"
                                                             />
                                                             <button
                                                                 type="button"
-                                                                @click="if (product.services.rolling === '1' && !product.services.rollingIndividual) { product.services.showRollingIP1Dropdown = !product.services.showRollingIP1Dropdown }"
-                                                                :disabled="product.services.rollingIndividual"
+                                                                @click="if (product.services.rolling === '1' && product.services.rollingIndividual) { product.services.showRollingIP1Dropdown = !product.services.showRollingIP1Dropdown }"
+                                                                :disabled="!product.services.rollingIndividual"
                                                                 class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
                                                             >
                                                                 <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -569,9 +570,10 @@
                                                             </button>
                                                         </div>
                                                         <div
-                                                            x-show="product.services.showRollingIP1Dropdown && !product.services.rollingIndividual"
+                                                            x-show="product.services.showRollingIP1Dropdown && product.services.rollingIndividual"
                                                             x-transition
-                                                            class="absolute z-[320] mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
+                                                            class="absolute mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
+                                                            style="z-index: 9999;"
                                                         >
                                                             <template x-if="getFilteredRollingIP1Options(product).length === 0">
                                                                 <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
@@ -587,7 +589,7 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="ml-3 text-sm text-gray-700">Ширина (м)</div>
+                                                <div class="text-sm text-gray-700" style="margin-left: 28px;">Ширина (м)</div>
                                                 <input
                                                     x-model="product.services.rollingIp1Width"
                                                     @focus="clearDefaultZero($event, 'decimal')"
@@ -595,9 +597,10 @@
                                                     @input="sanitizeDecimalInObject(product.services, 'rollingIp1Width', $event)"
                                                     type="text"
                                                     inputmode="decimal"
-                                                    class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                                    :disabled="!product.services.rollingIndividual"
+                                                    class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-500"
                                                 />
-                                                <div class="text-sm text-gray-700">Висота (м)</div>
+                                                <div class="text-sm text-gray-700" style="margin-left: 28px;">Висота (м)</div>
                                                 <input
                                                     x-model="product.services.rollingIp1Height"
                                                     @focus="clearDefaultZero($event, 'decimal')"
@@ -605,7 +608,8 @@
                                                     @input="sanitizeDecimalInObject(product.services, 'rollingIp1Height', $event)"
                                                     type="text"
                                                     inputmode="decimal"
-                                                    class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                                    :disabled="!product.services.rollingIndividual"
+                                                    class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-500"
                                                 />
                                             </div>
 
@@ -617,19 +621,19 @@
                                                             <input
                                                                 x-model="product.services.rollingMaterialIP2Query"
                                                                 @input="onRollingIP2InputChanged(product); product.services.showRollingIP2Dropdown = true"
-                                                                @focus="if (product.services.rolling === '1' && !product.services.rollingIndividual && product.services.rollingMaterialP1) product.services.showRollingIP2Dropdown = true"
+                                                                @focus="if (product.services.rolling === '1' && product.services.rollingIndividual && product.services.rollingMaterialIP1) product.services.showRollingIP2Dropdown = true"
                                                                 @keydown.escape="product.services.showRollingIP2Dropdown = false"
                                                                 @blur="handleRollingIP2Blur(product)"
                                                                 type="text"
                                                                 autocomplete="off"
-                                                                :disabled="product.services.rollingIndividual || !product.services.rollingMaterialP1"
+                                                                :disabled="!product.services.rollingIndividual || !product.services.rollingMaterialIP1"
                                                                 class="block w-full border-0 bg-transparent pr-3 text-left focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
                                                                 placeholder="Оберіть матеріал ІП2"
                                                             />
                                                             <button
                                                                 type="button"
-                                                                @click="if (product.services.rolling === '1' && !product.services.rollingIndividual && product.services.rollingMaterialP1) { product.services.showRollingIP2Dropdown = !product.services.showRollingIP2Dropdown }"
-                                                                :disabled="product.services.rollingIndividual || !product.services.rollingMaterialP1"
+                                                                @click="if (product.services.rolling === '1' && product.services.rollingIndividual && product.services.rollingMaterialIP1) { product.services.showRollingIP2Dropdown = !product.services.showRollingIP2Dropdown }"
+                                                                :disabled="!product.services.rollingIndividual || !product.services.rollingMaterialIP1"
                                                                 class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
                                                             >
                                                                 <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -638,9 +642,10 @@
                                                             </button>
                                                         </div>
                                                         <div
-                                                            x-show="product.services.showRollingIP2Dropdown && !product.services.rollingIndividual && product.services.rollingMaterialP1"
+                                                            x-show="product.services.showRollingIP2Dropdown && product.services.rollingIndividual && product.services.rollingMaterialIP1"
                                                             x-transition
-                                                            class="absolute z-[320] mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
+                                                            class="absolute mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
+                                                            style="z-index: 9999;"
                                                         >
                                                             <template x-if="getFilteredRollingIP2Options(product).length === 0">
                                                                 <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
@@ -656,7 +661,7 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="ml-3 text-sm text-gray-700">Ширина (м)</div>
+                                                <div class="text-sm text-gray-700" style="margin-left: 28px;">Ширина (м)</div>
                                                 <input
                                                     x-model="product.services.rollingIp2Width"
                                                     @focus="clearDefaultZero($event, 'decimal')"
@@ -664,9 +669,10 @@
                                                     @input="sanitizeDecimalInObject(product.services, 'rollingIp2Width', $event)"
                                                     type="text"
                                                     inputmode="decimal"
-                                                    class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                                    :disabled="!product.services.rollingIndividual"
+                                                    class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-500"
                                                 />
-                                                <div class="text-sm text-gray-700">Висота (м)</div>
+                                                <div class="text-sm text-gray-700" style="margin-left: 28px;">Висота (м)</div>
                                                 <input
                                                     x-model="product.services.rollingIp2Height"
                                                     @focus="clearDefaultZero($event, 'decimal')"
@@ -674,7 +680,8 @@
                                                     @input="sanitizeDecimalInObject(product.services, 'rollingIp2Height', $event)"
                                                     type="text"
                                                     inputmode="decimal"
-                                                    class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                                    :disabled="!product.services.rollingIndividual"
+                                                    class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-500"
                                                 />
                                             </div>
                                         </div>
@@ -1141,7 +1148,24 @@
                 },
 
                 getRollingIP2Options(product) {
-                    return this.getRollingP2Options(product);
+                    let options = this.getPriceMaterialOptions();
+                    const ip1 = product.services.rollingMaterialIP1;
+                    if (!ip1) {
+                        return [];
+                    }
+
+                    const ip1Category = this.normalizeText(this.getMaterialCategory(ip1));
+                    const ip1Type = this.getMaterialType(ip1);
+
+                    if (ip1Category === 'плівка' || ip1Category === 'скотч' || ip1Type === 'Листовий') {
+                        options = options.filter((material) => {
+                            const category = this.normalizeText(this.getMaterialCategory(material));
+                            const code = this.getMaterialCode(material);
+                            return category === 'плівка' && code !== 'MAT-FLM-009';
+                        });
+                    }
+
+                    return options;
                 },
 
                 getFilteredRollingP1Options(product) {
@@ -1244,6 +1268,16 @@
                 },
 
                 onRollingMaterialP1Changed(product) {
+                    product.services.rollingMaterialP2 = '';
+                    product.services.rollingMaterialP2Query = '';
+                    product.services.showRollingP2Dropdown = false;
+                    this.ensureRollingMaterials(product);
+                },
+
+                onRollingMaterialIP1Changed(product) {
+                    product.services.rollingMaterialIP2 = '';
+                    product.services.rollingMaterialIP2Query = '';
+                    product.services.showRollingIP2Dropdown = false;
                     this.ensureRollingMaterials(product);
                 },
 
@@ -1316,7 +1350,7 @@
                 },
 
                 onRollingIP1InputChanged(product) {
-                    if (product.services.rollingIndividual) {
+                    if (!product.services.rollingIndividual) {
                         return;
                     }
 
@@ -1326,7 +1360,7 @@
                     if (query === '') {
                         if (product.services.rollingMaterialIP1 !== '') {
                             product.services.rollingMaterialIP1 = '';
-                            this.ensureRollingMaterials(product);
+                            this.onRollingMaterialIP1Changed(product);
                         }
                         return;
                     }
@@ -1338,18 +1372,18 @@
                     if (exact) {
                         product.services.rollingMaterialIP1 = exact;
                         product.services.rollingMaterialIP1Query = exact;
-                        this.ensureRollingMaterials(product);
+                        this.onRollingMaterialIP1Changed(product);
                         return;
                     }
 
                     if (product.services.rollingMaterialIP1 !== '') {
                         product.services.rollingMaterialIP1 = '';
-                        this.ensureRollingMaterials(product);
+                        this.onRollingMaterialIP1Changed(product);
                     }
                 },
 
                 onRollingIP2InputChanged(product) {
-                    if (product.services.rollingIndividual || !product.services.rollingMaterialP1) {
+                    if (!product.services.rollingIndividual || !product.services.rollingMaterialIP1) {
                         return;
                     }
 
@@ -1382,10 +1416,15 @@
                 },
 
                 selectRollingMaterialP1(product, material) {
+                    const previous = product.services.rollingMaterialP1;
                     product.services.rollingMaterialP1 = material;
                     product.services.rollingMaterialP1Query = material;
                     product.services.showRollingP1Dropdown = false;
-                    this.onRollingMaterialP1Changed(product);
+                    if (previous !== material) {
+                        this.onRollingMaterialP1Changed(product);
+                    } else {
+                        this.ensureRollingMaterials(product);
+                    }
                 },
 
                 selectRollingMaterialP2(product, material) {
@@ -1396,10 +1435,15 @@
                 },
 
                 selectRollingMaterialIP1(product, material) {
+                    const previous = product.services.rollingMaterialIP1;
                     product.services.rollingMaterialIP1 = material;
                     product.services.rollingMaterialIP1Query = material;
                     product.services.showRollingIP1Dropdown = false;
-                    this.ensureRollingMaterials(product);
+                    if (previous !== material) {
+                        this.onRollingMaterialIP1Changed(product);
+                    } else {
+                        this.ensureRollingMaterials(product);
+                    }
                 },
 
                 selectRollingMaterialIP2(product, material) {
@@ -1529,12 +1573,12 @@
 
                     if (product.services.rollingMaterialIP1 !== '') {
                         product.services.rollingMaterialIP1 = '';
-                        this.ensureRollingMaterials(product);
+                        this.onRollingMaterialIP1Changed(product);
                     }
                 },
 
                 applyRollingIP2AutoMatch(product) {
-                    if (!product.services.rollingMaterialP1) {
+                    if (!product.services.rollingMaterialIP1) {
                         product.services.rollingMaterialIP2 = '';
                         product.services.rollingMaterialIP2Query = '';
                         this.ensureRollingMaterials(product);
