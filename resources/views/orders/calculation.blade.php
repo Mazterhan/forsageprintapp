@@ -433,7 +433,7 @@
 
                                         <div x-show="product.services.rolling === '1'" class="ml-8 inline-flex items-center gap-2 text-sm text-gray-700">
                                             <span>Индивідуально</span>
-                                            <input type="checkbox" x-model="product.services.rollingIndividual">
+                                            <input type="checkbox" x-model="product.services.rollingIndividual" @change="onRollingIndividualChanged(product)">
                                         </div>
                                     </div>
 
@@ -669,7 +669,7 @@
                                                     @input="sanitizeDecimalInObject(product.services, 'rollingIp2Width', $event)"
                                                     type="text"
                                                     inputmode="decimal"
-                                                    :disabled="!product.services.rollingIndividual"
+                                                    :disabled="!product.services.rollingIndividual || !product.services.rollingMaterialIP2"
                                                     class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-500"
                                                 />
                                                 <div class="text-sm text-gray-700" style="margin-left: 28px;">Висота (м)</div>
@@ -680,9 +680,24 @@
                                                     @input="sanitizeDecimalInObject(product.services, 'rollingIp2Height', $event)"
                                                     type="text"
                                                     inputmode="decimal"
-                                                    :disabled="!product.services.rollingIndividual"
+                                                    :disabled="!product.services.rollingIndividual || !product.services.rollingMaterialIP2"
                                                     class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-500"
                                                 />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div x-show="product.services.rolling === '1'" class="border border-gray-200 rounded-md p-3">
+                                        <div class="flex flex-wrap items-center gap-3">
+                                            <div x-show="!product.services.rollingIndividual" class="text-sm text-gray-700">Ширина(м)</div>
+                                            <input x-show="!product.services.rollingIndividual" type="text" :value="getFirstPositionValue(product, 'width', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <div x-show="!product.services.rollingIndividual" class="text-sm text-gray-700">Висота(м)</div>
+                                            <input x-show="!product.services.rollingIndividual" type="text" :value="getFirstPositionValue(product, 'height', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <div class="text-sm text-gray-700">Кількість(шт)</div>
+                                            <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                                <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                                <span class="text-sm text-gray-700">грн</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1264,6 +1279,26 @@
                 },
 
                 onRollingChanged(product) {
+                    this.ensureRollingMaterials(product);
+                },
+
+                onRollingIndividualChanged(product) {
+                    product.services.rollingMaterialP1 = '';
+                    product.services.rollingMaterialP2 = '';
+                    product.services.rollingMaterialIP1 = '';
+                    product.services.rollingMaterialIP2 = '';
+                    product.services.rollingMaterialP1Query = '';
+                    product.services.rollingMaterialP2Query = '';
+                    product.services.rollingMaterialIP1Query = '';
+                    product.services.rollingMaterialIP2Query = '';
+                    product.services.showRollingP1Dropdown = false;
+                    product.services.showRollingP2Dropdown = false;
+                    product.services.showRollingIP1Dropdown = false;
+                    product.services.showRollingIP2Dropdown = false;
+                    product.services.rollingIp1Width = '0';
+                    product.services.rollingIp1Height = '0';
+                    product.services.rollingIp2Width = '0';
+                    product.services.rollingIp2Height = '0';
                     this.ensureRollingMaterials(product);
                 },
 
