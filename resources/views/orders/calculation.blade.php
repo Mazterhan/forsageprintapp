@@ -687,7 +687,7 @@
                                         </div>
                                     </div>
 
-                                    <div x-show="product.services.rolling === '1'" class="border border-gray-200 rounded-md p-3">
+                                    <div x-show="product.services.rolling === '1'" class="pt-3">
                                         <div class="flex flex-wrap items-center gap-3">
                                             <div x-show="!product.services.rollingIndividual" class="text-sm text-gray-700">Ширина(м)</div>
                                             <input x-show="!product.services.rollingIndividual" type="text" :value="getFirstPositionValue(product, 'width', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
