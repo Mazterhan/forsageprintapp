@@ -170,7 +170,7 @@
                             </div>
 
                             <template x-for="(position, positionIndex) in product.positions" :key="position.uid">
-                                <div class="space-y-3 border border-gray-200 rounded-md p-3">
+                                <div class="space-y-3">
                                     <div class="flex items-center justify-between gap-4">
                                         <div class="text-sm font-bold text-gray-800" x-text="`Позиція замовлення #${positionIndex + 1}`"></div>
                                         <button
@@ -407,10 +407,278 @@
                                     </div>
                                 </div>
 
-                                <div x-show="isServiceBlockVisible(product, 'rolling')" class="border border-gray-200 rounded-md p-3 flex flex-wrap items-center gap-3">
-                                    <div class="font-medium text-gray-700">Прикатка</div>
-                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_rolling_${product.uid}`" value="0" x-model="product.services.rolling"><span>ні</span></label>
-                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_rolling_${product.uid}`" value="1" x-model="product.services.rolling"><span>так</span></label>
+                                <div x-show="isServiceBlockVisible(product, 'rolling')" class="border border-gray-200 rounded-md p-3 space-y-3">
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <div class="font-medium text-gray-700">Прикатка</div>
+                                        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                            <input
+                                                type="radio"
+                                                :name="`services_rolling_${product.uid}`"
+                                                value="0"
+                                                x-model="product.services.rolling"
+                                                @change="onRollingChanged(product)"
+                                            >
+                                            <span>ні</span>
+                                        </label>
+                                        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                            <input
+                                                type="radio"
+                                                :name="`services_rolling_${product.uid}`"
+                                                value="1"
+                                                x-model="product.services.rolling"
+                                                @change="onRollingChanged(product)"
+                                            >
+                                            <span>так</span>
+                                        </label>
+
+                                        <div x-show="product.services.rolling === '1'" class="ml-8 inline-flex items-center gap-2 text-sm text-gray-700">
+                                            <span>Индивідуально</span>
+                                            <input type="checkbox" x-model="product.services.rollingIndividual">
+                                        </div>
+                                    </div>
+
+                                    <div x-show="product.services.rolling === '1'" class="flex items-start gap-6 overflow-x-auto pb-1">
+                                        <div class="space-y-3 border border-gray-200 rounded-md p-3 w-[500px] max-w-full shrink-0">
+                                            <div class="grid items-center gap-x-3 relative z-[560]" style="grid-template-columns: 120px 360px;">
+                                                <div class="w-[120px] text-sm text-gray-700">Матеріал П1</div>
+                                                <div style="width: 360px; min-width: 360px; max-width: 360px;">
+                                                    <div class="relative" @click.outside="product.services.showRollingP1Dropdown = false">
+                                                        <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+                                                            <input
+                                                                x-model="product.services.rollingMaterialP1Query"
+                                                                @input="onRollingP1InputChanged(product); product.services.showRollingP1Dropdown = true"
+                                                                @focus="if (product.services.rolling === '1' && !product.services.rollingIndividual) product.services.showRollingP1Dropdown = true"
+                                                                @keydown.escape="product.services.showRollingP1Dropdown = false"
+                                                                @blur="handleRollingP1Blur(product)"
+                                                                type="text"
+                                                                autocomplete="off"
+                                                                :disabled="product.services.rollingIndividual"
+                                                                class="block w-full border-0 bg-transparent pr-3 text-left focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
+                                                                placeholder="Оберіть матеріал П1"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                @click="if (product.services.rolling === '1' && !product.services.rollingIndividual) { product.services.showRollingP1Dropdown = !product.services.showRollingP1Dropdown }"
+                                                                :disabled="product.services.rollingIndividual"
+                                                                class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+                                                            >
+                                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                        <div
+                                                            x-show="product.services.showRollingP1Dropdown && !product.services.rollingIndividual"
+                                                            x-transition
+                                                            class="absolute z-[320] mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
+                                                            style="z-index: 500;"
+                                                        >
+                                                            <template x-if="getFilteredRollingP1Options(product).length === 0">
+                                                                <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
+                                                            </template>
+                                                            <template x-for="material in getFilteredRollingP1Options(product)" :key="`rolling-p1-${product.uid}-${material}`">
+                                                                <button
+                                                                    type="button"
+                                                                    @mousedown.prevent="selectRollingMaterialP1(product, material)"
+                                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                                                    x-text="material"
+                                                                ></button>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="grid items-center gap-x-3 relative z-[540]" style="grid-template-columns: 120px 360px;">
+                                                <div class="w-[120px] text-sm text-gray-700">Матеріал П2</div>
+                                                <div style="width: 360px; min-width: 360px; max-width: 360px;">
+                                                    <div class="relative" @click.outside="product.services.showRollingP2Dropdown = false">
+                                                        <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+                                                            <input
+                                                                x-model="product.services.rollingMaterialP2Query"
+                                                                @input="onRollingP2InputChanged(product); product.services.showRollingP2Dropdown = true"
+                                                                @focus="if (product.services.rolling === '1' && !product.services.rollingIndividual && product.services.rollingMaterialP1) product.services.showRollingP2Dropdown = true"
+                                                                @keydown.escape="product.services.showRollingP2Dropdown = false"
+                                                                @blur="handleRollingP2Blur(product)"
+                                                                type="text"
+                                                                autocomplete="off"
+                                                                :disabled="product.services.rollingIndividual || !product.services.rollingMaterialP1"
+                                                                class="block w-full border-0 bg-transparent pr-3 text-left focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
+                                                                placeholder="Оберіть матеріал П2"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                @click="if (product.services.rolling === '1' && !product.services.rollingIndividual && product.services.rollingMaterialP1) { product.services.showRollingP2Dropdown = !product.services.showRollingP2Dropdown }"
+                                                                :disabled="product.services.rollingIndividual || !product.services.rollingMaterialP1"
+                                                                class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+                                                            >
+                                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                        <div
+                                                            x-show="product.services.showRollingP2Dropdown && !product.services.rollingIndividual && product.services.rollingMaterialP1"
+                                                            x-transition
+                                                            class="absolute z-[320] mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
+                                                        >
+                                                            <template x-if="getFilteredRollingP2Options(product).length === 0">
+                                                                <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
+                                                            </template>
+                                                            <template x-for="material in getFilteredRollingP2Options(product)" :key="`rolling-p2-${product.uid}-${material}`">
+                                                                <button
+                                                                    type="button"
+                                                                    @mousedown.prevent="selectRollingMaterialP2(product, material)"
+                                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                                                    x-text="material"
+                                                                ></button>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="space-y-3 border border-gray-200 rounded-md p-3 shrink-0">
+                                            <div class="grid items-center gap-x-2 relative z-[560]" style="grid-template-columns: 120px 360px auto 90px auto 90px;">
+                                                <div class="w-[120px] text-sm text-gray-700">Матеріал ІП1</div>
+                                                <div style="width: 360px; min-width: 360px; max-width: 360px;">
+                                                    <div class="relative" @click.outside="product.services.showRollingIP1Dropdown = false">
+                                                        <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+                                                            <input
+                                                                x-model="product.services.rollingMaterialIP1Query"
+                                                                @input="onRollingIP1InputChanged(product); product.services.showRollingIP1Dropdown = true"
+                                                                @focus="if (product.services.rolling === '1' && !product.services.rollingIndividual) product.services.showRollingIP1Dropdown = true"
+                                                                @keydown.escape="product.services.showRollingIP1Dropdown = false"
+                                                                @blur="handleRollingIP1Blur(product)"
+                                                                type="text"
+                                                                autocomplete="off"
+                                                                :disabled="product.services.rollingIndividual"
+                                                                class="block w-full border-0 bg-transparent pr-3 text-left focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
+                                                                placeholder="Оберіть матеріал ІП1"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                @click="if (product.services.rolling === '1' && !product.services.rollingIndividual) { product.services.showRollingIP1Dropdown = !product.services.showRollingIP1Dropdown }"
+                                                                :disabled="product.services.rollingIndividual"
+                                                                class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+                                                            >
+                                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                        <div
+                                                            x-show="product.services.showRollingIP1Dropdown && !product.services.rollingIndividual"
+                                                            x-transition
+                                                            class="absolute z-[320] mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
+                                                        >
+                                                            <template x-if="getFilteredRollingIP1Options(product).length === 0">
+                                                                <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
+                                                            </template>
+                                                            <template x-for="material in getFilteredRollingIP1Options(product)" :key="`rolling-ip1-${product.uid}-${material}`">
+                                                                <button
+                                                                    type="button"
+                                                                    @mousedown.prevent="selectRollingMaterialIP1(product, material)"
+                                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                                                    x-text="material"
+                                                                ></button>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="ml-3 text-sm text-gray-700">Ширина (м)</div>
+                                                <input
+                                                    x-model="product.services.rollingIp1Width"
+                                                    @focus="clearDefaultZero($event, 'decimal')"
+                                                    @blur="restoreDefaultOnBlur(product.services, 'rollingIp1Width', '0', $event)"
+                                                    @input="sanitizeDecimalInObject(product.services, 'rollingIp1Width', $event)"
+                                                    type="text"
+                                                    inputmode="decimal"
+                                                    class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                                />
+                                                <div class="text-sm text-gray-700">Висота (м)</div>
+                                                <input
+                                                    x-model="product.services.rollingIp1Height"
+                                                    @focus="clearDefaultZero($event, 'decimal')"
+                                                    @blur="restoreDefaultOnBlur(product.services, 'rollingIp1Height', '0', $event)"
+                                                    @input="sanitizeDecimalInObject(product.services, 'rollingIp1Height', $event)"
+                                                    type="text"
+                                                    inputmode="decimal"
+                                                    class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                                />
+                                            </div>
+
+                                            <div class="grid items-center gap-x-2 relative z-[540]" style="grid-template-columns: 120px 360px auto 90px auto 90px;">
+                                                <div class="w-[120px] text-sm text-gray-700">Матеріал ІП2</div>
+                                                <div style="width: 360px; min-width: 360px; max-width: 360px;">
+                                                    <div class="relative" @click.outside="product.services.showRollingIP2Dropdown = false">
+                                                        <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+                                                            <input
+                                                                x-model="product.services.rollingMaterialIP2Query"
+                                                                @input="onRollingIP2InputChanged(product); product.services.showRollingIP2Dropdown = true"
+                                                                @focus="if (product.services.rolling === '1' && !product.services.rollingIndividual && product.services.rollingMaterialP1) product.services.showRollingIP2Dropdown = true"
+                                                                @keydown.escape="product.services.showRollingIP2Dropdown = false"
+                                                                @blur="handleRollingIP2Blur(product)"
+                                                                type="text"
+                                                                autocomplete="off"
+                                                                :disabled="product.services.rollingIndividual || !product.services.rollingMaterialP1"
+                                                                class="block w-full border-0 bg-transparent pr-3 text-left focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
+                                                                placeholder="Оберіть матеріал ІП2"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                @click="if (product.services.rolling === '1' && !product.services.rollingIndividual && product.services.rollingMaterialP1) { product.services.showRollingIP2Dropdown = !product.services.showRollingIP2Dropdown }"
+                                                                :disabled="product.services.rollingIndividual || !product.services.rollingMaterialP1"
+                                                                class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+                                                            >
+                                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                        <div
+                                                            x-show="product.services.showRollingIP2Dropdown && !product.services.rollingIndividual && product.services.rollingMaterialP1"
+                                                            x-transition
+                                                            class="absolute z-[320] mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
+                                                        >
+                                                            <template x-if="getFilteredRollingIP2Options(product).length === 0">
+                                                                <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
+                                                            </template>
+                                                            <template x-for="material in getFilteredRollingIP2Options(product)" :key="`rolling-ip2-${product.uid}-${material}`">
+                                                                <button
+                                                                    type="button"
+                                                                    @mousedown.prevent="selectRollingMaterialIP2(product, material)"
+                                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                                                    x-text="material"
+                                                                ></button>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="ml-3 text-sm text-gray-700">Ширина (м)</div>
+                                                <input
+                                                    x-model="product.services.rollingIp2Width"
+                                                    @focus="clearDefaultZero($event, 'decimal')"
+                                                    @blur="restoreDefaultOnBlur(product.services, 'rollingIp2Width', '0', $event)"
+                                                    @input="sanitizeDecimalInObject(product.services, 'rollingIp2Width', $event)"
+                                                    type="text"
+                                                    inputmode="decimal"
+                                                    class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                                />
+                                                <div class="text-sm text-gray-700">Висота (м)</div>
+                                                <input
+                                                    x-model="product.services.rollingIp2Height"
+                                                    @focus="clearDefaultZero($event, 'decimal')"
+                                                    @blur="restoreDefaultOnBlur(product.services, 'rollingIp2Height', '0', $event)"
+                                                    @input="sanitizeDecimalInObject(product.services, 'rollingIp2Height', $event)"
+                                                    type="text"
+                                                    inputmode="decimal"
+                                                    class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div x-show="isServiceBlockVisible(product, 'eyelets_soldering')" class="border border-gray-200 rounded-md p-3 space-y-2">
@@ -598,6 +866,23 @@
                             cuttingLength: '0',
                             weedingPrice: '0.00',
                             rolling: '0',
+                            rollingIndividual: false,
+                            rollingMaterialP1: '',
+                            rollingMaterialP2: '',
+                            rollingMaterialIP1: '',
+                            rollingMaterialIP2: '',
+                            rollingMaterialP1Query: '',
+                            rollingMaterialP2Query: '',
+                            rollingMaterialIP1Query: '',
+                            rollingMaterialIP2Query: '',
+                            showRollingP1Dropdown: false,
+                            showRollingP2Dropdown: false,
+                            showRollingIP1Dropdown: false,
+                            showRollingIP2Dropdown: false,
+                            rollingIp1Width: '0',
+                            rollingIp1Height: '0',
+                            rollingIp2Width: '0',
+                            rollingIp2Height: '0',
                             eyeletsMode: 'Шаг',
                             eyeletsValue: '0',
                             solderingLength: '0',
@@ -784,6 +1069,542 @@
 
                 getAllowedMaterials(product) {
                     return this.materials.filter((material) => this.isMaterialAllowedForProductType(product, material));
+                },
+
+                isPriceMaterialOption(material) {
+                    if (!material) {
+                        return false;
+                    }
+                    if (this.isCustomerMaterial(material) || this.isCustomerRollMaterial(material)) {
+                        return false;
+                    }
+                    return this.getMaterialCode(material) !== '';
+                },
+
+                getPriceMaterialOptions() {
+                    return this.materials.filter((material) => this.isPriceMaterialOption(material));
+                },
+
+                getRollingP1Options(product) {
+                    let options = this.getPriceMaterialOptions();
+
+                    options = options.filter((material) => {
+                        const category = this.normalizeText(this.getMaterialCategory(material));
+                        const code = this.getMaterialCode(material);
+                        if (code === 'MAT-FLM-009') return false;
+                        return !['фанера', 'банер', 'папір'].includes(category);
+                    });
+
+                    const baseMaterialType = this.getMaterialType(product.material);
+                    if (baseMaterialType === 'Листовий') {
+                        options = options.filter((material) => {
+                            const category = this.normalizeText(this.getMaterialCategory(material));
+                            const code = this.getMaterialCode(material);
+                            return this.getMaterialType(material) === 'Рулонний'
+                                && category !== 'скотч'
+                                && code !== 'MAT-FLM-009';
+                        });
+                    } else if (baseMaterialType === 'Рулонний') {
+                        options = options.filter((material) => {
+                            const category = this.normalizeText(this.getMaterialCategory(material));
+                            return this.getMaterialType(material) === 'Листовий'
+                                && category !== 'фанера';
+                        });
+                    }
+
+                    return options;
+                },
+
+                getRollingP2Options(product) {
+                    let options = this.getPriceMaterialOptions();
+                    const p1 = product.services.rollingMaterialP1;
+                    if (!p1) {
+                        return [];
+                    }
+
+                    const p1Category = this.normalizeText(this.getMaterialCategory(p1));
+                    const p1Type = this.getMaterialType(p1);
+
+                    if (p1Category === 'плівка' || p1Category === 'скотч' || p1Type === 'Листовий') {
+                        options = options.filter((material) => {
+                            const category = this.normalizeText(this.getMaterialCategory(material));
+                            const code = this.getMaterialCode(material);
+                            return category === 'плівка' && code !== 'MAT-FLM-009';
+                        });
+                    }
+
+                    return options;
+                },
+
+                getRollingIP1Options(product) {
+                    return this.getRollingP1Options(product);
+                },
+
+                getRollingIP2Options(product) {
+                    return this.getRollingP2Options(product);
+                },
+
+                getFilteredRollingP1Options(product) {
+                    const options = this.getRollingP1Options(product);
+                    const query = this.normalizeForCompare(product.services.rollingMaterialP1Query || '');
+                    if (!query) {
+                        return options.slice(0, 50);
+                    }
+                    return options
+                        .filter((material) => this.normalizeForCompare(material).includes(query))
+                        .slice(0, 50);
+                },
+
+                getFilteredRollingP2Options(product) {
+                    const options = this.getRollingP2Options(product);
+                    const query = this.normalizeForCompare(product.services.rollingMaterialP2Query || '');
+                    if (!query) {
+                        return options.slice(0, 50);
+                    }
+                    return options
+                        .filter((material) => this.normalizeForCompare(material).includes(query))
+                        .slice(0, 50);
+                },
+
+                getFilteredRollingIP1Options(product) {
+                    const options = this.getRollingIP1Options(product);
+                    const query = this.normalizeForCompare(product.services.rollingMaterialIP1Query || '');
+                    if (!query) {
+                        return options.slice(0, 50);
+                    }
+                    return options
+                        .filter((material) => this.normalizeForCompare(material).includes(query))
+                        .slice(0, 50);
+                },
+
+                getFilteredRollingIP2Options(product) {
+                    const options = this.getRollingIP2Options(product);
+                    const query = this.normalizeForCompare(product.services.rollingMaterialIP2Query || '');
+                    if (!query) {
+                        return options.slice(0, 50);
+                    }
+                    return options
+                        .filter((material) => this.normalizeForCompare(material).includes(query))
+                        .slice(0, 50);
+                },
+
+                ensureRollingMaterials(product) {
+                    if (product.services.rolling !== '1') {
+                        product.services.rollingIndividual = false;
+                        product.services.rollingMaterialP1 = '';
+                        product.services.rollingMaterialP2 = '';
+                        product.services.rollingMaterialIP1 = '';
+                        product.services.rollingMaterialIP2 = '';
+                        product.services.rollingMaterialP1Query = '';
+                        product.services.rollingMaterialP2Query = '';
+                        product.services.rollingMaterialIP1Query = '';
+                        product.services.rollingMaterialIP2Query = '';
+                        product.services.showRollingP1Dropdown = false;
+                        product.services.showRollingP2Dropdown = false;
+                        product.services.showRollingIP1Dropdown = false;
+                        product.services.showRollingIP2Dropdown = false;
+                        return;
+                    }
+
+                    const p1Options = this.getRollingP1Options(product);
+                    if (!p1Options.includes(product.services.rollingMaterialP1)) {
+                        product.services.rollingMaterialP1 = '';
+                        product.services.rollingMaterialP1Query = '';
+                    } else {
+                        product.services.rollingMaterialP1Query = product.services.rollingMaterialP1;
+                    }
+
+                    const p2Options = this.getRollingP2Options(product);
+                    if (!p2Options.includes(product.services.rollingMaterialP2)) {
+                        product.services.rollingMaterialP2 = '';
+                        product.services.rollingMaterialP2Query = '';
+                    } else {
+                        product.services.rollingMaterialP2Query = product.services.rollingMaterialP2;
+                    }
+
+                    const ip1Options = this.getRollingIP1Options(product);
+                    if (!ip1Options.includes(product.services.rollingMaterialIP1)) {
+                        product.services.rollingMaterialIP1 = '';
+                        product.services.rollingMaterialIP1Query = '';
+                    } else {
+                        product.services.rollingMaterialIP1Query = product.services.rollingMaterialIP1;
+                    }
+
+                    const ip2Options = this.getRollingIP2Options(product);
+                    if (!ip2Options.includes(product.services.rollingMaterialIP2)) {
+                        product.services.rollingMaterialIP2 = '';
+                        product.services.rollingMaterialIP2Query = '';
+                    } else {
+                        product.services.rollingMaterialIP2Query = product.services.rollingMaterialIP2;
+                    }
+                },
+
+                onRollingChanged(product) {
+                    this.ensureRollingMaterials(product);
+                },
+
+                onRollingMaterialP1Changed(product) {
+                    this.ensureRollingMaterials(product);
+                },
+
+                onRollingP1InputChanged(product) {
+                    if (product.services.rollingIndividual) {
+                        return;
+                    }
+
+                    const query = String(product.services.rollingMaterialP1Query || '').trim();
+                    const options = this.getRollingP1Options(product);
+
+                    if (query === '') {
+                        if (product.services.rollingMaterialP1 !== '') {
+                            product.services.rollingMaterialP1 = '';
+                            this.onRollingMaterialP1Changed(product);
+                        }
+                        return;
+                    }
+
+                    const exact = options.find((material) =>
+                        this.normalizeForCompare(material) === this.normalizeForCompare(query)
+                    );
+
+                    if (exact) {
+                        if (product.services.rollingMaterialP1 !== exact) {
+                            product.services.rollingMaterialP1 = exact;
+                            this.onRollingMaterialP1Changed(product);
+                        }
+                        product.services.rollingMaterialP1Query = exact;
+                        return;
+                    }
+
+                    if (product.services.rollingMaterialP1 !== '') {
+                        product.services.rollingMaterialP1 = '';
+                        this.onRollingMaterialP1Changed(product);
+                    }
+                },
+
+                onRollingP2InputChanged(product) {
+                    if (product.services.rollingIndividual || !product.services.rollingMaterialP1) {
+                        return;
+                    }
+
+                    const query = String(product.services.rollingMaterialP2Query || '').trim();
+                    const options = this.getRollingP2Options(product);
+
+                    if (query === '') {
+                        if (product.services.rollingMaterialP2 !== '') {
+                            product.services.rollingMaterialP2 = '';
+                            this.ensureRollingMaterials(product);
+                        }
+                        return;
+                    }
+
+                    const exact = options.find((material) =>
+                        this.normalizeForCompare(material) === this.normalizeForCompare(query)
+                    );
+
+                    if (exact) {
+                        product.services.rollingMaterialP2 = exact;
+                        product.services.rollingMaterialP2Query = exact;
+                        this.ensureRollingMaterials(product);
+                        return;
+                    }
+
+                    if (product.services.rollingMaterialP2 !== '') {
+                        product.services.rollingMaterialP2 = '';
+                        this.ensureRollingMaterials(product);
+                    }
+                },
+
+                onRollingIP1InputChanged(product) {
+                    if (product.services.rollingIndividual) {
+                        return;
+                    }
+
+                    const query = String(product.services.rollingMaterialIP1Query || '').trim();
+                    const options = this.getRollingIP1Options(product);
+
+                    if (query === '') {
+                        if (product.services.rollingMaterialIP1 !== '') {
+                            product.services.rollingMaterialIP1 = '';
+                            this.ensureRollingMaterials(product);
+                        }
+                        return;
+                    }
+
+                    const exact = options.find((material) =>
+                        this.normalizeForCompare(material) === this.normalizeForCompare(query)
+                    );
+
+                    if (exact) {
+                        product.services.rollingMaterialIP1 = exact;
+                        product.services.rollingMaterialIP1Query = exact;
+                        this.ensureRollingMaterials(product);
+                        return;
+                    }
+
+                    if (product.services.rollingMaterialIP1 !== '') {
+                        product.services.rollingMaterialIP1 = '';
+                        this.ensureRollingMaterials(product);
+                    }
+                },
+
+                onRollingIP2InputChanged(product) {
+                    if (product.services.rollingIndividual || !product.services.rollingMaterialP1) {
+                        return;
+                    }
+
+                    const query = String(product.services.rollingMaterialIP2Query || '').trim();
+                    const options = this.getRollingIP2Options(product);
+
+                    if (query === '') {
+                        if (product.services.rollingMaterialIP2 !== '') {
+                            product.services.rollingMaterialIP2 = '';
+                            this.ensureRollingMaterials(product);
+                        }
+                        return;
+                    }
+
+                    const exact = options.find((material) =>
+                        this.normalizeForCompare(material) === this.normalizeForCompare(query)
+                    );
+
+                    if (exact) {
+                        product.services.rollingMaterialIP2 = exact;
+                        product.services.rollingMaterialIP2Query = exact;
+                        this.ensureRollingMaterials(product);
+                        return;
+                    }
+
+                    if (product.services.rollingMaterialIP2 !== '') {
+                        product.services.rollingMaterialIP2 = '';
+                        this.ensureRollingMaterials(product);
+                    }
+                },
+
+                selectRollingMaterialP1(product, material) {
+                    product.services.rollingMaterialP1 = material;
+                    product.services.rollingMaterialP1Query = material;
+                    product.services.showRollingP1Dropdown = false;
+                    this.onRollingMaterialP1Changed(product);
+                },
+
+                selectRollingMaterialP2(product, material) {
+                    product.services.rollingMaterialP2 = material;
+                    product.services.rollingMaterialP2Query = material;
+                    product.services.showRollingP2Dropdown = false;
+                    this.ensureRollingMaterials(product);
+                },
+
+                selectRollingMaterialIP1(product, material) {
+                    product.services.rollingMaterialIP1 = material;
+                    product.services.rollingMaterialIP1Query = material;
+                    product.services.showRollingIP1Dropdown = false;
+                    this.ensureRollingMaterials(product);
+                },
+
+                selectRollingMaterialIP2(product, material) {
+                    product.services.rollingMaterialIP2 = material;
+                    product.services.rollingMaterialIP2Query = material;
+                    product.services.showRollingIP2Dropdown = false;
+                    this.ensureRollingMaterials(product);
+                },
+
+                applyRollingP1AutoMatch(product) {
+                    const query = String(product.services.rollingMaterialP1Query || '').trim();
+                    const options = this.getRollingP1Options(product);
+
+                    if (query === '') {
+                        if (product.services.rollingMaterialP1 !== '') {
+                            product.services.rollingMaterialP1 = '';
+                            this.onRollingMaterialP1Changed(product);
+                        }
+                        return;
+                    }
+
+                    const normalize = (value) => this.normalizeForCompare(value);
+                    const normalizedQuery = normalize(query);
+
+                    const exact = options.find((material) => normalize(material) === normalizedQuery);
+                    if (exact) {
+                        this.selectRollingMaterialP1(product, exact);
+                        return;
+                    }
+
+                    const startsWithMatches = options.filter((material) => normalize(material).startsWith(normalizedQuery));
+                    if (startsWithMatches.length === 1) {
+                        this.selectRollingMaterialP1(product, startsWithMatches[0]);
+                        return;
+                    }
+
+                    const containsMatches = options.filter((material) => normalize(material).includes(normalizedQuery));
+                    if (containsMatches.length === 1) {
+                        this.selectRollingMaterialP1(product, containsMatches[0]);
+                        return;
+                    }
+
+                    if (product.services.rollingMaterialP1 !== '') {
+                        product.services.rollingMaterialP1 = '';
+                        this.onRollingMaterialP1Changed(product);
+                    }
+                },
+
+                applyRollingP2AutoMatch(product) {
+                    if (!product.services.rollingMaterialP1) {
+                        product.services.rollingMaterialP2 = '';
+                        product.services.rollingMaterialP2Query = '';
+                        this.ensureRollingMaterials(product);
+                        return;
+                    }
+
+                    const query = String(product.services.rollingMaterialP2Query || '').trim();
+                    const options = this.getRollingP2Options(product);
+
+                    if (query === '') {
+                        if (product.services.rollingMaterialP2 !== '') {
+                            product.services.rollingMaterialP2 = '';
+                            this.ensureRollingMaterials(product);
+                        }
+                        return;
+                    }
+
+                    const normalize = (value) => this.normalizeForCompare(value);
+                    const normalizedQuery = normalize(query);
+
+                    const exact = options.find((material) => normalize(material) === normalizedQuery);
+                    if (exact) {
+                        this.selectRollingMaterialP2(product, exact);
+                        return;
+                    }
+
+                    const startsWithMatches = options.filter((material) => normalize(material).startsWith(normalizedQuery));
+                    if (startsWithMatches.length === 1) {
+                        this.selectRollingMaterialP2(product, startsWithMatches[0]);
+                        return;
+                    }
+
+                    const containsMatches = options.filter((material) => normalize(material).includes(normalizedQuery));
+                    if (containsMatches.length === 1) {
+                        this.selectRollingMaterialP2(product, containsMatches[0]);
+                        return;
+                    }
+
+                    if (product.services.rollingMaterialP2 !== '') {
+                        product.services.rollingMaterialP2 = '';
+                        this.ensureRollingMaterials(product);
+                    }
+                },
+
+                applyRollingIP1AutoMatch(product) {
+                    const query = String(product.services.rollingMaterialIP1Query || '').trim();
+                    const options = this.getRollingIP1Options(product);
+
+                    if (query === '') {
+                        if (product.services.rollingMaterialIP1 !== '') {
+                            product.services.rollingMaterialIP1 = '';
+                            this.ensureRollingMaterials(product);
+                        }
+                        return;
+                    }
+
+                    const normalize = (value) => this.normalizeForCompare(value);
+                    const normalizedQuery = normalize(query);
+
+                    const exact = options.find((material) => normalize(material) === normalizedQuery);
+                    if (exact) {
+                        this.selectRollingMaterialIP1(product, exact);
+                        return;
+                    }
+
+                    const startsWithMatches = options.filter((material) => normalize(material).startsWith(normalizedQuery));
+                    if (startsWithMatches.length === 1) {
+                        this.selectRollingMaterialIP1(product, startsWithMatches[0]);
+                        return;
+                    }
+
+                    const containsMatches = options.filter((material) => normalize(material).includes(normalizedQuery));
+                    if (containsMatches.length === 1) {
+                        this.selectRollingMaterialIP1(product, containsMatches[0]);
+                        return;
+                    }
+
+                    if (product.services.rollingMaterialIP1 !== '') {
+                        product.services.rollingMaterialIP1 = '';
+                        this.ensureRollingMaterials(product);
+                    }
+                },
+
+                applyRollingIP2AutoMatch(product) {
+                    if (!product.services.rollingMaterialP1) {
+                        product.services.rollingMaterialIP2 = '';
+                        product.services.rollingMaterialIP2Query = '';
+                        this.ensureRollingMaterials(product);
+                        return;
+                    }
+
+                    const query = String(product.services.rollingMaterialIP2Query || '').trim();
+                    const options = this.getRollingIP2Options(product);
+
+                    if (query === '') {
+                        if (product.services.rollingMaterialIP2 !== '') {
+                            product.services.rollingMaterialIP2 = '';
+                            this.ensureRollingMaterials(product);
+                        }
+                        return;
+                    }
+
+                    const normalize = (value) => this.normalizeForCompare(value);
+                    const normalizedQuery = normalize(query);
+
+                    const exact = options.find((material) => normalize(material) === normalizedQuery);
+                    if (exact) {
+                        this.selectRollingMaterialIP2(product, exact);
+                        return;
+                    }
+
+                    const startsWithMatches = options.filter((material) => normalize(material).startsWith(normalizedQuery));
+                    if (startsWithMatches.length === 1) {
+                        this.selectRollingMaterialIP2(product, startsWithMatches[0]);
+                        return;
+                    }
+
+                    const containsMatches = options.filter((material) => normalize(material).includes(normalizedQuery));
+                    if (containsMatches.length === 1) {
+                        this.selectRollingMaterialIP2(product, containsMatches[0]);
+                        return;
+                    }
+
+                    if (product.services.rollingMaterialIP2 !== '') {
+                        product.services.rollingMaterialIP2 = '';
+                        this.ensureRollingMaterials(product);
+                    }
+                },
+
+                handleRollingP1Blur(product) {
+                    this.applyRollingP1AutoMatch(product);
+                    setTimeout(() => {
+                        product.services.showRollingP1Dropdown = false;
+                    }, 120);
+                },
+
+                handleRollingP2Blur(product) {
+                    this.applyRollingP2AutoMatch(product);
+                    setTimeout(() => {
+                        product.services.showRollingP2Dropdown = false;
+                    }, 120);
+                },
+
+                handleRollingIP1Blur(product) {
+                    this.applyRollingIP1AutoMatch(product);
+                    setTimeout(() => {
+                        product.services.showRollingIP1Dropdown = false;
+                    }, 120);
+                },
+
+                handleRollingIP2Blur(product) {
+                    this.applyRollingIP2AutoMatch(product);
+                    setTimeout(() => {
+                        product.services.showRollingIP2Dropdown = false;
+                    }, 120);
                 },
 
                 getFilteredMaterials(product) {
@@ -1142,6 +1963,7 @@
                     }
 
                     this.ensureCuttingValue(product);
+                    this.ensureRollingMaterials(product);
                 },
 
                 onProductTypeChanged(product) {
@@ -1443,3 +2265,4 @@
         }
     </script>
 </x-app-layout>
+
