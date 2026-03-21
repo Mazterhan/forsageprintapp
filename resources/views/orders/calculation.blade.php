@@ -274,7 +274,7 @@
                                         <div class="text-sm text-gray-700">Кількість(шт)</div>
                                         <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
-                                            <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <input type="text" :value="getLaminationCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
                                     </div>
@@ -2275,6 +2275,51 @@
                     }
 
                     return width * height * qty;
+                },
+
+                getLaminationCost(product) {
+                    if (!product?.services) {
+                        return 0;
+                    }
+
+                    const width = this.toNumber(this.getFirstPositionValue(product, 'width', '0'));
+                    const height = this.toNumber(this.getFirstPositionValue(product, 'height', '0'));
+                    const qty = this.toNumber(this.getFirstPositionValue(product, 'qty', '0'));
+                    const safeWidth = Number.isFinite(width) ? width : 0;
+                    const safeHeight = Number.isFinite(height) ? height : 0;
+                    const safeQty = Number.isFinite(qty) ? qty : 0;
+                    const areaQty = safeWidth * safeHeight * safeQty;
+
+                    const laminationMode = String(product.services.lamination || '').trim().toLowerCase();
+                    if (!laminationMode || laminationMode === 'без') {
+                        return 0;
+                    }
+
+                    const isCustomerRoll = this.isCustomerRollMaterial(product.material);
+                    let serviceCode = '';
+
+                    if (laminationMode.includes('односторон')) {
+                        serviceCode = isCustomerRoll ? 'SERV-007-MZ' : 'SERV-009';
+                    } else if (laminationMode.includes('двосторон')) {
+                        serviceCode = isCustomerRoll ? 'SERV-008-MZ' : 'SERV-010';
+                    } else {
+                        return 0;
+                    }
+
+                    const servicePrice = this.getServicePriceByCode(serviceCode);
+                    const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
+
+                    return this.normalizeMoney(areaQty * safeServicePrice);
+                },
+
+                getLaminationCostDisplay(product) {
+                    try {
+                        const value = this.getLaminationCost(product);
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0.00' : formatted;
+                    } catch (e) {
+                        return '0.00';
+                    }
                 },
 
                 resolveMaterialPriceForProduct(product) {

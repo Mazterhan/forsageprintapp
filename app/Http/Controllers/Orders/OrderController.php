@@ -165,7 +165,14 @@ class OrderController extends Controller
         $servicePriceByCode = PriceItem::query()
             ->where('is_active', true)
             ->where('visible', true)
-            ->whereIn('internal_code', ['SERV-011', 'SERV-012'])
+            ->whereIn('internal_code', [
+                'SERV-007-MZ',
+                'SERV-008-MZ',
+                'SERV-009',
+                'SERV-010',
+                'SERV-011',
+                'SERV-012',
+            ])
             ->pluck('service_price', 'internal_code')
             ->map(fn ($value) => round((float) ($value ?? 0), 2))
             ->toArray();
