@@ -2308,8 +2308,10 @@
 
                     const servicePrice = this.getServicePriceByCode(serviceCode);
                     const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
+                    const urgency = this.getUrgencyValue();
+                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
 
-                    return this.normalizeMoney(areaQty * safeServicePrice);
+                    return this.normalizeMoney(areaQty * safeServicePrice * safeUrgency);
                 },
 
                 getLaminationCostDisplay(product) {
