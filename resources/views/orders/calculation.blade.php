@@ -2513,6 +2513,7 @@
                     const isUv = this.isProductType(product.productTypeId, 'УФ друк');
                     const isSolvent = this.isProductType(product.productTypeId, 'Сольвентний друк');
                     const isCutOnly = this.isProductType(product.productTypeId, 'Чиста порізка');
+                    const isPureMaterial = this.isProductType(product.productTypeId, 'Чистий матеріал');
 
                     let baseUnitPrice = NaN;
 
@@ -2543,6 +2544,13 @@
                         baseUnitPrice = solventServicePrice + materialPrice;
                     } else if (isCutOnly) {
                         const materialPrice = this.resolveMaterialPriceForProduct(product);
+                        if (!Number.isFinite(materialPrice)) {
+                            return NaN;
+                        }
+
+                        baseUnitPrice = materialPrice;
+                    } else if (isPureMaterial) {
+                        const materialPrice = this.getMaterialPrice(product.material);
                         if (!Number.isFinite(materialPrice)) {
                             return NaN;
                         }
