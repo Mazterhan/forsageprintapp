@@ -383,7 +383,7 @@
                                         <div class="text-sm text-gray-700">Кількість(шт)</div>
                                         <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
-                                            <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <input type="text" :value="getWeedingCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
                                     </div>
@@ -2317,6 +2317,36 @@
                 getLaminationCostDisplay(product) {
                     try {
                         const value = this.getLaminationCost(product);
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0.00' : formatted;
+                    } catch (e) {
+                        return '0.00';
+                    }
+                },
+
+                getWeedingCost(product) {
+                    if (!product?.services) {
+                        return 0;
+                    }
+
+                    const weedingPrice = this.toNumber(product.services.weedingPrice);
+                    const safeWeedingPrice = Number.isFinite(weedingPrice) ? weedingPrice : 0;
+                    const width = this.toNumber(this.getFirstPositionValue(product, 'width', '0'));
+                    const height = this.toNumber(this.getFirstPositionValue(product, 'height', '0'));
+                    const qty = this.toNumber(this.getFirstPositionValue(product, 'qty', '0'));
+                    const safeWidth = Number.isFinite(width) ? width : 0;
+                    const safeHeight = Number.isFinite(height) ? height : 0;
+                    const safeQty = Number.isFinite(qty) ? qty : 0;
+                    const areaQty = safeWidth * safeHeight * safeQty;
+                    const urgency = this.getUrgencyValue();
+                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+
+                    return this.normalizeMoney(safeWeedingPrice * areaQty * safeUrgency);
+                },
+
+                getWeedingCostDisplay(product) {
+                    try {
+                        const value = this.getWeedingCost(product);
                         const formatted = this.formatMoney(value);
                         return formatted === '' ? '0.00' : formatted;
                     } catch (e) {
