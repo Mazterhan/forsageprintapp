@@ -719,7 +719,7 @@
                                         />
                                         <div class="text-sm text-gray-700" x-text="product.services.eyeletsMode === 'Штуки' ? '(штук)' : '(см)'"></div>
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
-                                            <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <input type="text" :value="getEyeletsCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
                                     </div>
@@ -736,7 +736,7 @@
                                             class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
                                         />
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
-                                            <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <input type="text" :value="getSolderingCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
                                     </div>
@@ -2373,6 +2373,71 @@
                 getMontageCostDisplay(product) {
                     try {
                         const value = this.getMontageCost(product);
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0.00' : formatted;
+                    } catch (e) {
+                        return '0.00';
+                    }
+                },
+
+                getEyeletsCost(product) {
+                    if (!product?.services) {
+                        return 0;
+                    }
+
+                    const mode = String(product.services.eyeletsMode || '').trim();
+                    const inputValue = this.toNumber(product.services.eyeletsValue);
+                    const safeInputValue = Number.isFinite(inputValue) ? inputValue : 0;
+                    const urgency = this.getUrgencyValue();
+                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+                    const servicePrice = this.getServicePriceByCode('SERV-006');
+                    const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
+
+                    if (mode === 'Шаг') {
+                        const width = this.toNumber(this.getFirstPositionValue(product, 'width', '0'));
+                        const height = this.toNumber(this.getFirstPositionValue(product, 'height', '0'));
+                        const safeWidth = Number.isFinite(width) ? width : 0;
+                        const safeHeight = Number.isFinite(height) ? height : 0;
+                        const perimeterPart = (safeWidth + safeHeight) * 2;
+                        const stepMeters = safeInputValue / 100;
+                        if (stepMeters <= 0) {
+                            return 0;
+                        }
+
+                        return this.normalizeMoney((perimeterPart / stepMeters) * safeServicePrice * safeUrgency);
+                    }
+
+                    return this.normalizeMoney(safeInputValue * safeServicePrice * safeUrgency);
+                },
+
+                getEyeletsCostDisplay(product) {
+                    try {
+                        const value = this.getEyeletsCost(product);
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0.00' : formatted;
+                    } catch (e) {
+                        return '0.00';
+                    }
+                },
+
+                getSolderingCost(product) {
+                    if (!product?.services) {
+                        return 0;
+                    }
+
+                    const solderingLength = this.toNumber(product.services.solderingLength);
+                    const safeSolderingLength = Number.isFinite(solderingLength) ? solderingLength : 0;
+                    const servicePrice = this.getServicePriceByCode('SERV-014');
+                    const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
+                    const urgency = this.getUrgencyValue();
+                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+
+                    return this.normalizeMoney(safeSolderingLength * safeServicePrice * safeUrgency);
+                },
+
+                getSolderingCostDisplay(product) {
+                    try {
+                        const value = this.getSolderingCost(product);
                         const formatted = this.formatMoney(value);
                         return formatted === '' ? '0.00' : formatted;
                     } catch (e) {

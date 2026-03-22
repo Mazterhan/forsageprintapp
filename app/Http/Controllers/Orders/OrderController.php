@@ -167,12 +167,14 @@ class OrderController extends Controller
             ->where('visible', true)
             ->whereIn('internal_code', [
                 'SERV-005',
+                'SERV-006',
                 'SERV-007-MZ',
                 'SERV-008-MZ',
                 'SERV-009',
                 'SERV-010',
                 'SERV-011',
                 'SERV-012',
+                'SERV-014',
             ])
             ->pluck('service_price', 'internal_code')
             ->map(fn ($value) => round((float) ($value ?? 0), 2))
