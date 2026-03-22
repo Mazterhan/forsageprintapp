@@ -749,7 +749,7 @@
                                         <input x-model="product.services.designAmount" @focus="clearDefaultZero($event, 'decimal')" @blur="restoreDefaultOnBlur(product.services, 'designAmount', '0.00', $event)" @input="sanitizeDecimalInObject(product.services, 'designAmount', $event)" type="text" inputmode="decimal" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
                                     </div>
                                     <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
-                                        <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <input type="text" :value="getDesignCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <span class="text-sm text-gray-700">грн</span>
                                     </div>
                                 </div>
@@ -2438,6 +2438,29 @@
                 getSolderingCostDisplay(product) {
                     try {
                         const value = this.getSolderingCost(product);
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0.00' : formatted;
+                    } catch (e) {
+                        return '0.00';
+                    }
+                },
+
+                getDesignCost(product) {
+                    if (!product?.services) {
+                        return 0;
+                    }
+
+                    const designAmount = this.toNumber(product.services.designAmount);
+                    const safeDesignAmount = Number.isFinite(designAmount) ? designAmount : 0;
+                    const urgency = this.getUrgencyValue();
+                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+
+                    return this.normalizeMoney(safeDesignAmount * safeUrgency);
+                },
+
+                getDesignCostDisplay(product) {
+                    try {
+                        const value = this.getDesignCost(product);
                         const formatted = this.formatMoney(value);
                         return formatted === '' ? '0.00' : formatted;
                     } catch (e) {
