@@ -11,6 +11,7 @@ class ProductType extends Model
 
     protected $fillable = [
         'name',
+        'service_internal_code',
         'sort_order',
     ];
 }

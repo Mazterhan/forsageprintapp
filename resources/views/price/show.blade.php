@@ -109,6 +109,12 @@
                             <x-input-label :value="__('Вимірювання')" />
                             <x-text-input type="text" class="mt-1 block w-full" :value="$item->measurement_unit" disabled />
                         </div>
+                        @if ($item->material_type === 'Листовий')
+                            <div class="md:col-span-4">
+                                <x-input-label :value="__('Товщина (мм)')" />
+                                <x-text-input type="text" class="mt-1 block w-full" :value="$formatCellNumber($item->thickness_mm)" disabled />
+                            </div>
+                        @endif
                     </div>
 
                     <div class="w-full min-w-0">
@@ -253,4 +259,3 @@
         })();
     </script>
 </x-app-layout>
-

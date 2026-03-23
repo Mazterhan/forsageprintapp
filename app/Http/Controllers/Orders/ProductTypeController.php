@@ -3,22 +3,42 @@
 namespace App\Http\Controllers\Orders;
 
 use App\Http\Controllers\Controller;
+use App\Models\PriceItem;
 use App\Models\ProductCategory;
 use App\Models\ProductTypeCategoryRule;
 use App\Models\ProductType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class ProductTypeController extends Controller
 {
     public function index(): View
     {
-        $types = ProductType::query()
+        $hasServiceInternalCodeColumn = Schema::hasColumn('product_types', 'service_internal_code');
+
+        $typesQuery = ProductType::query()
             ->orderBy('sort_order')
-            ->orderBy('id')
-            ->pluck('name')
+            ->orderBy('id');
+
+        if ($hasServiceInternalCodeColumn) {
+            $typesQuery->select(['id', 'name', 'service_internal_code']);
+        } else {
+            $typesQuery->select(['id', 'name']);
+        }
+
+        $types = $typesQuery->get();
+
+        $typeNames = $types->pluck('name')->all();
+
+        $serviceInternalCodes = PriceItem::query()
+            ->where('model_type', 'Послуга')
+            ->where('is_active', true)
+            ->where('visible', true)
+            ->orderBy('internal_code')
+            ->pluck('internal_code')
             ->all();
 
         $categories = ProductCategory::query()
@@ -27,7 +47,7 @@ class ProductTypeController extends Controller
             ->get(['id', 'name']);
 
         $rules = [];
-        if (!empty($types) && $categories->isNotEmpty()) {
+        if (!empty($typeNames) && $categories->isNotEmpty()) {
             $rules = ProductTypeCategoryRule::query()
                 ->with('productType:id,name')
                 ->whereIn('product_category_id', $categories->pluck('id'))
@@ -45,6 +65,8 @@ class ProductTypeController extends Controller
 
         return view('orders.product-types.index', [
             'types' => $types,
+            'typeNames' => $typeNames,
+            'serviceInternalCodes' => $serviceInternalCodes,
             'categories' => $categories,
             'rules' => $rules,
         ]);
@@ -55,12 +77,24 @@ class ProductTypeController extends Controller
         $data = $request->validate([
             'types' => ['nullable', 'array'],
             'types.*' => ['nullable', 'string', 'max:255'],
+            'service_codes' => ['nullable', 'array'],
+            'service_codes.*' => ['nullable', 'string', 'max:64'],
             'matrix' => ['nullable', 'array'],
         ]);
 
         $rawTypes = collect($data['types'] ?? [])
-            ->map(fn ($value) => trim((string) $value))
-            ->filter(fn ($value) => $value !== '')
+            ->map(fn ($value) => trim((string) $value));
+
+        $rawServiceCodes = collect($data['service_codes'] ?? []);
+
+        $typeRows = $rawTypes
+            ->map(function (string $typeName, int $index) use ($rawServiceCodes): array {
+                return [
+                    'name' => trim($typeName),
+                    'service_internal_code' => trim((string) ($rawServiceCodes->get($index, ''))),
+                ];
+            })
+            ->filter(fn (array $row) => $row['name'] !== '')
             ->values();
 
         $normalize = static fn (string $value): string => function_exists('mb_strtolower')
@@ -69,8 +103,8 @@ class ProductTypeController extends Controller
 
         $seen = [];
         $hasDuplicates = false;
-        $uniqueTypes = $rawTypes->filter(function (string $value) use (&$seen, &$hasDuplicates, $normalize): bool {
-            $key = $normalize($value);
+        $uniqueTypes = $typeRows->filter(function (array $row) use (&$seen, &$hasDuplicates, $normalize): bool {
+            $key = $normalize($row['name']);
             if (isset($seen[$key])) {
                 $hasDuplicates = true;
                 return false;
@@ -83,7 +117,8 @@ class ProductTypeController extends Controller
             return redirect()
                 ->route('orders.product-types.index')
                 ->withInput([
-                    'types' => $uniqueTypes->all(),
+                    'types' => $uniqueTypes->pluck('name')->all(),
+                    'service_codes' => $uniqueTypes->pluck('service_internal_code')->all(),
                     'matrix' => (array) ($data['matrix'] ?? []),
                 ])
                 ->withErrors(['types' => __('Знайдено дублікати. Кожен тип виробу має бути унікальним.')]);
@@ -93,26 +128,45 @@ class ProductTypeController extends Controller
         $matrixRaw = (array) ($data['matrix'] ?? []);
 
         DB::transaction(function () use ($types, $matrixRaw): void {
-            ProductType::query()->delete();
+            $hasServiceInternalCodeColumn = Schema::hasColumn('product_types', 'service_internal_code');
+            $now = now();
 
-            foreach ($types as $index => $name) {
-                ProductType::create([
-                    'name' => $name,
-                    'sort_order' => $index + 1,
-                ]);
-            }
+            if (!empty($types)) {
+                $typeRowsForUpsert = collect($types)
+                    ->values()
+                    ->map(function (array $typeRow, int $index) use ($hasServiceInternalCodeColumn, $now): array {
+                        $row = [
+                            'name' => $typeRow['name'],
+                            'sort_order' => $index + 1,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
 
-            ProductTypeCategoryRule::query()->delete();
+                        if ($hasServiceInternalCodeColumn) {
+                            $row['service_internal_code'] = ($typeRow['service_internal_code'] !== '' ? $typeRow['service_internal_code'] : null);
+                        }
 
-            if (empty($types)) {
-                return;
+                        return $row;
+                    })
+                    ->all();
+
+                $updateColumns = ['sort_order', 'updated_at'];
+                if ($hasServiceInternalCodeColumn) {
+                    $updateColumns[] = 'service_internal_code';
+                }
+
+                ProductType::query()->upsert(
+                    $typeRowsForUpsert,
+                    ['name'],
+                    $updateColumns
+                );
             }
 
             $nameToId = ProductType::query()
                 ->pluck('id', 'name')
                 ->toArray();
 
-            $rows = [];
+            $matrixRowsForUpsert = [];
             foreach ($matrixRaw as $categoryId => $perType) {
                 if (!is_array($perType)) {
                     continue;
@@ -124,22 +178,22 @@ class ProductTypeController extends Controller
                         continue;
                     }
 
-                    if ((string) $flag !== '1') {
-                        continue;
-                    }
-
-                    $rows[] = [
+                    $matrixRowsForUpsert[] = [
                         'product_category_id' => (int) $categoryId,
                         'product_type_id' => (int) $nameToId[$typeName],
-                        'is_enabled' => true,
-                        'created_at' => now(),
-                        'updated_at' => now(),
+                        'is_enabled' => ((string) $flag === '1'),
+                        'created_at' => $now,
+                        'updated_at' => $now,
                     ];
                 }
             }
 
-            if (!empty($rows)) {
-                ProductTypeCategoryRule::query()->insert($rows);
+            if (!empty($matrixRowsForUpsert)) {
+                ProductTypeCategoryRule::query()->upsert(
+                    $matrixRowsForUpsert,
+                    ['product_category_id', 'product_type_id'],
+                    ['is_enabled', 'updated_at']
+                );
             }
         });
 

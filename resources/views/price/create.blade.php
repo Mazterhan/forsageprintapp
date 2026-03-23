@@ -38,7 +38,7 @@
 
                         <div id="material-block" class="space-y-4 hidden">
                             <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                                <div class="md:col-span-6">
+                                <div class="md:col-span-4">
                                     <x-input-label for="category" :value="__('Категорія')" />
                                     <select id="category" name="category" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                                         <option value="">{{ __('Оберіть категорію') }}</option>
@@ -50,7 +50,12 @@
                                     </select>
                                     <x-input-error class="mt-2" :messages="$errors->get('category')" />
                                 </div>
-                                <div class="md:col-span-6">
+                                <div id="thickness-wrap" class="md:col-span-4 hidden">
+                                    <x-input-label for="thickness_mm" :value="__('Товщина (мм)')" />
+                                    <x-text-input id="thickness_mm" name="thickness_mm" type="text" class="mt-1 block w-full" value="{{ old('thickness_mm') }}" />
+                                    <x-input-error class="mt-2" :messages="$errors->get('thickness_mm')" />
+                                </div>
+                                <div class="md:col-span-4">
                                     <x-input-label for="material_type_display" :value="__('Тип')" />
                                     <x-text-input id="material_type_display" type="text" class="mt-1 block w-full bg-gray-100" value="" disabled />
                                 </div>
@@ -129,6 +134,8 @@
             const materialBlock = document.getElementById('material-block');
             const category = document.getElementById('category');
             const materialTypeDisplay = document.getElementById('material_type_display');
+            const thicknessWrap = document.getElementById('thickness-wrap');
+            const thicknessInput = document.getElementById('thickness_mm');
             const serviceToggleWrap = document.getElementById('service-toggle-wrap');
             const forCustomerInput = document.getElementById('for_customer_material');
             const forCustomerToggle = document.getElementById('for_customer_material_toggle');
@@ -149,7 +156,17 @@
 
             const updateMaterialType = () => {
                 const selected = category?.selectedOptions?.[0];
-                materialTypeDisplay.value = selected?.dataset?.materialType || '';
+                const currentMaterialType = selected?.dataset?.materialType || '';
+                materialTypeDisplay.value = currentMaterialType;
+
+                const isSheet = currentMaterialType === 'Листовий' && modelType?.value === 'Матеріал';
+                thicknessWrap?.classList.toggle('hidden', !isSheet);
+                if (thicknessInput) {
+                    thicknessInput.required = isSheet;
+                    if (!isSheet) {
+                        thicknessInput.value = '';
+                    }
+                }
             };
 
             const parseNumber = (value) => {
@@ -164,6 +181,34 @@
             };
 
             const round2 = (value) => Math.round(value * 100) / 100;
+            const trimDecimalDisplay = (value) => {
+                if (value === null || value === undefined) return '';
+                const normalized = String(value).trim();
+                if (normalized === '') return '';
+                return normalized.replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'');
+            };
+            const sanitizeThicknessValue = (raw) => {
+                let value = String(raw || '').replace(',', '.').replace(/[^0-9.]/g, '');
+                const firstDot = value.indexOf('.');
+                if (firstDot !== -1) {
+                    value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, '');
+                    const decimals = value.slice(firstDot + 1);
+                    if (decimals.length > 1) {
+                        value = value.slice(0, firstDot + 1) + decimals.slice(0, 1);
+                    }
+                }
+                if (value.startsWith('.')) {
+                    value = '0' + value;
+                }
+                if (value.includes('.')) {
+                    const [intPart, decPart] = value.split('.', 2);
+                    const normalizedInt = intPart.replace(/^0+(?=\d)/, '') || '0';
+                    value = normalizedInt + '.' + (decPart ?? '');
+                } else {
+                    value = value.replace(/^0+(?=\d)/, '');
+                }
+                return trimDecimalDisplay(value);
+            };
 
             const syncMarkupFromPrices = () => {
                 if (isSyncingMarkup) {
@@ -229,6 +274,16 @@
                 isDirty = true;
             });
 
+            thicknessInput?.addEventListener('input', (event) => {
+                const sanitized = sanitizeThicknessValue(event.target.value);
+                thicknessInput.value = sanitized;
+                isDirty = true;
+            });
+
+            thicknessInput?.addEventListener('blur', () => {
+                thicknessInput.value = sanitizeThicknessValue(thicknessInput.value);
+            });
+
             form?.addEventListener('input', () => {
                 isDirty = true;
             });
@@ -270,4 +325,3 @@
         })();
     </script>
 </x-app-layout>
-

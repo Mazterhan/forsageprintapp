@@ -33,7 +33,7 @@ class OrderController extends Controller
             ->where('is_active', true)
             ->where('visible', true)
             ->where('model_type', 'Матеріал')
-            ->get(['name', 'category', 'material_type', 'thickness_mm', 'service_price']);
+            ->get(['internal_code', 'name', 'category', 'material_type', 'thickness_mm', 'service_price']);
 
         $materials = $materialItems
             ->pluck('name')
@@ -150,10 +150,41 @@ class OrderController extends Controller
             ->filter(fn ($price, $material) => $material !== '')
             ->toArray();
 
+        $materialCodeByMaterial = $materialItems
+            ->groupBy(fn (PriceItem $item) => trim((string) $item->name))
+            ->map(function ($items) {
+                return $items
+                    ->pluck('internal_code')
+                    ->filter(fn ($value) => $value !== null && trim((string) $value) !== '')
+                    ->map(fn ($value) => trim((string) $value))
+                    ->first();
+            })
+            ->filter(fn ($code, $material) => $material !== '' && $code !== null)
+            ->toArray();
+
         $servicePriceByCode = PriceItem::query()
             ->where('is_active', true)
             ->where('visible', true)
-            ->whereIn('internal_code', ['SERV-011', 'SERV-012'])
+            ->whereIn('internal_code', [
+                'SERV-001',
+                'SERV-001-MZ',
+                'SERV-003',
+                'SERV-003-MZ',
+                'SERV-004',
+                'SERV-005',
+                'SERV-005-MZ',
+                'SERV-006',
+                'SERV-006-MZ',
+                'SERV-007',
+                'SERV-007-MZ',
+                'SERV-008',
+                'SERV-008-MZ',
+                'SERV-009',
+                'SERV-010',
+                'SERV-011',
+                'SERV-012',
+                'SERV-014',
+            ])
             ->pluck('service_price', 'internal_code')
             ->map(fn ($value) => round((float) ($value ?? 0), 2))
             ->toArray();
@@ -179,6 +210,7 @@ class OrderController extends Controller
             'materialCategoryByMaterial' => $materialCategoryByMaterial,
             'materialCategoriesByMaterial' => $materialCategoriesByMaterial,
             'materialPriceByMaterial' => $materialPriceByMaterial,
+            'materialCodeByMaterial' => $materialCodeByMaterial,
             'servicePriceByCode' => $servicePriceByCode,
             'typeCategoryMatrix' => $typeCategoryMatrix,
         ]);
