@@ -128,32 +128,45 @@ class ProductTypeController extends Controller
         $matrixRaw = (array) ($data['matrix'] ?? []);
 
         DB::transaction(function () use ($types, $matrixRaw): void {
-            ProductType::query()->delete();
+            $hasServiceInternalCodeColumn = Schema::hasColumn('product_types', 'service_internal_code');
+            $now = now();
 
-            foreach ($types as $index => $typeRow) {
-                $payload = [
-                    'name' => $typeRow['name'],
-                    'sort_order' => $index + 1,
-                ];
+            if (!empty($types)) {
+                $typeRowsForUpsert = collect($types)
+                    ->values()
+                    ->map(function (array $typeRow, int $index) use ($hasServiceInternalCodeColumn, $now): array {
+                        $row = [
+                            'name' => $typeRow['name'],
+                            'sort_order' => $index + 1,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
 
-                if (Schema::hasColumn('product_types', 'service_internal_code')) {
-                    $payload['service_internal_code'] = ($typeRow['service_internal_code'] !== '' ? $typeRow['service_internal_code'] : null);
+                        if ($hasServiceInternalCodeColumn) {
+                            $row['service_internal_code'] = ($typeRow['service_internal_code'] !== '' ? $typeRow['service_internal_code'] : null);
+                        }
+
+                        return $row;
+                    })
+                    ->all();
+
+                $updateColumns = ['sort_order', 'updated_at'];
+                if ($hasServiceInternalCodeColumn) {
+                    $updateColumns[] = 'service_internal_code';
                 }
 
-                ProductType::create($payload);
-            }
-
-            ProductTypeCategoryRule::query()->delete();
-
-            if (empty($types)) {
-                return;
+                ProductType::query()->upsert(
+                    $typeRowsForUpsert,
+                    ['name'],
+                    $updateColumns
+                );
             }
 
             $nameToId = ProductType::query()
                 ->pluck('id', 'name')
                 ->toArray();
 
-            $rows = [];
+            $matrixRowsForUpsert = [];
             foreach ($matrixRaw as $categoryId => $perType) {
                 if (!is_array($perType)) {
                     continue;
@@ -165,22 +178,22 @@ class ProductTypeController extends Controller
                         continue;
                     }
 
-                    if ((string) $flag !== '1') {
-                        continue;
-                    }
-
-                    $rows[] = [
+                    $matrixRowsForUpsert[] = [
                         'product_category_id' => (int) $categoryId,
                         'product_type_id' => (int) $nameToId[$typeName],
-                        'is_enabled' => true,
-                        'created_at' => now(),
-                        'updated_at' => now(),
+                        'is_enabled' => ((string) $flag === '1'),
+                        'created_at' => $now,
+                        'updated_at' => $now,
                     ];
                 }
             }
 
-            if (!empty($rows)) {
-                ProductTypeCategoryRule::query()->insert($rows);
+            if (!empty($matrixRowsForUpsert)) {
+                ProductTypeCategoryRule::query()->upsert(
+                    $matrixRowsForUpsert,
+                    ['product_category_id', 'product_type_id'],
+                    ['is_enabled', 'updated_at']
+                );
             }
         });
 

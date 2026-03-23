@@ -366,14 +366,20 @@
                                         <div class="ml-[40px]"></div>
                                         <input
                                             x-model="product.services.weedingPrice"
-                                            @focus="clearDefaultZero($event, 'decimal')"
-                                            @blur="restoreDefaultOnBlur(product.services, 'weedingPrice', '0.00', $event)"
-                                            @input="sanitizeDecimalInObject(product.services, 'weedingPrice', $event)"
+                                            @focus="clearDefaultZero($event, 'integer')"
+                                            @blur="restoreDefaultOnBlur(product.services, 'weedingPrice', '0', $event)"
+                                            @input="sanitizeIntegerInObject(product.services, 'weedingPrice', $event); product.services.weedingPriceTouched = true"
                                             type="text"
-                                            inputmode="decimal"
+                                            inputmode="numeric"
                                             class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
                                         />
                                         <div class="text-sm text-gray-700">ціна (грн/м.кв.)</div>
+                                        <div
+                                            x-show="isWeedingPriceRangeWarning(product)"
+                                            class="text-xs font-semibold text-red-600 whitespace-nowrap"
+                                        >
+                                            Допустимий діапазон: 150-350
+                                        </div>
                                     </div>
                                     <div class="flex flex-wrap items-end gap-3">
                                         <div class="text-sm text-gray-700">Ширина(м)</div>
@@ -392,8 +398,26 @@
                                 <div x-show="isServiceBlockVisible(product, 'montage')" class="border border-gray-200 rounded-md p-3 space-y-2">
                                     <div class="flex flex-wrap items-center gap-3">
                                         <div class="font-medium text-gray-700">Монтажка</div>
+                                        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                            <input
+                                                type="radio"
+                                                :name="`services_montage_${product.uid}`"
+                                                value="0"
+                                                x-model="product.services.montage"
+                                            >
+                                            <span>ні</span>
+                                        </label>
+                                        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                            <input
+                                                type="radio"
+                                                :name="`services_montage_${product.uid}`"
+                                                value="1"
+                                                x-model="product.services.montage"
+                                            >
+                                            <span>так</span>
+                                        </label>
                                     </div>
-                                    <div class="flex flex-wrap items-end gap-3">
+                                    <div x-show="product.services.montage === '1'" class="flex flex-wrap items-end gap-3">
                                         <div class="text-sm text-gray-700">Ширина(м)</div>
                                         <input type="text" :value="getFirstPositionValue(product, 'width', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="text-sm text-gray-700">Висота(м)</div>
@@ -716,8 +740,8 @@
                                 <div x-show="isServiceBlockVisible(product, 'eyelets_soldering')" class="border border-gray-200 rounded-md p-3 space-y-2">
                                     <div class="flex flex-wrap items-center gap-3">
                                         <div class="font-medium text-gray-700">Люверси</div>
-                                        <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_eyelets_mode_${product.uid}`" value="Шаг" x-model="product.services.eyeletsMode"><span>Шаг</span></label>
-                                        <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_eyelets_mode_${product.uid}`" value="Штуки" x-model="product.services.eyeletsMode"><span>Штуки</span></label>
+                                        <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_eyelets_mode_${product.uid}`" value="Шаг" x-model="product.services.eyeletsMode" @change="onEyeletsModeChanged(product)"><span>Шаг</span></label>
+                                        <label class="inline-flex items-center gap-2 text-sm text-gray-700"><input type="radio" :name="`services_eyelets_mode_${product.uid}`" value="Штуки" x-model="product.services.eyeletsMode" @change="onEyeletsModeChanged(product)"><span>Штуки</span></label>
                                         <input
                                             x-model="product.services.eyeletsValue"
                                             @focus="clearDefaultZero($event, 'integer')"
@@ -893,7 +917,9 @@
                             lamination: 'Без',
                             cutting: 'Без порізки',
                             cuttingLength: '0',
-                            weedingPrice: '0.00',
+                            weedingPrice: '0',
+                            weedingPriceTouched: false,
+                            montage: '0',
                             rolling: '0',
                             rollingIndividual: false,
                             rollingMaterialP1: '',
@@ -1287,6 +1313,14 @@
 
                 onRollingChanged(product) {
                     this.ensureRollingMaterials(product);
+                },
+
+                onEyeletsModeChanged(product) {
+                    if (!product?.services) {
+                        return;
+                    }
+
+                    product.services.eyeletsValue = '0';
                 },
 
                 onRollingIndividualChanged(product) {
@@ -2148,6 +2182,44 @@
                     event.target.value = target[fieldName];
                 },
 
+                sanitizeIntegerRangeInObject(target, fieldName, min, max, event) {
+                    const digits = this.sanitizeIntegerValue(event.target.value);
+                    if (digits === '') {
+                        target[fieldName] = '';
+                        event.target.value = '';
+                        return;
+                    }
+
+                    let value = parseInt(digits, 10);
+                    if (!Number.isFinite(value)) {
+                        value = min;
+                    }
+                    if (Number.isFinite(max) && value > max) {
+                        value = max;
+                    }
+
+                    target[fieldName] = String(value);
+                    event.target.value = target[fieldName];
+                },
+
+                normalizeIntegerRangeOnBlur(target, fieldName, min, max, event) {
+                    const digits = this.sanitizeIntegerValue(event.target.value);
+                    let value = parseInt(digits, 10);
+                    if (!Number.isFinite(value)) {
+                        value = min;
+                    }
+
+                    if (Number.isFinite(min) && value < min) {
+                        value = min;
+                    }
+                    if (Number.isFinite(max) && value > max) {
+                        value = max;
+                    }
+
+                    target[fieldName] = String(value);
+                    event.target.value = target[fieldName];
+                },
+
                 clearDefaultZero(event, type = 'integer') {
                     const raw = String(event.target?.value ?? '');
                     if (type === 'decimal') {
@@ -2345,7 +2417,10 @@
                     }
 
                     const weedingPrice = this.toNumber(product.services.weedingPrice);
-                    const safeWeedingPrice = Number.isFinite(weedingPrice) ? weedingPrice : 0;
+                    const safeWeedingPrice = Number.isFinite(weedingPrice) ? Math.trunc(weedingPrice) : 0;
+                    if (safeWeedingPrice !== 0 && (safeWeedingPrice < 150 || safeWeedingPrice > 350)) {
+                        return 0;
+                    }
                     const width = this.toNumber(this.getFirstPositionValue(product, 'width', '0'));
                     const height = this.toNumber(this.getFirstPositionValue(product, 'height', '0'));
                     const qty = this.toNumber(this.getFirstPositionValue(product, 'qty', '0'));
@@ -2359,6 +2434,69 @@
                     return this.normalizeMoney(safeWeedingPrice * areaQty * safeUrgency);
                 },
 
+                isWeedingPriceRangeWarning(product) {
+                    if (!product?.services) {
+                        return false;
+                    }
+
+                    if (!product.services.weedingPriceTouched) {
+                        return false;
+                    }
+
+                    const raw = String(product.services.weedingPrice ?? '').trim();
+                    if (raw === '') {
+                        return false;
+                    }
+
+                    const value = this.toNumber(raw);
+                    if (!Number.isFinite(value)) {
+                        return true;
+                    }
+
+                    const intValue = Math.trunc(value);
+                    return intValue !== 0 && (intValue < 150 || intValue > 350);
+                },
+
+                isManualThicknessWarning(product) {
+                    if (!product?.services) {
+                        return false;
+                    }
+
+                    if (!this.isCustomerMaterial(product.material)) {
+                        return false;
+                    }
+
+                    if (String(product.services.cutting || '') === 'Без порізки') {
+                        return false;
+                    }
+
+                    return !String(product.manualThickness || '').trim();
+                },
+
+                hasProductWarnings(product) {
+                    if (!product) {
+                        return false;
+                    }
+
+                    const positions = Array.isArray(product.positions) ? product.positions : [];
+                    const hasUvWarning = this.isUvPrintProduct(product) && positions.some((position) => !this.isUvLayersValid(position));
+                    const hasManualThicknessWarning = this.isManualThicknessWarning(product);
+                    const hasWeedingWarning = this.isWeedingPriceRangeWarning(product);
+                    const hasRollingIp1Warning = this.isRollingIpRowInvalid(product, 'ip1');
+                    const hasRollingIp2Warning = this.isRollingIpRowInvalid(product, 'ip2');
+
+                    return hasUvWarning
+                        || hasManualThicknessWarning
+                        || hasWeedingWarning
+                        || hasRollingIp1Warning
+                        || hasRollingIp2Warning;
+                },
+
+                hasAnyWarnings() {
+                    const products = Array.isArray(this.products) ? this.products : [];
+                    return products.some((product) => this.hasProductWarnings(product));
+                },
+
                 getWeedingCostDisplay(product) {
                     try {
                         const value = this.getWeedingCost(product);
@@ -2370,6 +2508,10 @@
                 },
 
                 getMontageCost(product) {
+                    if (!product?.services || String(product.services.montage || '0') !== '1') {
+                        return 0;
+                    }
+
                     const width = this.toNumber(this.getFirstPositionValue(product, 'width', '0'));
                     const height = this.toNumber(this.getFirstPositionValue(product, 'height', '0'));
                     const qty = this.toNumber(this.getFirstPositionValue(product, 'qty', '0'));
@@ -2699,7 +2841,7 @@
                         total += this.getWeedingCost(product);
                     }
 
-                    if (this.isServiceBlockVisible(product, 'montage')) {
+                    if (this.isServiceBlockVisible(product, 'montage') && String(product.services.montage || '0') === '1') {
                         total += this.getMontageCost(product);
                     }
 
@@ -2725,6 +2867,10 @@
                 },
 
                 getProductTotalCostDisplay(product) {
+                    if (Array.isArray(this.products) && this.products.length === 1 && this.hasAnyWarnings()) {
+                        return '';
+                    }
+
                     const formatted = this.formatMoney(this.getProductTotalCost(product));
                     return formatted === '' ? '0.00' : formatted;
                 },
@@ -2736,6 +2882,10 @@
                 },
 
                 getOrderTotalCostDisplay() {
+                    if (this.hasAnyWarnings()) {
+                        return '';
+                    }
+
                     const formatted = this.formatMoney(this.getOrderTotalCost());
                     return formatted === '' ? '0.00' : formatted;
                 },
@@ -2817,4 +2967,3 @@
         }
     </script>
 </x-app-layout>
-
