@@ -2541,7 +2541,9 @@
                             return NaN;
                         }
 
-                        baseUnitPrice = solventServicePrice + materialPrice;
+                        const materialCode = this.getMaterialCode(product.material);
+                        const isFilmWithIncludedSolvent = materialCode === 'MAT-FLM-010' || materialCode === 'MAT-FLM-011';
+                        baseUnitPrice = isFilmWithIncludedSolvent ? materialPrice : (solventServicePrice + materialPrice);
                     } else if (isCutOnly) {
                         const materialPrice = this.resolveMaterialPriceForProduct(product);
                         if (!Number.isFinite(materialPrice)) {
