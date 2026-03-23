@@ -354,7 +354,7 @@
                                             class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
                                         />
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
-                                            <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <input type="text" :value="getCuttingCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
                                     </div>
@@ -440,7 +440,7 @@
                                     <div x-show="product.services.rolling === '1'" class="flex items-start gap-6 pb-1 overflow-visible">
                                         <div class="space-y-3 border border-gray-200 rounded-md p-3 w-[500px] max-w-full shrink-0">
                                             <div class="grid items-center gap-x-3 relative z-[560]" style="grid-template-columns: 120px 360px;">
-                                                <div class="w-[120px] text-sm text-gray-700">Матеріал П1</div>
+                                                <div class="w-[120px] text-sm text-gray-700">Матеріал прикатки 1</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
                                                     <div class="relative" @click.outside="product.services.showRollingP1Dropdown = false">
                                                         <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
@@ -490,7 +490,7 @@
                                             </div>
 
                                             <div class="grid items-center gap-x-3 relative z-[540]" style="grid-template-columns: 120px 360px;">
-                                                <div class="w-[120px] text-sm text-gray-700">Матеріал П2</div>
+                                                <div class="w-[120px] text-sm text-gray-700">Матеріал прикатки 2</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
                                                     <div class="relative" @click.outside="product.services.showRollingP2Dropdown = false">
                                                         <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
@@ -542,7 +542,7 @@
 
                                         <div class="space-y-3 border border-gray-200 rounded-md p-3 shrink-0">
                                             <div class="grid items-center gap-x-2 relative z-[560]" style="grid-template-columns: 120px 360px auto 90px auto 90px;">
-                                                <div class="w-[120px] text-sm text-gray-700">Матеріал ІП1</div>
+                                                <div class="w-[120px] text-sm text-gray-700">Матеріал індивідуальної прикатки 1</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
                                                     <div class="relative" @click.outside="product.services.showRollingIP1Dropdown = false">
                                                         <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
@@ -615,11 +615,11 @@
                                                 />
                                             </div>
                                             <div x-show="isRollingIpRowInvalid(product, 'ip1')" class="text-xs font-semibold text-red-600">
-                                                Для Матеріал ІП1 значення Ширина (м) та Висота (м) мають бути більше 0.
+                                                Для 'Матеріал індивідуальної прикатки 1' значення Ширина (м) та Висота (м) мають бути більше 0.
                                             </div>
 
                                             <div class="grid items-center gap-x-2 relative z-[540]" style="grid-template-columns: 120px 360px auto 90px auto 90px;">
-                                                <div class="w-[120px] text-sm text-gray-700">Матеріал ІП2</div>
+                                                <div class="w-[120px] text-sm text-gray-700">Матеріал індивідуальної прикатки 2</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
                                                     <div class="relative" @click.outside="product.services.showRollingIP2Dropdown = false">
                                                         <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
@@ -692,7 +692,7 @@
                                                 />
                                             </div>
                                             <div x-show="isRollingIpRowInvalid(product, 'ip2')" class="text-xs font-semibold text-red-600">
-                                                Для Матеріал ІП2 значення Ширина (м) та Висота (м) мають бути більше 0.
+                                                Для 'Матеріал індивідуальної прикатки 2' значення Ширина (м) та Висота (м) мають бути більше 0.
                                             </div>
                                         </div>
                                     </div>
@@ -781,7 +781,7 @@
                         <div class="border border-gray-300 rounded-lg p-4 space-y-3" style="background-color: #FCEEDF;">
                             <div class="flex flex-wrap items-center gap-3">
                                 <div class="font-bold text-gray-800" x-text="products.length > 1 ? `Вартість виробу #${displayProductNumber(productIndex)}` : 'Вартість загальна (грн)'"></div>
-                                <input type="text" value="0.00" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                <input type="text" :value="getProductTotalCostDisplay(product)" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                 <div class="ml-10 font-bold text-gray-800">Собівартість (грн)</div>
                                 <input type="text" value="0.00" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                 <div x-show="!product.isExpanded && products.length > 1" class="ml-auto flex items-center gap-2">
@@ -838,7 +838,7 @@
                             <div class="font-bold text-gray-800">Загальний прорахунок замовлення з усіма виробами та послугами:</div>
                             <div class="flex items-center gap-3">
                                 <div class="font-bold text-gray-800">Вартість всього замовлення (грн)</div>
-                                <input type="text" value="0.00" disabled class="w-[160px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                <input type="text" :value="getOrderTotalCostDisplay()" disabled class="w-[160px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                             </div>
                             <div class="flex items-center gap-3">
                                 <div class="font-bold text-gray-800">Собівартість всього замовлення (грн)</div>
@@ -2035,15 +2035,23 @@
                 },
 
                 onMaterialChanged(product) {
-                    product.thickness = '';
-                    product.manualThickness = '';
-                    product.manualThicknessError = '';
-                    if (product.material) {
-                        product.materialQuery = product.material;
-                    }
+                    const selectedMaterial = String(product.material || '');
+                    const resetProduct = this.createProduct();
 
-                    if (!product.material) {
-                        product.servicesEnabledRaw = '0';
+                    product.showMaterialDropdown = false;
+                    product.thickness = resetProduct.thickness;
+                    product.manualThickness = resetProduct.manualThickness;
+                    product.manualThicknessError = resetProduct.manualThicknessError;
+                    product.positions = [this.createPosition()];
+                    product.servicesEnabledRaw = resetProduct.servicesEnabledRaw;
+                    product.services = { ...resetProduct.services };
+
+                    if (selectedMaterial !== '') {
+                        product.material = selectedMaterial;
+                        product.materialQuery = selectedMaterial;
+                    } else {
+                        product.material = resetProduct.material;
+                        product.materialQuery = resetProduct.materialQuery;
                     }
 
                     const options = this.getThicknessOptions(product.material);
@@ -2501,6 +2509,77 @@
                     }
                 },
 
+                getCuttingThicknessValue(product) {
+                    if (this.isCustomerMaterial(product.material)) {
+                        const manual = this.toNumber(product.manualThickness);
+                        return Number.isFinite(manual) ? manual : 0;
+                    }
+
+                    const selected = this.toNumber(this.getSelectedMaterialThickness(product));
+                    return Number.isFinite(selected) ? selected : 0;
+                },
+
+                resolveCuttingServiceCode(product) {
+                    const cuttingMode = String(product?.services?.cutting || '').trim();
+                    if (cuttingMode === 'Плотер') {
+                        const laminationMode = String(product?.services?.lamination || '').trim();
+                        const isLaminated = laminationMode === 'Одностороннє' || laminationMode === 'Двостороннє';
+
+                        if (isLaminated) {
+                            return this.isCustomerRollMaterial(product.material) ? 'SERV-006-MZ' : 'SERV-008';
+                        }
+
+                        return this.isCustomerRollMaterial(product.material) ? 'SERV-005-MZ' : 'SERV-007';
+                    }
+
+                    if (cuttingMode === 'Фреза') {
+                        return this.isCustomerMaterial(product.material) ? 'SERV-003-MZ' : 'SERV-004';
+                    }
+
+                    if (cuttingMode === 'Лазер') {
+                        return this.isCustomerMaterial(product.material) ? 'SERV-001-MZ' : 'SERV-001';
+                    }
+
+                    return '';
+                },
+
+                getCuttingCost(product) {
+                    if (!product?.services) {
+                        return 0;
+                    }
+
+                    const cuttingMode = String(product.services.cutting || '').trim();
+                    if (!cuttingMode || cuttingMode === 'Без порізки') {
+                        return 0;
+                    }
+
+                    const cuttingLength = this.toNumber(product.services.cuttingLength);
+                    const safeLength = Number.isFinite(cuttingLength) ? cuttingLength : 0;
+                    const urgency = this.getUrgencyValue();
+                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+                    const serviceCode = this.resolveCuttingServiceCode(product);
+                    const servicePrice = this.getServicePriceByCode(serviceCode);
+                    const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
+
+                    if (cuttingMode === 'Фреза' || cuttingMode === 'Лазер') {
+                        const thickness = this.getCuttingThicknessValue(product);
+                        const safeThickness = Number.isFinite(thickness) ? thickness : 0;
+                        return this.normalizeMoney(safeLength * safeServicePrice * safeThickness * safeUrgency);
+                    }
+
+                    return this.normalizeMoney(safeLength * safeServicePrice * safeUrgency);
+                },
+
+                getCuttingCostDisplay(product) {
+                    try {
+                        const value = this.getCuttingCost(product);
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0.00' : formatted;
+                    } catch (e) {
+                        return '0.00';
+                    }
+                },
+
                 isRollingIpDimensionInvalid(product, row, field) {
                     if (!product?.services || String(product.services.rolling || '0') !== '1' || !product.services.rollingIndividual) {
                         return false;
@@ -2592,6 +2671,76 @@
                     } catch (e) {
                         return '0.00';
                     }
+                },
+
+                getProductPositionsCost(product) {
+                    const positions = Array.isArray(product?.positions) ? product.positions : [];
+                    const total = positions.reduce((sum, position) => {
+                        const value = this.getPositionCost(product, position);
+                        return sum + (Number.isFinite(value) ? value : 0);
+                    }, 0);
+
+                    return this.normalizeMoney(total);
+                },
+
+                getProductServicesCost(product) {
+                    if (!product?.services || String(product.servicesEnabledRaw || '0') !== '1' || !product.material) {
+                        return 0;
+                    }
+
+                    let total = 0;
+
+                    if (this.isServiceBlockVisible(product, 'lamination') && String(product.services.lamination || '') !== 'Без') {
+                        total += this.getLaminationCost(product);
+                    }
+
+                    if (this.isServiceBlockVisible(product, 'cutting') && String(product.services.cutting || '') !== 'Без порізки') {
+                        total += this.getCuttingCost(product);
+                    }
+
+                    if (this.isServiceBlockVisible(product, 'weeding')) {
+                        total += this.getWeedingCost(product);
+                    }
+
+                    if (this.isServiceBlockVisible(product, 'montage')) {
+                        total += this.getMontageCost(product);
+                    }
+
+                    if (this.isServiceBlockVisible(product, 'rolling') && String(product.services.rolling || '0') === '1') {
+                        total += this.getRollingCost(product);
+                    }
+
+                    if (this.isServiceBlockVisible(product, 'eyelets_soldering')) {
+                        total += this.getEyeletsCost(product);
+                        total += this.getSolderingCost(product);
+                    }
+
+                    total += this.getDesignCost(product);
+                    total += this.getPackagingCost(product);
+
+                    return this.normalizeMoney(total);
+                },
+
+                getProductTotalCost(product) {
+                    const positionsCost = this.getProductPositionsCost(product);
+                    const servicesCost = this.getProductServicesCost(product);
+                    return this.normalizeMoney(positionsCost + servicesCost);
+                },
+
+                getProductTotalCostDisplay(product) {
+                    const formatted = this.formatMoney(this.getProductTotalCost(product));
+                    return formatted === '' ? '0.00' : formatted;
+                },
+
+                getOrderTotalCost() {
+                    const products = Array.isArray(this.products) ? this.products : [];
+                    const total = products.reduce((sum, product) => sum + this.getProductTotalCost(product), 0);
+                    return this.normalizeMoney(total);
+                },
+
+                getOrderTotalCostDisplay() {
+                    const formatted = this.formatMoney(this.getOrderTotalCost());
+                    return formatted === '' ? '0.00' : formatted;
                 },
 
                 resolveMaterialPriceForProduct(product) {

@@ -166,10 +166,18 @@ class OrderController extends Controller
             ->where('is_active', true)
             ->where('visible', true)
             ->whereIn('internal_code', [
+                'SERV-001',
+                'SERV-001-MZ',
                 'SERV-003',
+                'SERV-003-MZ',
+                'SERV-004',
                 'SERV-005',
+                'SERV-005-MZ',
                 'SERV-006',
+                'SERV-006-MZ',
+                'SERV-007',
                 'SERV-007-MZ',
+                'SERV-008',
                 'SERV-008-MZ',
                 'SERV-009',
                 'SERV-010',
