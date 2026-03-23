@@ -541,8 +541,8 @@
                                         </div>
 
                                         <div class="space-y-3 border border-gray-200 rounded-md p-3 shrink-0">
-                                            <div class="grid items-center gap-x-2 relative z-[560]" style="grid-template-columns: 120px 360px auto 90px auto 90px;">
-                                                <div class="w-[120px] text-sm text-gray-700">Матеріал індивідуальної прикатки 1</div>
+                                            <div class="grid items-center gap-x-2 relative z-[560]" style="grid-template-columns: 160px 360px auto 90px auto 90px;">
+                                                <div class="w-[160px] text-sm text-gray-700">Матеріал індивідуальної прикатки 1</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
                                                     <div class="relative" @click.outside="product.services.showRollingIP1Dropdown = false">
                                                         <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
@@ -618,8 +618,8 @@
                                                 Для 'Матеріал індивідуальної прикатки 1' значення Ширина (м) та Висота (м) мають бути більше 0.
                                             </div>
 
-                                            <div class="grid items-center gap-x-2 relative z-[540]" style="grid-template-columns: 120px 360px auto 90px auto 90px;">
-                                                <div class="w-[120px] text-sm text-gray-700">Матеріал індивідуальної прикатки 2</div>
+                                            <div class="grid items-center gap-x-2 relative z-[540]" style="grid-template-columns: 160px 360px auto 90px auto 90px;">
+                                                <div class="w-[160px] text-sm text-gray-700">Матеріал індивідуальної прикатки 2</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
                                                     <div class="relative" @click.outside="product.services.showRollingIP2Dropdown = false">
                                                         <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
@@ -784,6 +784,9 @@
                                 <input type="text" :value="getProductTotalCostDisplay(product)" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                 <div class="ml-10 font-bold text-gray-800">Собівартість (грн)</div>
                                 <input type="text" value="0.00" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                <button x-show="products.length === 1" type="button" class="ml-auto inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white" style="background-color: #698DE3;">
+                                    Зберегти заявку
+                                </button>
                                 <div x-show="!product.isExpanded && products.length > 1" class="ml-auto flex items-center gap-2">
                                     <button
                                         type="button"
@@ -802,10 +805,7 @@
                                     ></button>
                                 </div>
                             </div>
-                            <div x-show="product.isExpanded" class="flex items-center justify-between">
-                                <button type="button" @click.prevent.stop="noop()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-gray-900" style="background-color: #27E349;">
-                                    Прорахувати
-                                </button>
+                            <div x-show="product.isExpanded" class="flex items-center justify-end">
                                 <div class="ml-auto flex items-center gap-2">
                                     <button
                                         x-show="products.length > 1"
@@ -823,9 +823,6 @@
                                         style="background-color: #EF795A;"
                                         x-text="`Видалити тип виробу #${displayProductNumber(productIndex)}`"
                                     ></button>
-                                    <button x-show="products.length === 1" type="button" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white" style="background-color: #698DE3;">
-                                        Зберегти заявку
-                                    </button>
                                 </div>
                             </div>
                         </div>
