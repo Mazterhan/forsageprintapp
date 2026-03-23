@@ -599,6 +599,7 @@
                                                     inputmode="decimal"
                                                     :disabled="!product.services.rollingIndividual"
                                                     class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-500"
+                                                    :class="isRollingIpDimensionInvalid(product, 'ip1', 'width') ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
                                                 />
                                                 <div class="text-sm text-gray-700" style="margin-left: 28px;">Висота (м)</div>
                                                 <input
@@ -610,7 +611,11 @@
                                                     inputmode="decimal"
                                                     :disabled="!product.services.rollingIndividual"
                                                     class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-500"
+                                                    :class="isRollingIpDimensionInvalid(product, 'ip1', 'height') ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
                                                 />
+                                            </div>
+                                            <div x-show="isRollingIpRowInvalid(product, 'ip1')" class="text-xs font-semibold text-red-600">
+                                                Для Матеріал ІП1 значення Ширина (м) та Висота (м) мають бути більше 0.
                                             </div>
 
                                             <div class="grid items-center gap-x-2 relative z-[540]" style="grid-template-columns: 120px 360px auto 90px auto 90px;">
@@ -671,6 +676,7 @@
                                                     inputmode="decimal"
                                                     :disabled="!product.services.rollingIndividual || !product.services.rollingMaterialIP2"
                                                     class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-500"
+                                                    :class="isRollingIpDimensionInvalid(product, 'ip2', 'width') ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
                                                 />
                                                 <div class="text-sm text-gray-700" style="margin-left: 28px;">Висота (м)</div>
                                                 <input
@@ -682,7 +688,11 @@
                                                     inputmode="decimal"
                                                     :disabled="!product.services.rollingIndividual || !product.services.rollingMaterialIP2"
                                                     class="w-[90px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-500"
+                                                    :class="isRollingIpDimensionInvalid(product, 'ip2', 'height') ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''"
                                                 />
+                                            </div>
+                                            <div x-show="isRollingIpRowInvalid(product, 'ip2')" class="text-xs font-semibold text-red-600">
+                                                Для Матеріал ІП2 значення Ширина (м) та Висота (м) мають бути більше 0.
                                             </div>
                                         </div>
                                     </div>
@@ -696,7 +706,7 @@
                                             <div class="text-sm text-gray-700">Кількість(шт)</div>
                                             <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
-                                                <input type="text" value="0.00" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                                <input type="text" :value="getRollingCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                                 <span class="text-sm text-gray-700">грн</span>
                                             </div>
                                         </div>
@@ -2484,6 +2494,99 @@
                 getPackagingCostDisplay(product) {
                     try {
                         const value = this.getPackagingCost(product);
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0.00' : formatted;
+                    } catch (e) {
+                        return '0.00';
+                    }
+                },
+
+                isRollingIpDimensionInvalid(product, row, field) {
+                    if (!product?.services || String(product.services.rolling || '0') !== '1' || !product.services.rollingIndividual) {
+                        return false;
+                    }
+
+                    const hasMaterial = row === 'ip1'
+                        ? Boolean(product.services.rollingMaterialIP1)
+                        : Boolean(product.services.rollingMaterialIP2);
+                    if (!hasMaterial) {
+                        return false;
+                    }
+
+                    const raw = row === 'ip1'
+                        ? (field === 'width' ? product.services.rollingIp1Width : product.services.rollingIp1Height)
+                        : (field === 'width' ? product.services.rollingIp2Width : product.services.rollingIp2Height);
+                    const value = this.toNumber(raw);
+
+                    return !Number.isFinite(value) || value <= 0;
+                },
+
+                isRollingIpRowInvalid(product, row) {
+                    return this.isRollingIpDimensionInvalid(product, row, 'width')
+                        || this.isRollingIpDimensionInvalid(product, row, 'height');
+                },
+
+                getRollingCost(product) {
+                    if (!product?.services || String(product.services.rolling || '0') !== '1') {
+                        return 0;
+                    }
+
+                    const urgency = this.getUrgencyValue();
+                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+                    const serv003 = this.getServicePriceByCode('SERV-003');
+                    const safeServ003 = Number.isFinite(serv003) ? serv003 : 0;
+                    const qty = this.toNumber(this.getFirstPositionValue(product, 'qty', '0'));
+                    const safeQty = Number.isFinite(qty) ? qty : 0;
+
+                    if (!product.services.rollingIndividual) {
+                        const width = this.toNumber(this.getFirstPositionValue(product, 'width', '0'));
+                        const height = this.toNumber(this.getFirstPositionValue(product, 'height', '0'));
+                        const safeWidth = Number.isFinite(width) ? width : 0;
+                        const safeHeight = Number.isFinite(height) ? height : 0;
+                        const factor = safeWidth * safeHeight * safeQty;
+
+                        const hasP1 = Boolean(product.services.rollingMaterialP1);
+                        const p1Price = this.getMaterialPrice(product.services.rollingMaterialP1);
+                        const safeP1Price = Number.isFinite(p1Price) ? p1Price : 0;
+                        const part1 = hasP1 ? ((safeP1Price + safeServ003) * factor * safeUrgency) : 0;
+
+                        const hasP2 = Boolean(product.services.rollingMaterialP2);
+                        const p2Price = this.getMaterialPrice(product.services.rollingMaterialP2);
+                        const safeP2Price = Number.isFinite(p2Price) ? p2Price : 0;
+                        const part2 = hasP2 ? ((safeP2Price + safeServ003) * factor * safeUrgency) : 0;
+
+                        return this.normalizeMoney(part1 + part2);
+                    }
+
+                    const ip1Width = this.toNumber(product.services.rollingIp1Width);
+                    const ip1Height = this.toNumber(product.services.rollingIp1Height);
+                    const safeIp1Width = Number.isFinite(ip1Width) ? ip1Width : 0;
+                    const safeIp1Height = Number.isFinite(ip1Height) ? ip1Height : 0;
+                    const factorIp1 = safeIp1Width * safeIp1Height * safeQty;
+                    const hasIp1 = Boolean(product.services.rollingMaterialIP1);
+                    const ip1Price = this.getMaterialPrice(product.services.rollingMaterialIP1);
+                    const safeIp1Price = Number.isFinite(ip1Price) ? ip1Price : 0;
+                    const partIp1 = hasIp1 ? ((safeIp1Price + safeServ003) * factorIp1 * safeUrgency) : 0;
+
+                    const hasIp2 = Boolean(product.services.rollingMaterialIP2);
+                    let partIp2 = 0;
+                    if (hasIp2) {
+                        const ip2Width = this.toNumber(product.services.rollingIp2Width);
+                        const ip2Height = this.toNumber(product.services.rollingIp2Height);
+                        const safeIp2Width = Number.isFinite(ip2Width) ? ip2Width : 0;
+                        const safeIp2Height = Number.isFinite(ip2Height) ? ip2Height : 0;
+                        const factorIp2 = safeIp2Width * safeIp2Height * safeQty;
+                        const ip2Price = this.getMaterialPrice(product.services.rollingMaterialIP2);
+                        const safeIp2Price = Number.isFinite(ip2Price) ? ip2Price : 0;
+                        partIp2 = (safeIp2Price + safeServ003) * factorIp2 * safeUrgency;
+                    }
+
+                    return this.normalizeMoney(partIp1 + partIp2);
+                },
+
+                getRollingCostDisplay(product) {
+                    try {
+                        const value = this.getRollingCost(product);
                         const formatted = this.formatMoney(value);
                         return formatted === '' ? '0.00' : formatted;
                     } catch (e) {

@@ -166,6 +166,7 @@ class OrderController extends Controller
             ->where('is_active', true)
             ->where('visible', true)
             ->whereIn('internal_code', [
+                'SERV-003',
                 'SERV-005',
                 'SERV-006',
                 'SERV-007-MZ',
