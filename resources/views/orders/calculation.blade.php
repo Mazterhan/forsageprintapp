@@ -1153,10 +1153,8 @@
                     const baseMaterialType = this.getMaterialType(product.material);
                     if (baseMaterialType === 'Листовий') {
                         options = options.filter((material) => {
-                            const category = this.normalizeText(this.getMaterialCategory(material));
                             const code = this.getMaterialCode(material);
                             return this.getMaterialType(material) === 'Рулонний'
-                                && category !== 'скотч'
                                 && code !== 'MAT-FLM-009';
                         });
                     } else if (baseMaterialType === 'Рулонний') {
@@ -1188,6 +1186,10 @@
                         });
                     }
 
+                    if (p1Category === 'скотч') {
+                        options = options.filter((material) => this.normalizeText(this.getMaterialCategory(material)) !== 'скотч');
+                    }
+
                     return options;
                 },
 
@@ -1211,6 +1213,10 @@
                             const code = this.getMaterialCode(material);
                             return category === 'плівка' && code !== 'MAT-FLM-009';
                         });
+                    }
+
+                    if (ip1Category === 'скотч') {
+                        options = options.filter((material) => this.normalizeText(this.getMaterialCategory(material)) !== 'скотч');
                     }
 
                     return options;
