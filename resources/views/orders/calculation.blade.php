@@ -1182,12 +1182,10 @@
                         options = options.filter((material) => {
                             const category = this.normalizeText(this.getMaterialCategory(material));
                             const code = this.getMaterialCode(material);
-                            return category === 'плівка' && code !== 'MAT-FLM-009';
+                            const allowScotch = p1Category !== 'скотч';
+                            return (category === 'плівка' || (allowScotch && category === 'скотч'))
+                                && code !== 'MAT-FLM-009';
                         });
-                    }
-
-                    if (p1Category === 'скотч') {
-                        options = options.filter((material) => this.normalizeText(this.getMaterialCategory(material)) !== 'скотч');
                     }
 
                     return options;
@@ -1211,12 +1209,10 @@
                         options = options.filter((material) => {
                             const category = this.normalizeText(this.getMaterialCategory(material));
                             const code = this.getMaterialCode(material);
-                            return category === 'плівка' && code !== 'MAT-FLM-009';
+                            const allowScotch = ip1Category !== 'скотч';
+                            return (category === 'плівка' || (allowScotch && category === 'скотч'))
+                                && code !== 'MAT-FLM-009';
                         });
-                    }
-
-                    if (ip1Category === 'скотч') {
-                        options = options.filter((material) => this.normalizeText(this.getMaterialCategory(material)) !== 'скотч');
                     }
 
                     return options;
