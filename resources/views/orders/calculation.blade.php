@@ -780,7 +780,7 @@
                                     <div class="font-medium text-gray-700">Дизайн</div>
                                     <div class="ml-10 font-medium text-gray-700">сума (грн)</div>
                                     <div class="w-[120px]">
-                                        <input x-model="product.services.designAmount" @focus="clearDefaultZero($event, 'decimal')" @blur="restoreDefaultOnBlur(product.services, 'designAmount', '0.00', $event)" @input="sanitizeDecimalInObject(product.services, 'designAmount', $event)" type="text" inputmode="decimal" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
+                                        <input x-model="product.services.designAmount" @focus="clearDefaultZero($event, 'integer')" @blur="normalizePositiveIntegerOnBlur(product.services, 'designAmount', $event)" @input="sanitizeIntegerInObject(product.services, 'designAmount', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
                                     </div>
                                     <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
                                         <input type="text" :value="getDesignCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
@@ -941,7 +941,7 @@
                             eyeletsMode: 'Шаг',
                             eyeletsValue: '0',
                             solderingLength: '0',
-                            designAmount: '0.00',
+                            designAmount: '0',
                             packagingQty: '0',
                         },
                     };
@@ -2244,6 +2244,24 @@
 
                     target[fieldName] = defaultValue;
                     event.target.value = defaultValue;
+                },
+
+                normalizePositiveIntegerOnBlur(target, fieldName, event) {
+                    const raw = String(event.target?.value ?? '').trim();
+                    if (raw === '') {
+                        target[fieldName] = '0';
+                        event.target.value = '0';
+                        return;
+                    }
+
+                    const digits = this.sanitizeIntegerValue(raw);
+                    let value = parseInt(digits, 10);
+                    if (!Number.isFinite(value) || value <= 0) {
+                        value = 0;
+                    }
+
+                    target[fieldName] = String(value);
+                    event.target.value = target[fieldName];
                 },
 
                 sanitizeDecimalValue(raw) {
