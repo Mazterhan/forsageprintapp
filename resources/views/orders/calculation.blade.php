@@ -378,7 +378,7 @@
                                             x-show="isWeedingPriceRangeWarning(product)"
                                             class="text-xs font-semibold text-red-600 whitespace-nowrap"
                                         >
-                                            Допустимий діапазон: 150-350
+                                            Мінімальне значення: 100
                                         </div>
                                     </div>
                                     <div class="flex flex-wrap items-end gap-3">
@@ -2438,7 +2438,7 @@
 
                     const weedingPrice = this.toNumber(product.services.weedingPrice);
                     const safeWeedingPrice = Number.isFinite(weedingPrice) ? Math.trunc(weedingPrice) : 0;
-                    if (safeWeedingPrice !== 0 && (safeWeedingPrice < 150 || safeWeedingPrice > 350)) {
+                    if (safeWeedingPrice !== 0 && safeWeedingPrice < 100) {
                         return 0;
                     }
                     const width = this.toNumber(this.getFirstPositionValue(product, 'width', '0'));
@@ -2474,7 +2474,7 @@
                     }
 
                     const intValue = Math.trunc(value);
-                    return intValue !== 0 && (intValue < 150 || intValue > 350);
+                    return intValue !== 0 && intValue < 100;
                 },
 
                 isManualThicknessWarning(product) {
