@@ -519,7 +519,11 @@
                                                 </div>
                                             </div>
 
-                                            <div class="grid items-center gap-x-3 relative z-[540]" style="grid-template-columns: 120px 360px;">
+                                            <div
+                                                x-show="!shouldHideRollingSecondMaterials(product)"
+                                                class="grid items-center gap-x-3 relative z-[540]"
+                                                style="grid-template-columns: 120px 360px;"
+                                            >
                                                 <div class="w-[120px] text-sm text-gray-700">Матеріал прикатки 2</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
                                                     <div class="relative" @click.outside="product.services.showRollingP2Dropdown = false">
@@ -648,7 +652,11 @@
                                                 Для 'Матеріал індивідуальної прикатки 1' значення Ширина (м) та Висота (м) мають бути більше 0.
                                             </div>
 
-                                            <div class="grid items-center gap-x-2 relative z-[540]" style="grid-template-columns: 160px 360px auto 90px auto 90px;">
+                                            <div
+                                                x-show="!shouldHideRollingSecondMaterials(product)"
+                                                class="grid items-center gap-x-2 relative z-[540]"
+                                                style="grid-template-columns: 160px 360px auto 90px auto 90px;"
+                                            >
                                                 <div class="w-[160px] text-sm text-gray-700">Матеріал індивідуальної прикатки 2</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
                                                     <div class="relative" @click.outside="product.services.showRollingIP2Dropdown = false">
@@ -1150,6 +1158,31 @@
                     return this.materials.filter((material) => this.isPriceMaterialOption(material));
                 },
 
+                getRollingServiceMaterialByCode(code) {
+                    const targetCode = String(code || '').trim().toUpperCase();
+                    if (!targetCode) {
+                        return '';
+                    }
+
+                    const match = Object.keys(this.materialCodeByMaterial).find((materialName) => {
+                        return String(this.materialCodeByMaterial[materialName] || '').trim().toUpperCase() === targetCode;
+                    });
+
+                    return match || '';
+                },
+
+                appendRollingServiceOption(options) {
+                    const list = Array.isArray(options) ? options.slice() : [];
+                    const serv003Material = this.getRollingServiceMaterialByCode('SERV-003');
+                    if (!serv003Material) {
+                        return list;
+                    }
+
+                    const withoutServ003 = list.filter((material) => material !== serv003Material);
+                    withoutServ003.push(serv003Material);
+                    return withoutServ003;
+                },
+
                 getRollingP1Options(product) {
                     let options = this.getPriceMaterialOptions();
 
@@ -1175,7 +1208,7 @@
                         });
                     }
 
-                    return options;
+                    return this.appendRollingServiceOption(options);
                 },
 
                 getRollingP2Options(product) {
@@ -1198,11 +1231,11 @@
                         });
                     }
 
-                    return options;
+                    return this.appendRollingServiceOption(options);
                 },
 
                 getRollingIP1Options(product) {
-                    return this.getRollingP1Options(product);
+                    return this.appendRollingServiceOption(this.getRollingP1Options(product));
                 },
 
                 getRollingIP2Options(product) {
@@ -1225,51 +1258,43 @@
                         });
                     }
 
-                    return options;
+                    return this.appendRollingServiceOption(options);
                 },
 
                 getFilteredRollingP1Options(product) {
                     const options = this.getRollingP1Options(product);
                     const query = this.normalizeForCompare(product.services.rollingMaterialP1Query || '');
                     if (!query) {
-                        return options.slice(0, 50);
+                        return options;
                     }
-                    return options
-                        .filter((material) => this.normalizeForCompare(material).includes(query))
-                        .slice(0, 50);
+                    return options.filter((material) => this.normalizeForCompare(material).includes(query));
                 },
 
                 getFilteredRollingP2Options(product) {
                     const options = this.getRollingP2Options(product);
                     const query = this.normalizeForCompare(product.services.rollingMaterialP2Query || '');
                     if (!query) {
-                        return options.slice(0, 50);
+                        return options;
                     }
-                    return options
-                        .filter((material) => this.normalizeForCompare(material).includes(query))
-                        .slice(0, 50);
+                    return options.filter((material) => this.normalizeForCompare(material).includes(query));
                 },
 
                 getFilteredRollingIP1Options(product) {
                     const options = this.getRollingIP1Options(product);
                     const query = this.normalizeForCompare(product.services.rollingMaterialIP1Query || '');
                     if (!query) {
-                        return options.slice(0, 50);
+                        return options;
                     }
-                    return options
-                        .filter((material) => this.normalizeForCompare(material).includes(query))
-                        .slice(0, 50);
+                    return options.filter((material) => this.normalizeForCompare(material).includes(query));
                 },
 
                 getFilteredRollingIP2Options(product) {
                     const options = this.getRollingIP2Options(product);
                     const query = this.normalizeForCompare(product.services.rollingMaterialIP2Query || '');
                     if (!query) {
-                        return options.slice(0, 50);
+                        return options;
                     }
-                    return options
-                        .filter((material) => this.normalizeForCompare(material).includes(query))
-                        .slice(0, 50);
+                    return options.filter((material) => this.normalizeForCompare(material).includes(query));
                 },
 
                 ensureRollingMaterials(product) {
@@ -1288,6 +1313,17 @@
                         product.services.showRollingIP1Dropdown = false;
                         product.services.showRollingIP2Dropdown = false;
                         return;
+                    }
+
+                    if (this.shouldHideRollingSecondMaterials(product)) {
+                        product.services.rollingMaterialP2 = '';
+                        product.services.rollingMaterialP2Query = '';
+                        product.services.rollingMaterialIP2 = '';
+                        product.services.rollingMaterialIP2Query = '';
+                        product.services.showRollingP2Dropdown = false;
+                        product.services.showRollingIP2Dropdown = false;
+                        product.services.rollingIp2Width = '0';
+                        product.services.rollingIp2Height = '0';
                     }
 
                     const p1Options = this.getRollingP1Options(product);
@@ -1321,6 +1357,15 @@
                     } else {
                         product.services.rollingMaterialIP2Query = product.services.rollingMaterialIP2;
                     }
+                },
+
+                shouldHideRollingSecondMaterials(product) {
+                    if (!product) {
+                        return false;
+                    }
+
+                    return this.isProductType(product.productTypeId, 'УФ друк')
+                        && this.getMaterialType(product.material) === 'Листовий';
                 },
 
                 onRollingChanged(product) {
@@ -2878,12 +2923,16 @@
                         const hasP1 = Boolean(product.services.rollingMaterialP1);
                         const p1Price = this.getMaterialPrice(product.services.rollingMaterialP1);
                         const safeP1Price = Number.isFinite(p1Price) ? p1Price : 0;
-                        const part1 = hasP1 ? ((safeP1Price + safeServ003) * factor * safeUrgency) : 0;
+                        const p1Code = String(this.getMaterialCode(product.services.rollingMaterialP1) || '').trim().toUpperCase();
+                        const p1UnitPrice = p1Code === 'SERV-003' ? safeServ003 : (safeP1Price + safeServ003);
+                        const part1 = hasP1 ? (p1UnitPrice * factor * safeUrgency) : 0;
 
                         const hasP2 = Boolean(product.services.rollingMaterialP2);
                         const p2Price = this.getMaterialPrice(product.services.rollingMaterialP2);
                         const safeP2Price = Number.isFinite(p2Price) ? p2Price : 0;
-                        const part2 = hasP2 ? ((safeP2Price + safeServ003) * factor * safeUrgency) : 0;
+                        const p2Code = String(this.getMaterialCode(product.services.rollingMaterialP2) || '').trim().toUpperCase();
+                        const p2UnitPrice = p2Code === 'SERV-003' ? safeServ003 : (safeP2Price + safeServ003);
+                        const part2 = hasP2 ? (p2UnitPrice * factor * safeUrgency) : 0;
 
                         return this.normalizeMoney(part1 + part2);
                     }
@@ -2896,7 +2945,9 @@
                     const hasIp1 = Boolean(product.services.rollingMaterialIP1);
                     const ip1Price = this.getMaterialPrice(product.services.rollingMaterialIP1);
                     const safeIp1Price = Number.isFinite(ip1Price) ? ip1Price : 0;
-                    const partIp1 = hasIp1 ? ((safeIp1Price + safeServ003) * factorIp1 * safeUrgency) : 0;
+                    const ip1Code = String(this.getMaterialCode(product.services.rollingMaterialIP1) || '').trim().toUpperCase();
+                    const ip1UnitPrice = ip1Code === 'SERV-003' ? safeServ003 : (safeIp1Price + safeServ003);
+                    const partIp1 = hasIp1 ? (ip1UnitPrice * factorIp1 * safeUrgency) : 0;
 
                     const hasIp2 = Boolean(product.services.rollingMaterialIP2);
                     let partIp2 = 0;
@@ -2908,7 +2959,9 @@
                         const factorIp2 = safeIp2Width * safeIp2Height * safeQty;
                         const ip2Price = this.getMaterialPrice(product.services.rollingMaterialIP2);
                         const safeIp2Price = Number.isFinite(ip2Price) ? ip2Price : 0;
-                        partIp2 = (safeIp2Price + safeServ003) * factorIp2 * safeUrgency;
+                        const ip2Code = String(this.getMaterialCode(product.services.rollingMaterialIP2) || '').trim().toUpperCase();
+                        const ip2UnitPrice = ip2Code === 'SERV-003' ? safeServ003 : (safeIp2Price + safeServ003);
+                        partIp2 = ip2UnitPrice * factorIp2 * safeUrgency;
                     }
 
                     return this.normalizeMoney(partIp1 + partIp2);

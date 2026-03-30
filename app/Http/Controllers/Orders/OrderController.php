@@ -34,6 +34,11 @@ class OrderController extends Controller
             ->where('visible', true)
             ->where('model_type', 'Матеріал')
             ->get(['internal_code', 'name', 'category', 'material_type', 'thickness_mm', 'service_price']);
+        $rollingServiceItem = PriceItem::query()
+            ->where('is_active', true)
+            ->where('visible', true)
+            ->where('internal_code', 'SERV-003')
+            ->first(['internal_code', 'name', 'service_price']);
 
         $materials = $materialItems
             ->pluck('name')
@@ -161,6 +166,17 @@ class OrderController extends Controller
             })
             ->filter(fn ($code, $material) => $material !== '' && $code !== null)
             ->toArray();
+
+        if ($rollingServiceItem) {
+            $rollingServiceName = trim((string) $rollingServiceItem->name);
+            if ($rollingServiceName !== '') {
+                if (!in_array($rollingServiceName, $materials, true)) {
+                    $materials[] = $rollingServiceName;
+                }
+                $materialCodeByMaterial[$rollingServiceName] = 'SERV-003';
+                $materialPriceByMaterial[$rollingServiceName] = round((float) ($rollingServiceItem->service_price ?? 0), 2);
+            }
+        }
 
         $servicePriceByCode = PriceItem::query()
             ->where('is_active', true)
