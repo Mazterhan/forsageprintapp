@@ -1080,25 +1080,29 @@
                 },
 
                 isAllowedCustomSheetMaterial(productTypeId) {
-                    return !this.isProductType(productTypeId, 'Сольвентний друк');
+                    return this.isCategoryAllowedByMatrix(productTypeId, 'Матеріал замовника листовий');
                 },
 
                 isAllowedCustomRollMaterial(productTypeId) {
-                    return (
-                        this.isProductType(productTypeId, 'УФ друк') ||
-                        this.isProductType(productTypeId, 'Сольвентний друк') ||
-                        this.isProductType(productTypeId, 'Чиста порізка')
-                    );
+                    return this.isCategoryAllowedByMatrix(productTypeId, 'Матеріал замовника рулонний');
+                },
+
+                isCategoryAllowedByMatrix(productTypeId, categoryName) {
+                    if (!productTypeId) {
+                        return true;
+                    }
+
+                    const matrixForType = this.typeCategoryMatrix[String(productTypeId)] || {};
+                    if (Object.keys(matrixForType).length === 0) {
+                        return true;
+                    }
+
+                    return matrixForType[String(categoryName || '').trim()] === true;
                 },
 
                 isMaterialAllowedForProductType(product, material) {
                     if (!product.productTypeId) {
                         return true;
-                    }
-
-                    const materialCategory = this.normalizeText(this.getMaterialCategory(material));
-                    if (materialCategory === 'скотч') {
-                        return false;
                     }
 
                     if (this.isFilmMaterialRestrictedByType(material) && !this.isProductType(product.productTypeId, 'Сольвентний друк')) {
@@ -2575,6 +2579,8 @@
                     const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
                     const servicePrice = this.getServicePriceByCode('SERV-006');
                     const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
+                    const qty = this.toNumber(this.getFirstPositionValue(product, 'qty', '0'));
+                    const safeQty = Number.isFinite(qty) ? qty : 0;
 
                     if (mode === 'Шаг') {
                         const width = this.toNumber(this.getFirstPositionValue(product, 'width', '0'));
@@ -2587,10 +2593,10 @@
                             return 0;
                         }
 
-                        return this.normalizeMoney((perimeterPart / stepMeters) * safeServicePrice * safeUrgency);
+                        return this.normalizeMoney((perimeterPart / stepMeters) * safeServicePrice * safeQty * safeUrgency);
                     }
 
-                    return this.normalizeMoney(safeInputValue * safeServicePrice * safeUrgency);
+                    return this.normalizeMoney(safeInputValue * safeServicePrice * safeQty * safeUrgency);
                 },
 
                 getEyeletsCostDisplay(product) {
