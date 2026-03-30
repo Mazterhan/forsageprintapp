@@ -354,6 +354,12 @@
                                             class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
                                         />
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            <span
+                                                x-show="isCuttingMinimumApplied(product)"
+                                                class="text-sm font-semibold text-green-600 whitespace-nowrap"
+                                            >
+                                                Виставлена мінімальна ціна для порізки
+                                            </span>
                                             <input type="text" :value="getCuttingCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
@@ -2714,6 +2720,56 @@
 
                     const cuttingLength = this.toNumber(product.services.cuttingLength);
                     const safeLength = Number.isFinite(cuttingLength) ? cuttingLength : 0;
+                    if (safeLength <= 0) {
+                        return 0;
+                    }
+                    const urgency = this.getUrgencyValue();
+                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+                    const serviceCode = this.resolveCuttingServiceCode(product);
+                    const servicePrice = this.getServicePriceByCode(serviceCode);
+                    const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
+                    let rawCost = 0;
+
+                    if (cuttingMode === 'Фреза' || cuttingMode === 'Лазер') {
+                        const thickness = this.getCuttingThicknessValue(product);
+                        const safeThickness = Number.isFinite(thickness) ? thickness : 0;
+                        rawCost = this.normalizeMoney(safeLength * safeServicePrice * safeThickness * safeUrgency);
+                    } else {
+                        rawCost = this.normalizeMoney(safeLength * safeServicePrice * safeUrgency);
+                    }
+
+                    const minimumCost = this.getCuttingMinimumByMode(cuttingMode);
+                    return this.normalizeMoney(Math.max(rawCost, minimumCost));
+                },
+
+                getCuttingMinimumByMode(cuttingMode) {
+                    if (cuttingMode === 'Плотер') {
+                        return 50;
+                    }
+                    if (cuttingMode === 'Лазер') {
+                        return 70;
+                    }
+                    if (cuttingMode === 'Фреза') {
+                        return 100;
+                    }
+                    return 0;
+                },
+
+                getRawCuttingCost(product) {
+                    if (!product?.services) {
+                        return 0;
+                    }
+
+                    const cuttingMode = String(product.services.cutting || '').trim();
+                    if (!cuttingMode || cuttingMode === 'Без порізки') {
+                        return 0;
+                    }
+
+                    const cuttingLength = this.toNumber(product.services.cuttingLength);
+                    const safeLength = Number.isFinite(cuttingLength) ? cuttingLength : 0;
+                    if (safeLength <= 0) {
+                        return 0;
+                    }
                     const urgency = this.getUrgencyValue();
                     const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
                     const serviceCode = this.resolveCuttingServiceCode(product);
@@ -2729,13 +2785,43 @@
                     return this.normalizeMoney(safeLength * safeServicePrice * safeUrgency);
                 },
 
+                isCuttingMinimumApplied(product) {
+                    if (!product?.services) {
+                        return false;
+                    }
+
+                    const cuttingMode = String(product.services.cutting || '').trim();
+                    if (!cuttingMode || cuttingMode === 'Без порізки') {
+                        return false;
+                    }
+
+                    const cuttingLength = this.toNumber(product.services.cuttingLength);
+                    const safeLength = Number.isFinite(cuttingLength) ? cuttingLength : 0;
+                    if (safeLength <= 0) {
+                        return false;
+                    }
+
+                    const minimumCost = this.getCuttingMinimumByMode(cuttingMode);
+                    if (minimumCost <= 0) {
+                        return false;
+                    }
+
+                    const rawCost = this.getRawCuttingCost(product);
+                    return rawCost < minimumCost;
+                },
+
                 getCuttingCostDisplay(product) {
                     try {
+                        const cuttingLength = this.toNumber(product?.services?.cuttingLength);
+                        const safeLength = Number.isFinite(cuttingLength) ? cuttingLength : 0;
+                        if (safeLength <= 0) {
+                            return '';
+                        }
                         const value = this.getCuttingCost(product);
                         const formatted = this.formatMoney(value);
                         return formatted === '' ? '0.00' : formatted;
                     } catch (e) {
-                        return '0.00';
+                        return '';
                     }
                 },
 
