@@ -82,32 +82,60 @@
                                     </tr>
                                 @else
                                     @foreach($positions as $idx => $position)
+                                        @php
+                                            $hasPositionCost = array_key_exists('cost', $position) && $position['cost'] !== null && $position['cost'] !== '';
+                                            $positionCost = $hasPositionCost ? (float)$position['cost'] : null;
+                                            $isZeroPriceRow = $hasPositionCost && abs($positionCost) < 0.000001;
+                                            $isZeroLike = static function ($value): bool {
+                                                if ($value === null || $value === '') {
+                                                    return false;
+                                                }
+                                                if (is_string($value)) {
+                                                    $trimmed = trim($value);
+                                                    if ($trimmed === '' || $trimmed === '—' || mb_strtoupper($trimmed, 'UTF-8') === 'Н/Д') {
+                                                        return false;
+                                                    }
+                                                    $normalized = str_replace(',', '.', $trimmed);
+                                                    if (!is_numeric($normalized)) {
+                                                        return false;
+                                                    }
+                                                    return abs((float)$normalized) < 0.000001;
+                                                }
+
+                                                if (!is_numeric($value)) {
+                                                    return false;
+                                                }
+
+                                                return abs((float)$value) < 0.000001;
+                                            };
+                                            $cellStyle = static function ($value) use ($isZeroPriceRow, $isZeroLike): string {
+                                                return ($isZeroPriceRow && $isZeroLike($value)) ? 'background-color:#F01326;color:#fff;' : '';
+                                            };
+                                            $materialValue = ($product['material'] ?? '') !== '' ? $product['material'] : '—';
+                                            $thicknessValue = $isSheet
+                                                ? (($product['manualThickness'] ?? '') !== '' ? $product['manualThickness'] : (($product['thickness'] ?? '') !== '' ? $product['thickness'] : '—'))
+                                                : 'Н/Д';
+                                            $widthValue = ($position['width'] ?? '') !== '' ? $position['width'] : '—';
+                                            $heightValue = ($position['height'] ?? '') !== '' ? $position['height'] : '—';
+                                            $qtyValue = ($position['qty'] ?? '') !== '' ? $position['qty'] : '—';
+                                            $cmykValue = $isUv ? (((int)($position['cmyk'] ?? 0) > 0) ? ($position['cmyk'] ?? 0) : '—') : 'Н/Д';
+                                            $whiteValue = $isUv ? (((int)($position['white'] ?? 0) > 0) ? ($position['white'] ?? 0) : '—') : 'Н/Д';
+                                            $costValue = $hasPositionCost ? number_format((float)$position['cost'], 2, '.', ' ') : 'Н/Д';
+                                        @endphp
                                         <tr>
                                             @if($idx === 0)
                                                 <td class="px-3 py-2 border align-top" rowspan="{{ max(count($positions), 1) }}">{{ $product['index'] ?? 'Н/Д' }}</td>
                                                 <td class="px-3 py-2 border align-top" rowspan="{{ max(count($positions), 1) }}">{{ ($product['productTypeName'] ?? '') !== '' ? $product['productTypeName'] : 'Н/Д' }}</td>
                                             @endif
                                             <td class="px-3 py-2 border">#{{ $position['index'] ?? ($idx + 1) }}</td>
-                                            <td class="px-3 py-2 border">{{ ($product['material'] ?? '') !== '' ? $product['material'] : '—' }}</td>
-                                            <td class="px-3 py-2 border">
-                                                @if($isSheet)
-                                                    {{ ($product['manualThickness'] ?? '') !== '' ? $product['manualThickness'] : (($product['thickness'] ?? '') !== '' ? $product['thickness'] : '—') }}
-                                                @else
-                                                    Н/Д
-                                                @endif
-                                            </td>
-                                            <td class="px-3 py-2 border">{{ ($position['width'] ?? '') !== '' ? $position['width'] : '—' }}</td>
-                                            <td class="px-3 py-2 border">{{ ($position['height'] ?? '') !== '' ? $position['height'] : '—' }}</td>
-                                            <td class="px-3 py-2 border">{{ ($position['qty'] ?? '') !== '' ? $position['qty'] : '—' }}</td>
-                                            <td class="px-3 py-2 border">
-                                                {{ $isUv ? (((int)($position['cmyk'] ?? 0) > 0) ? ($position['cmyk'] ?? 0) : '—') : 'Н/Д' }}
-                                            </td>
-                                            <td class="px-3 py-2 border">
-                                                {{ $isUv ? (((int)($position['white'] ?? 0) > 0) ? ($position['white'] ?? 0) : '—') : 'Н/Д' }}
-                                            </td>
-                                            <td class="px-3 py-2 border text-right">
-                                                {{ isset($position['cost']) ? number_format((float)$position['cost'], 2, '.', ' ') : 'Н/Д' }}
-                                            </td>
+                                            <td class="px-3 py-2 border" style="{{ $cellStyle($materialValue) }}">{{ $materialValue }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $cellStyle($thicknessValue) }}">{{ $thicknessValue }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $cellStyle($widthValue) }}">{{ $widthValue }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $cellStyle($heightValue) }}">{{ $heightValue }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $cellStyle($qtyValue) }}">{{ $qtyValue }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $cellStyle($cmykValue) }}">{{ $cmykValue }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $cellStyle($whiteValue) }}">{{ $whiteValue }}</td>
+                                            <td class="px-3 py-2 border text-right" style="{{ $cellStyle($costValue) }}">{{ $costValue }}</td>
                                             @if($idx === 0)
                                                 <td class="px-3 py-2 border text-right align-top font-semibold" rowspan="{{ max(count($positions), 1) }}">
                                                     {{ number_format($productTotalCost, 2, '.', ' ') }}
