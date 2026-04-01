@@ -32,6 +32,9 @@
                     materialCodeByMaterial: @js($materialCodeByMaterial),
                     servicePriceByCode: @js($servicePriceByCode),
                     typeCategoryMatrix: @js($typeCategoryMatrix),
+                    proposalId: @js($proposalId ?? null),
+                    initialState: @js($initialState ?? null),
+                    saveUrl: @js(route('orders.proposals.store')),
                 })"
             >
                 <div class="sticky top-0 z-[9999] isolate overflow-visible border-2 border-gray-700 rounded-lg p-4 shadow-sm" style="background-color: #FCEEDF;">
@@ -112,10 +115,10 @@
                             <div class="flex flex-wrap items-end gap-4">
                                 <div class="text-sm font-semibold text-gray-700" x-text="`Тип виробу #${displayProductNumber(productIndex)}`"></div>
                                 <div class="min-w-[240px]">
-                                    <select x-model="product.productTypeId" @change="onProductTypeChanged(product)" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full">
+                                    <select x-model="product.productTypeId" x-effect="$el.value = String(product.productTypeId || '')" @change="onProductTypeChanged(product)" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full">
                                         <option value="">Оберіть тип виробу</option>
                                         <template x-for="productType in productTypes" :key="productType.id">
-                                            <option :value="String(productType.id)" x-text="productType.name"></option>
+                                            <option :value="String(productType.id)" :selected="String(product.productTypeId || '') === String(productType.id)" x-text="productType.name"></option>
                                         </template>
                                     </select>
                                 </div>
@@ -822,8 +825,8 @@
                                 <input type="text" :value="getProductTotalCostDisplay(product)" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                 <div class="ml-10 font-bold text-gray-800">Собівартість (грн)</div>
                                 <input type="text" value="0.00" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
-                                <button x-show="products.length === 1" type="button" class="ml-auto inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white" style="background-color: #698DE3;">
-                                    Зберегти заявку
+                                <button x-show="products.length === 1" type="button" @click="saveProposal()" :disabled="isSaving" class="ml-auto inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
+                                    <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
                                 </button>
                                 <div x-show="!product.isExpanded && products.length > 1" class="ml-auto flex items-center gap-2">
                                     <button
@@ -880,8 +883,8 @@
                                 <input type="text" value="0.00" disabled class="w-[160px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                             </div>
                         </div>
-                        <button type="button" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white h-fit" style="background-color: #698DE3;">
-                            Зберегти заявку
+                        <button type="button" @click="saveProposal()" :disabled="isSaving" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white h-fit disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
+                            <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
                         </button>
                     </div>
                 </template>
@@ -903,14 +906,23 @@
                 materialCodeByMaterial: config.materialCodeByMaterial || {},
                 servicePriceByCode: config.servicePriceByCode || {},
                 typeCategoryMatrix: config.typeCategoryMatrix || {},
+                proposalId: config.proposalId || null,
+                initialState: config.initialState || null,
+                saveUrl: config.saveUrl || '',
                 selectedClientId: '',
                 selectedClientQuery: '',
                 showClientDropdown: false,
                 urgencyCoefficient: '1.00',
                 products: [],
+                isSaving: false,
+                isHydrating: false,
 
                 init() {
-                    this.products = [this.createProduct()];
+                    if (this.initialState && typeof this.initialState === 'object') {
+                        this.loadState(this.initialState);
+                    } else {
+                        this.products = [this.createProduct()];
+                    }
                     this.onClientChanged();
                 },
 
@@ -970,6 +982,83 @@
                         cmyk: '0',
                         white: '0',
                     };
+                },
+
+                loadState(state) {
+                    this.isHydrating = true;
+                    const baseProduct = this.createProduct();
+                    const sourceProducts = Array.isArray(state.products) ? state.products : [];
+
+                    this.selectedClientId = state.client_id ? String(state.client_id) : '';
+                    this.selectedClientQuery = String(state.client_name || '').trim();
+                    this.urgencyCoefficient = String(state.urgency_coefficient || '1.00');
+
+                    if (sourceProducts.length === 0) {
+                        this.products = [this.createProduct()];
+                        this.isHydrating = false;
+                        return;
+                    }
+
+                    this.products = sourceProducts.map((item, index) => {
+                        const product = {
+                            ...baseProduct,
+                            ...item,
+                            uid: item.uid || `${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`,
+                            isExpanded: typeof item.isExpanded === 'boolean' ? item.isExpanded : (index === 0),
+                            productTypeId: this.resolveProductTypeIdFromState(item),
+                            material: String(item.material || ''),
+                            materialQuery: String(item.material || ''),
+                            thickness: String(item.thickness || ''),
+                            manualThickness: String(item.manualThickness || ''),
+                            manualThicknessError: '',
+                            servicesEnabledRaw: String(item.servicesEnabledRaw || '0'),
+                        };
+
+                        product.positions = (Array.isArray(item.positions) ? item.positions : []).map((position, posIndex) => ({
+                            ...this.createPosition(),
+                            ...position,
+                            uid: position.uid || `${Date.now()}-${index}-${posIndex}-${Math.random().toString(16).slice(2)}`,
+                            width: String(position.width ?? '0'),
+                            height: String(position.height ?? '0'),
+                            qty: String(position.qty ?? '0'),
+                            cmyk: String(position.cmyk ?? '0'),
+                            white: String(position.white ?? '0'),
+                        }));
+
+                        if (product.positions.length === 0) {
+                            product.positions = [this.createPosition()];
+                        }
+
+                        product.services = {
+                            ...baseProduct.services,
+                            ...(item.services || {}),
+                            cuttingLength: String(item?.services?.cuttingLength ?? baseProduct.services.cuttingLength),
+                            weedingPrice: String(item?.services?.weedingPrice ?? baseProduct.services.weedingPrice),
+                            rollingIp1Width: String(item?.services?.rollingIp1Width ?? baseProduct.services.rollingIp1Width),
+                            rollingIp1Height: String(item?.services?.rollingIp1Height ?? baseProduct.services.rollingIp1Height),
+                            rollingIp2Width: String(item?.services?.rollingIp2Width ?? baseProduct.services.rollingIp2Width),
+                            rollingIp2Height: String(item?.services?.rollingIp2Height ?? baseProduct.services.rollingIp2Height),
+                            eyeletsValue: String(item?.services?.eyeletsValue ?? baseProduct.services.eyeletsValue),
+                            solderingLength: String(item?.services?.solderingLength ?? baseProduct.services.solderingLength),
+                            designAmount: String(item?.services?.designAmount ?? baseProduct.services.designAmount),
+                            packagingQty: String(item?.services?.packagingQty ?? baseProduct.services.packagingQty),
+                            showRollingP1Dropdown: false,
+                            showRollingP2Dropdown: false,
+                            showRollingIP1Dropdown: false,
+                            showRollingIP2Dropdown: false,
+                        };
+
+                        this.ensureRollingMaterials(product);
+                        return product;
+                    });
+
+                    this.$nextTick(() => {
+                        this.products.forEach((product, index) => {
+                            const source = sourceProducts[index] || {};
+                            product.productTypeId = this.resolveProductTypeIdFromState(source);
+                        });
+                        this.isHydrating = false;
+                    });
                 },
 
                 onClientChanged() {
@@ -1069,6 +1158,28 @@
                 getProductTypeName(productTypeId) {
                     const selected = this.productTypes.find((item) => String(item.id) === String(productTypeId));
                     return selected?.name || '';
+                },
+
+                resolveProductTypeIdFromState(item) {
+                    const rawId = item?.productTypeId;
+                    if (rawId !== undefined && rawId !== null && String(rawId).trim() !== '') {
+                        const normalizedId = String(rawId).trim();
+                        const exists = this.productTypes.some((type) => String(type.id) === normalizedId);
+                        if (exists) {
+                            return normalizedId;
+                        }
+                    }
+
+                    const rawName = String(item?.productTypeName || '').trim();
+                    if (rawName !== '') {
+                        const normalizedName = this.normalizeForCompare(rawName);
+                        const byName = this.productTypes.find((type) => this.normalizeForCompare(type.name) === normalizedName);
+                        if (byName) {
+                            return String(byName.id);
+                        }
+                    }
+
+                    return '';
                 },
 
                 normalizeForCompare(value) {
@@ -2152,6 +2263,10 @@
                 },
 
                 onProductTypeChanged(product) {
+                    if (this.isHydrating) {
+                        return;
+                    }
+
                     const selectedProductTypeId = String(product.productTypeId || '');
                     const resetProduct = this.createProduct();
 
@@ -3053,6 +3168,205 @@
 
                     const formatted = this.formatMoney(this.getOrderTotalCost());
                     return formatted === '' ? '0.00' : formatted;
+                },
+
+                serializeServiceRows(product) {
+                    const rows = [];
+
+                    if (this.isServiceBlockVisible(product, 'lamination') && String(product?.services?.lamination || '') !== 'Без') {
+                        rows.push({
+                            key: 'lamination',
+                            name: 'Ламінування',
+                            description: `Режим: ${product.services.lamination}; Ширина(м): ${this.getFirstPositionValue(product, 'width', '0')}; Висота(м): ${this.getFirstPositionValue(product, 'height', '0')}; Кількість(шт): ${this.getFirstPositionValue(product, 'qty', '0')}`,
+                            cost: this.getLaminationCost(product),
+                        });
+                    }
+
+                    if (this.isServiceBlockVisible(product, 'cutting') && String(product?.services?.cutting || '') !== 'Без порізки') {
+                        rows.push({
+                            key: 'cutting',
+                            name: 'Порізка',
+                            description: `Режим: ${product.services.cutting}; Довжина порізки(м.п.): ${product.services.cuttingLength}; Товщина: ${this.getCuttingThicknessValue(product)}`,
+                            cost: this.getCuttingCost(product),
+                        });
+                    }
+
+                    if (this.isServiceBlockVisible(product, 'weeding')) {
+                        rows.push({
+                            key: 'weeding',
+                            name: 'Вибірка (складність)',
+                            description: `Ціна (грн/м.кв.): ${product.services.weedingPrice}; Ширина(м): ${this.getFirstPositionValue(product, 'width', '0')}; Висота(м): ${this.getFirstPositionValue(product, 'height', '0')}; Кількість(шт): ${this.getFirstPositionValue(product, 'qty', '0')}`,
+                            cost: this.getWeedingCost(product),
+                        });
+                    }
+
+                    if (this.isServiceBlockVisible(product, 'montage') && String(product.services.montage || '0') === '1') {
+                        rows.push({
+                            key: 'montage',
+                            name: 'Монтажка',
+                            description: `Ширина(м): ${this.getFirstPositionValue(product, 'width', '0')}; Висота(м): ${this.getFirstPositionValue(product, 'height', '0')}; Кількість(шт): ${this.getFirstPositionValue(product, 'qty', '0')}`,
+                            cost: this.getMontageCost(product),
+                        });
+                    }
+
+                    if (this.isServiceBlockVisible(product, 'rolling') && String(product.services.rolling || '0') === '1') {
+                        let description = '';
+                        let meta = {};
+                        if (!product.services.rollingIndividual) {
+                            description = `Матеріал прикатки 1: ${product.services.rollingMaterialP1 || '-'}; Матеріал прикатки 2: ${product.services.rollingMaterialP2 || '-'}; Ширина(м): ${this.getFirstPositionValue(product, 'width', '0')}; Висота(м): ${this.getFirstPositionValue(product, 'height', '0')}; Кількість(шт): ${this.getFirstPositionValue(product, 'qty', '0')}`;
+                            meta = {
+                                p1_material: product.services.rollingMaterialP1 || '-',
+                                p2_material: product.services.rollingMaterialP2 || '-',
+                                width: this.getFirstPositionValue(product, 'width', '0'),
+                                height: this.getFirstPositionValue(product, 'height', '0'),
+                                qty: this.getFirstPositionValue(product, 'qty', '0'),
+                            };
+                        } else {
+                            description = `Матеріал індивідуальної прикатки 1: ${product.services.rollingMaterialIP1 || '-'} [Ширина(м): ${product.services.rollingIp1Width}; Висота(м): ${product.services.rollingIp1Height}; Кількість(шт): ${this.getFirstPositionValue(product, 'qty', '0')}]; Матеріал індивідуальної прикатки 2: ${product.services.rollingMaterialIP2 || '-'} [Ширина(м): ${product.services.rollingIp2Width}; Висота(м): ${product.services.rollingIp2Height}; Кількість(шт): ${this.getFirstPositionValue(product, 'qty', '0')}]`;
+                            meta = {
+                                ip1_material: product.services.rollingMaterialIP1 || '-',
+                                ip1_width: product.services.rollingIp1Width,
+                                ip1_height: product.services.rollingIp1Height,
+                                ip1_qty: this.getFirstPositionValue(product, 'qty', '0'),
+                                ip2_material: product.services.rollingMaterialIP2 || '-',
+                                ip2_width: product.services.rollingIp2Width,
+                                ip2_height: product.services.rollingIp2Height,
+                                ip2_qty: this.getFirstPositionValue(product, 'qty', '0'),
+                            };
+                        }
+
+                        rows.push({
+                            key: 'rolling',
+                            name: 'Прикатка',
+                            rolling_individual: Boolean(product.services.rollingIndividual),
+                            rolling_meta: meta,
+                            description,
+                            cost: this.getRollingCost(product),
+                        });
+                    }
+
+                    if (this.isServiceBlockVisible(product, 'eyelets_soldering')) {
+                        rows.push({
+                            key: 'eyelets',
+                            name: 'Люверси',
+                            description: `Режим: ${product.services.eyeletsMode}; Значення: ${product.services.eyeletsValue}`,
+                            cost: this.getEyeletsCost(product),
+                        });
+                        rows.push({
+                            key: 'soldering',
+                            name: 'Пропайка',
+                            description: `Довжина порізки (м.п.): ${product.services.solderingLength}`,
+                            cost: this.getSolderingCost(product),
+                        });
+                    }
+
+                    const designCost = this.getDesignCost(product);
+                    if (designCost > 0) {
+                        rows.push({
+                            key: 'design',
+                            name: 'Дизайн',
+                            description: `Сума (грн): ${product.services.designAmount}`,
+                            cost: designCost,
+                        });
+                    }
+
+                    const packagingCost = this.getPackagingCost(product);
+                    if (packagingCost > 0) {
+                        rows.push({
+                            key: 'packaging',
+                            name: 'Пакування',
+                            description: `Сума (грн): ${product.services.packagingQty}`,
+                            cost: packagingCost,
+                        });
+                    }
+
+                    return rows;
+                },
+
+                buildSaveState() {
+                    const products = (Array.isArray(this.products) ? this.products : []).map((product, index) => {
+                        const positions = (Array.isArray(product.positions) ? product.positions : []).map((position, posIndex) => ({
+                            index: posIndex + 1,
+                            width: String(position.width ?? '0'),
+                            height: String(position.height ?? '0'),
+                            qty: String(position.qty ?? '0'),
+                            cmyk: String(position.cmyk ?? '0'),
+                            white: String(position.white ?? '0'),
+                            cost: this.getPositionCost(product, position),
+                        }));
+
+                        return {
+                            index: index + 1,
+                            uid: product.uid,
+                            isExpanded: Boolean(product.isExpanded),
+                            productTypeId: product.productTypeId ? String(product.productTypeId) : '',
+                            productTypeName: this.getProductTypeName(product.productTypeId),
+                            material: String(product.material || ''),
+                            materialType: this.getMaterialType(product.material),
+                            category: this.getMaterialCategory(product.material),
+                            thickness: String(product.thickness || ''),
+                            manualThickness: String(product.manualThickness || ''),
+                            positions,
+                            servicesEnabledRaw: String(product.servicesEnabledRaw || '0'),
+                            services: { ...(product.services || {}) },
+                            service_rows: this.serializeServiceRows(product),
+                            positions_cost: this.getProductPositionsCost(product),
+                            services_cost: this.getProductServicesCost(product),
+                            total_cost: this.getProductTotalCost(product),
+                        };
+                    });
+
+                    return {
+                        proposal_id: this.proposalId ? Number(this.proposalId) : null,
+                        client_id: this.selectedClientId ? Number(this.selectedClientId) : null,
+                        client_name: String(this.selectedClientQuery || '').trim(),
+                        urgency_coefficient: String(this.urgencyCoefficient || '1.00'),
+                        products,
+                        summary: {
+                            order_total: this.getOrderTotalCost(),
+                            order_total_display: this.getOrderTotalCostDisplay(),
+                            has_warnings: this.hasAnyWarnings(),
+                        },
+                        saved_at: new Date().toISOString(),
+                    };
+                },
+
+                async saveProposal() {
+                    if (this.isSaving || !this.saveUrl) {
+                        return;
+                    }
+
+                    this.isSaving = true;
+                    try {
+                        const csrf = document.querySelector('meta[name=\"csrf-token\"]')?.getAttribute('content') || '';
+                        const response = await fetch(this.saveUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrf,
+                            },
+                            body: JSON.stringify({
+                                proposal_id: this.proposalId,
+                                state: this.buildSaveState(),
+                            }),
+                        });
+
+                        const payload = await response.json();
+                        if (!response.ok || !payload?.ok) {
+                            throw new Error(payload?.message || 'Не вдалося зберегти заявку.');
+                        }
+
+                        this.proposalId = payload.proposal_id || this.proposalId;
+                        if (payload.redirect_url) {
+                            window.location.href = payload.redirect_url;
+                            return;
+                        }
+                    } catch (error) {
+                        alert(error?.message || 'Не вдалося зберегти заявку.');
+                    } finally {
+                        this.isSaving = false;
+                    }
                 },
 
                 resolveMaterialPriceForProduct(product) {

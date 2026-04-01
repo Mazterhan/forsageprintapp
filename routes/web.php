@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\EditGroupsAndCategoriesController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Orders\ClientController;
 use App\Http\Controllers\Orders\OrderController;
+use App\Http\Controllers\Orders\ProposalController;
 use App\Http\Controllers\Orders\ProductTypeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Price\PriceController;
@@ -57,7 +58,9 @@ Route::middleware(['auth', 'role:admin|manager'])
     ->group(function () {
         Route::get('/', [OrderController::class, 'index'])->name('index');
         Route::get('/calculation', [OrderController::class, 'calculation'])->name('calculation');
-        Route::get('/proposals', [OrderController::class, 'saved'])->name('proposals');
+        Route::get('/proposals', [ProposalController::class, 'index'])->name('proposals');
+        Route::post('/proposals', [ProposalController::class, 'store'])->name('proposals.store');
+        Route::get('/proposals/{orderProposal}', [ProposalController::class, 'show'])->name('proposals.show');
         Route::get('/product-types', fn () => redirect()->route('admin.product-types.index'))->name('product-types.index');
         Route::post('/product-types', fn () => redirect()->route('admin.product-types.index'))->name('product-types.store');
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
