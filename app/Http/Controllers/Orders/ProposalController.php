@@ -99,11 +99,19 @@ class ProposalController extends Controller
     {
         $state = is_array($orderProposal->payload) ? $orderProposal->payload : [];
         $products = Arr::get($state, 'products', []);
+        $products = is_array($products) ? array_values($products) : [];
+
+        $totalProducts = count($products);
+        foreach ($products as $i => &$product) {
+            // Must match /orders/calculation label logic: displayProductNumber(productIndex) = length - productIndex
+            $product['display_index'] = $totalProducts - $i;
+        }
+        unset($product);
 
         return view('orders.proposals.show', [
             'proposal' => $orderProposal,
             'state' => $state,
-            'products' => is_array($products) ? $products : [],
+            'products' => $products,
             'summary' => Arr::get($state, 'summary', []),
         ]);
     }

@@ -1,5 +1,52 @@
 <x-app-layout>
     @section('title', $title)
+    <style>
+        .price-table thead tr {
+            background-color: #D4D4D4;
+        }
+
+        .price-table thead th,
+        .price-table thead th a,
+        .price-table thead th span {
+            font-size: 14px !important;
+            line-height: 1.25rem;
+        }
+
+        .price-row {
+            transition: background-color 0.5s ease, background-image 0.5s ease;
+        }
+
+        .price-row td {
+            background: transparent;
+            transition: border-color 0.5s ease;
+        }
+
+        .price-row.row-alt {
+            background-color: #F9FAFB;
+        }
+
+        .price-row.row-base {
+            background-color: #FFFFFF;
+        }
+
+        .price-row:hover {
+            background-image: linear-gradient(90deg, #e9f7f7 0%, #D8F1F2 100%);
+            background-color: #D8F1F2;
+        }
+
+        .price-row.is-active td {
+            border-top: 2px solid #C3C3C3 !important;
+            border-bottom: 2px solid #C3C3C3 !important;
+        }
+
+        .price-row.is-active td:first-child {
+            border-left: 2px solid #C3C3C3 !important;
+        }
+
+        .price-row.is-active td:last-child {
+            border-right: 2px solid #C3C3C3 !important;
+        }
+    </style>
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $title }}</h2>
@@ -92,10 +139,10 @@
                     </form>
 
                     <div class="w-full overflow-x-auto">
-                        <table class="min-w-full w-full divide-y divide-gray-200">
+                        <table class="price-table min-w-full w-full divide-y divide-gray-200">
                             <thead>
                                 <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th class="px-4 py-3 border-b text-left text-[14px]">
                                         @php
                                             $next = $sort === 'internal_code' && $direction === 'asc' ? 'desc' : 'asc';
                                         @endphp
@@ -108,7 +155,7 @@
                                             @endif
                                         </a>
                                     </th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th class="px-4 py-3 border-b text-left text-[14px]">
                                         @php
                                             $next = $sort === 'name' && $direction === 'asc' ? 'desc' : 'asc';
                                         @endphp
@@ -121,7 +168,7 @@
                                             @endif
                                         </a>
                                     </th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th class="px-4 py-3 border-b text-left text-[14px]">
                                         @php
                                             $next = $sort === 'category' && $direction === 'asc' ? 'desc' : 'asc';
                                         @endphp
@@ -134,7 +181,7 @@
                                             @endif
                                         </a>
                                     </th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th class="px-4 py-3 border-b text-left text-[14px]">
                                         @php
                                             $next = $sort === 'purchase_price' && $direction === 'asc' ? 'desc' : 'asc';
                                         @endphp
@@ -147,8 +194,8 @@
                                             @endif
                                         </a>
                                     </th>
-                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Націнка %</th>
-                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                                    <th class="px-4 py-3 border-b text-center text-[14px]">Націнка %</th>
+                                    <th class="px-4 py-3 border-b text-center text-[14px]">
                                         @php
                                             $next = $sort === 'service_price' && $direction === 'asc' ? 'desc' : 'asc';
                                         @endphp
@@ -161,7 +208,7 @@
                                             @endif
                                         </a>
                                     </th>
-                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Дія</th>
+                                    <th class="px-4 py-3 border-b text-center text-[14px]">Дія</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -173,7 +220,7 @@
                                     </tr>
                                 @endif
                                 @foreach ($items as $item)
-                                    <tr>
+                                    <tr class="price-row {{ $loop->odd ? 'row-alt' : 'row-base' }}" tabindex="0">
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $item->internal_code }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">
                                             <a href="{{ route('price.show', $item) }}" class="text-indigo-600 hover:text-indigo-900">
@@ -249,6 +296,14 @@
 
     <script>
         (function () {
+            const priceRows = Array.from(document.querySelectorAll('.price-row'));
+            priceRows.forEach((row) => {
+                row.addEventListener('click', () => {
+                    priceRows.forEach((item) => item.classList.remove('is-active'));
+                    row.classList.add('is-active');
+                });
+            });
+
             const filterForm = document.getElementById('price-filter-form');
             const autoFilterSelectIds = ['category', 'status', 'model_type_filter'];
             autoFilterSelectIds.forEach((id) => {

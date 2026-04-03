@@ -1,10 +1,32 @@
 <x-app-layout>
     @section('title', __('Заявка :number', ['number' => $proposal->proposal_number]))
+    @php
+        $hasMultipleProducts = count($products ?? []) > 1;
+        $requestedViewMode = request('view_mode');
+        $viewMode = in_array($requestedViewMode, ['combined', 'grouped', 'combined_services'], true)
+            ? $requestedViewMode
+            : 'combined';
+        if (!$hasMultipleProducts) {
+            $viewMode = 'combined';
+        }
+    @endphp
     <x-slot name="header">
         <div class="flex items-center justify-between gap-3">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Заявка :number', ['number' => $proposal->proposal_number]) }}
-            </h2>
+            <div class="flex items-center gap-3">
+                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                    {{ __('Заявка :number', ['number' => $proposal->proposal_number]) }}
+                </h2>
+                @if($hasMultipleProducts)
+                    <select
+                        onchange="window.location.href='{{ route('orders.proposals.show', $proposal) }}?view_mode=' + this.value"
+                        class="border-gray-300 rounded-md text-sm shadow-sm focus:ring-gray-500 focus:border-gray-500"
+                    >
+                        <option value="combined" {{ $viewMode === 'combined' ? 'selected' : '' }}>Типи виробу (об'єднана таблиця) і послуги окремо</option>
+                        <option value="grouped" {{ $viewMode === 'grouped' ? 'selected' : '' }}>Кожен виріб разом з його послугою</option>
+                        <option value="combined_services" {{ $viewMode === 'combined_services' ? 'selected' : '' }}>Типи виробу (об'єднана таблиця) + Послуги (об'єднана таблиця)</option>
+                    </select>
+                @endif
+            </div>
             <div class="flex items-center gap-2">
                 <a href="{{ route('orders.proposals') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">Повернутись до заявок</a>
                 <a href="{{ route('orders.calculation', ['proposal' => $proposal->id]) }}" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">Редагувати</a>
@@ -31,30 +53,26 @@
                 </div>
             </div>
 
-            @php
-                $hasMultipleProducts = count($products) > 1;
-            @endphp
-
-            @if($hasMultipleProducts)
+            @if($hasMultipleProducts && in_array($viewMode, ['combined', 'combined_services'], true))
                 <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                     <div class="px-4 py-3 bg-gray-50 border-b font-semibold text-gray-800">
                         Типи виробу (об'єднана таблиця)
                     </div>
-                    <table class="min-w-full text-sm border-b border-gray-200">
-                        <thead class="bg-gray-50">
+                    <table class="min-w-full table-fixed text-sm border-b border-gray-200">
+                        <thead style="background-color: #D3D4D4;">
                             <tr>
                                 <th class="px-3 py-2 border text-left">Виріб №</th>
-                                <th class="px-3 py-2 border text-left">Тип виробу</th>
+                                <th class="px-3 py-2 border text-left" style="max-width: 150px; width: 150px;">Тип виробу</th>
                                 <th class="px-3 py-2 border text-left">Позиція замовлення</th>
                                 <th class="px-3 py-2 border text-left">Матеріал</th>
                                 <th class="px-3 py-2 border text-left">Товщина</th>
-                                <th class="px-3 py-2 border text-left">Ширина(м)</th>
-                                <th class="px-3 py-2 border text-left">Висота(м)</th>
-                                <th class="px-3 py-2 border text-left">Кількісь(шт)</th>
+                                <th class="px-3 py-2 border text-left" style="max-width: 100px; width: 100px;">Ширина(м)</th>
+                                <th class="px-3 py-2 border text-left" style="max-width: 100px; width: 100px;">Висота(м)</th>
+                                <th class="px-3 py-2 border text-left" style="max-width: 100px; width: 100px;">Кількісь(шт)</th>
                                 <th class="px-3 py-2 border text-left">Шари друку (шт):CMYK</th>
                                 <th class="px-3 py-2 border text-left">Шари друку (шт):Білий</th>
-                                <th class="px-3 py-2 border text-right">Ціна</th>
-                                <th class="px-3 py-2 border text-right">Вартість виробу</th>
+                                <th class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px;">Ціна</th>
+                                <th class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px;">Вартість виробу</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -63,11 +81,18 @@
                                     $positions = is_array($product['positions'] ?? null) ? $product['positions'] : [];
                                     $isUv = mb_strtolower((string)($product['productTypeName'] ?? ''), 'UTF-8') === mb_strtolower('УФ друк', 'UTF-8');
                                     $isSheet = (string)($product['materialType'] ?? '') === 'Листовий';
-                                    $productTotalCost = (float)($product['total_cost'] ?? 0);
+                                    $productTotalCost = array_reduce($positions, static function (float $sum, array $position): float {
+                                        $cost = $position['cost'] ?? null;
+                                        if ($cost === null || $cost === '' || !is_numeric($cost)) {
+                                            return $sum;
+                                        }
+
+                                        return $sum + (float) $cost;
+                                    }, 0.0);
                                 @endphp
                                 @if(count($positions) === 0)
                                     <tr>
-                                        <td class="px-3 py-2 border">{{ $product['index'] ?? 'Н/Д' }}</td>
+                                        <td class="px-3 py-2 border">{{ $product['display_index'] ?? ($product['index'] ?? 'Н/Д') }}</td>
                                         <td class="px-3 py-2 border">{{ ($product['productTypeName'] ?? '') !== '' ? $product['productTypeName'] : 'Н/Д' }}</td>
                                         <td class="px-3 py-2 border">Н/Д</td>
                                         <td class="px-3 py-2 border">{{ ($product['material'] ?? '') !== '' ? $product['material'] : 'Н/Д' }}</td>
@@ -136,20 +161,20 @@
                                         @endphp
                                         <tr>
                                             @if($idx === 0)
-                                                <td class="px-3 py-2 border align-top" rowspan="{{ max(count($positions), 1) }}">{{ $product['index'] ?? 'Н/Д' }}</td>
-                                                <td class="px-3 py-2 border align-top" style="{{ $typeCellStyle }}" rowspan="{{ max(count($positions), 1) }}">{{ $typeValue }}</td>
+                                                <td class="px-3 py-2 border align-top" rowspan="{{ max(count($positions), 1) }}">{{ $product['display_index'] ?? ($product['index'] ?? 'Н/Д') }}</td>
+                                                <td class="px-3 py-2 border align-top" style="max-width: 150px; width: 150px; {{ $typeCellStyle }}" rowspan="{{ max(count($positions), 1) }}">{{ $typeValue }}</td>
                                             @endif
                                             <td class="px-3 py-2 border">{{ $position['index'] ?? ($idx + 1) }}</td>
                                             <td class="px-3 py-2 border" style="{{ $materialCellStyle }}">{{ $materialValue }}</td>
                                             <td class="px-3 py-2 border" style="{{ $cellStyle($thicknessValue) }}">{{ $thicknessValue }}</td>
-                                            <td class="px-3 py-2 border" style="{{ $widthCellStyle }}">{{ $widthValue }}</td>
-                                            <td class="px-3 py-2 border" style="{{ $heightCellStyle }}">{{ $heightValue }}</td>
-                                            <td class="px-3 py-2 border" style="{{ $qtyCellStyle }}">{{ $qtyValue }}</td>
+                                            <td class="px-3 py-2 border" style="max-width: 100px; width: 100px; {{ $widthCellStyle }}">{{ $widthValue }}</td>
+                                            <td class="px-3 py-2 border" style="max-width: 100px; width: 100px; {{ $heightCellStyle }}">{{ $heightValue }}</td>
+                                            <td class="px-3 py-2 border" style="max-width: 100px; width: 100px; {{ $qtyCellStyle }}">{{ $qtyValue }}</td>
                                             <td class="px-3 py-2 border" style="{{ $cmykCellStyle }}">{{ $cmykValue }}</td>
                                             <td class="px-3 py-2 border" style="{{ $whiteCellStyle }}">{{ $whiteValue }}</td>
-                                            <td class="px-3 py-2 border text-right" style="{{ $cellStyle($costValue) }}">{{ $costValue }}</td>
+                                            <td class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px; {{ $cellStyle($costValue) }}">{{ $costValue }}</td>
                                             @if($idx === 0)
-                                                <td class="px-3 py-2 border text-right align-top font-semibold" rowspan="{{ max(count($positions), 1) }}">
+                                                <td class="px-3 py-2 border text-right align-top font-semibold" style="max-width: 100px; width: 100px;" rowspan="{{ max(count($positions), 1) }}">
                                                     {{ number_format($productTotalCost, 2, '.', ' ') }}
                                                 </td>
                                             @endif
@@ -159,6 +184,148 @@
                             @endforeach
                         </tbody>
                     </table>
+                    @php
+                        $combinedProductsSubtotal = collect($products)->sum(function ($product) {
+                            $positions = is_array($product['positions'] ?? null) ? $product['positions'] : [];
+
+                            return array_reduce($positions, static function (float $sum, array $position): float {
+                                $cost = $position['cost'] ?? null;
+                                if ($cost === null || $cost === '' || !is_numeric($cost)) {
+                                    return $sum;
+                                }
+
+                                return $sum + (float) $cost;
+                            }, 0.0);
+                        });
+                    @endphp
+                    <div class="px-4 py-3 border-t text-right text-sm">
+                        <span class="font-semibold">Загальна вартість матеріалів:</span>
+                        <span class="font-bold">{{ number_format($combinedProductsSubtotal, 2, '.', ' ') }}</span>
+                    </div>
+                </div>
+            @endif
+
+            @if($hasMultipleProducts && $viewMode === 'combined_services')
+                <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 bg-gray-50 border-b font-semibold text-gray-800">
+                        Послуги (об'єднана таблиця)
+                    </div>
+                    <table class="min-w-full table-fixed text-sm border-b border-gray-200">
+                        <thead style="background-color: #D3D4D4;">
+                            <tr>
+                                <th class="px-3 py-2 border text-left" style="width: 200px;">Послуги до виробу</th>
+                                <th class="px-3 py-2 border text-left" style="max-width: 150px; width: 150px;">Назва послуги</th>
+                                <th class="px-3 py-2 border text-left">Опис</th>
+                                <th class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px;">Ціна</th>
+                                <th class="px-3 py-2 border text-right" style="max-width: 140px; width: 140px;">Вартість послуг</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @php
+                                $hasCombinedServiceRows = false;
+                            @endphp
+                            @foreach($products as $product)
+                                @php
+                                    $positions = is_array($product['positions'] ?? null) ? $product['positions'] : [];
+                                    $serviceRows = is_array($product['service_rows'] ?? null) ? $product['service_rows'] : [];
+                                    $servicesEnabledRaw = $product['servicesEnabledRaw'] ?? ($product['services_enabled'] ?? null);
+                                    $servicesEnabled = in_array((string)$servicesEnabledRaw, ['1', 'true', 'yes'], true) || $servicesEnabledRaw === true || $servicesEnabledRaw === 1;
+                                    $showServices = count($positions) === 1 && $servicesEnabled;
+                                @endphp
+
+                                @if($showServices)
+                                    @php
+                                        $hasCombinedServiceRows = true;
+                                        $groupRows = max(count($serviceRows), 1);
+                                    @endphp
+                                    @if(count($serviceRows) > 0)
+                                        @foreach($serviceRows as $sIndex => $row)
+                                            <tr>
+                                                @if($sIndex === 0)
+                                                    <td class="px-3 py-2 border align-top" style="width: 200px;" rowspan="{{ $groupRows }}">Послуги до виробу #{{ $product['display_index'] ?? ($product['index'] ?? 1) }}</td>
+                                                @endif
+                                                <td class="px-3 py-2 border" style="max-width: 150px; width: 150px;">
+                                                    {{ $row['name'] ?? '—' }}
+                                                    @if(($row['key'] ?? '') === 'rolling' && !empty($row['rolling_individual']))
+                                                        <strong>(Індивідуально)</strong>
+                                                    @endif
+                                                </td>
+                                                <td class="px-3 py-2 border">
+                                                    @if(($row['key'] ?? '') === 'rolling' && is_array($row['rolling_meta'] ?? null))
+                                                        @php
+                                                            $meta = $row['rolling_meta'];
+                                                        @endphp
+                                                        <table class="w-full text-xs border border-gray-200">
+                                                            <tbody>
+                                                                @if(!empty($row['rolling_individual']))
+                                                                    <tr>
+                                                                        <td class="px-2 py-1 border font-semibold">Матеріал індивідуальної прикатки 1</td>
+                                                                        <td class="px-2 py-1 border">{{ $meta['ip1_material'] ?? '-' }}</td>
+                                                                        <td class="px-2 py-1 border">Ширина(м): {{ $meta['ip1_width'] ?? '0' }}, Висота(м): {{ $meta['ip1_height'] ?? '0' }}, Кількість(шт): {{ $meta['ip1_qty'] ?? '0' }}</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td class="px-2 py-1 border font-semibold">Матеріал індивідуальної прикатки 2</td>
+                                                                        <td class="px-2 py-1 border">{{ $meta['ip2_material'] ?? '-' }}</td>
+                                                                        <td class="px-2 py-1 border">Ширина(м): {{ $meta['ip2_width'] ?? '0' }}, Висота(м): {{ $meta['ip2_height'] ?? '0' }}, Кількість(шт): {{ $meta['ip2_qty'] ?? '0' }}</td>
+                                                                    </tr>
+                                                                @else
+                                                                    <tr>
+                                                                        <td class="px-2 py-1 border font-semibold">Матеріал прикатки 1</td>
+                                                                        <td class="px-2 py-1 border">{{ $meta['p1_material'] ?? '-' }}</td>
+                                                                        <td class="px-2 py-1 border">Ширина(м): {{ $meta['width'] ?? '0' }}, Висота(м): {{ $meta['height'] ?? '0' }}, Кількість(шт): {{ $meta['qty'] ?? '0' }}</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td class="px-2 py-1 border font-semibold">Матеріал прикатки 2</td>
+                                                                        <td class="px-2 py-1 border">{{ $meta['p2_material'] ?? '-' }}</td>
+                                                                        <td class="px-2 py-1 border">Ширина(м): {{ $meta['width'] ?? '0' }}, Висота(м): {{ $meta['height'] ?? '0' }}, Кількість(шт): {{ $meta['qty'] ?? '0' }}</td>
+                                                                    </tr>
+                                                                @endif
+                                                            </tbody>
+                                                        </table>
+                                                    @else
+                                                        <div class="whitespace-pre-line">{{ $row['description'] ?? '—' }}</div>
+                                                    @endif
+                                                </td>
+                                                <td class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px;">{{ number_format((float)($row['cost'] ?? 0), 2, '.', ' ') }}</td>
+                                                @if($sIndex === 0)
+                                                    <td class="px-3 py-2 border text-right align-top font-semibold" style="max-width: 140px; width: 140px;" rowspan="{{ $groupRows }}">
+                                                        {{ number_format((float)($product['services_cost'] ?? 0), 2, '.', ' ') }}
+                                                    </td>
+                                                @endif
+                                            </tr>
+                                        @endforeach
+                                    @else
+                                        <tr>
+                                            <td class="px-3 py-2 border" style="width: 200px;">Послуги до виробу #{{ $product['display_index'] ?? ($product['index'] ?? 1) }}</td>
+                                            <td class="px-3 py-2 border" style="max-width: 150px; width: 150px;">—</td>
+                                            <td class="px-3 py-2 border text-gray-500">Послуги не застосовані.</td>
+                                            <td class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px;">0.00</td>
+                                            <td class="px-3 py-2 border text-right font-semibold" style="max-width: 140px; width: 140px;">{{ number_format((float)($product['services_cost'] ?? 0), 2, '.', ' ') }}</td>
+                                        </tr>
+                                    @endif
+                                @endif
+                            @endforeach
+                            @if(!$hasCombinedServiceRows)
+                                <tr>
+                                    <td class="px-3 py-2 border text-gray-500" colspan="5">Послуги не застосовані.</td>
+                                </tr>
+                            @endif
+                        </tbody>
+                    </table>
+                    @php
+                        $combinedServicesSubtotal = collect($products)->sum(function ($product) {
+                            $positions = is_array($product['positions'] ?? null) ? $product['positions'] : [];
+                            $servicesEnabledRaw = $product['servicesEnabledRaw'] ?? ($product['services_enabled'] ?? null);
+                            $servicesEnabled = in_array((string)$servicesEnabledRaw, ['1', 'true', 'yes'], true) || $servicesEnabledRaw === true || $servicesEnabledRaw === 1;
+                            $showServices = count($positions) === 1 && $servicesEnabled;
+
+                            return $showServices ? (float)($product['services_cost'] ?? 0) : 0;
+                        });
+                    @endphp
+                    <div class="px-4 py-3 border-t text-right text-sm">
+                        <span class="font-semibold">Загальна вартість послуг:</span>
+                        <span class="font-bold">{{ number_format($combinedServicesSubtotal, 2, '.', ' ') }}</span>
+                    </div>
                 </div>
             @endif
 
@@ -173,17 +340,17 @@
                     $showThickness = (string)($product['materialType'] ?? '') === 'Листовий';
                 @endphp
 
-                @if(!$hasMultipleProducts || $showServices)
+                @if((!$hasMultipleProducts || $viewMode === 'grouped') || ($hasMultipleProducts && $viewMode === 'combined' && $showServices))
                 <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
-                    @unless($hasMultipleProducts)
+                    @if(!$hasMultipleProducts || $viewMode === 'grouped')
                         <div class="px-4 py-3 bg-gray-50 border-b font-semibold text-gray-800">
-                            Тип виробу #{{ $product['index'] ?? 1 }}: {{ $product['productTypeName'] ?? '—' }}
+                            Тип виробу #{{ $product['display_index'] ?? ($product['index'] ?? 1) }}: {{ $product['productTypeName'] ?? '—' }}
                         </div>
 
-                        <table class="min-w-full text-sm border-b border-gray-200">
-                            <thead class="bg-gray-50">
+                        <table class="min-w-full table-fixed text-sm border-b border-gray-200">
+                            <thead style="background-color: #D3D4D4;">
                                 <tr>
-                                    <th class="px-3 py-2 border text-left">Тип виробу</th>
+                                    <th class="px-3 py-2 border text-left" style="width: 200px;">Тип виробу</th>
                                     @if(count($positions) > 1)
                                         <th class="px-3 py-2 border text-left">Позиція замовлення</th>
                                     @endif
@@ -191,14 +358,14 @@
                                     @if($showThickness)
                                         <th class="px-3 py-2 border text-left">Товщина</th>
                                     @endif
-                                    <th class="px-3 py-2 border text-left">Ширина(м)</th>
-                                    <th class="px-3 py-2 border text-left">Висота(м)</th>
-                                    <th class="px-3 py-2 border text-left">Кількісь(шт)</th>
+                                    <th class="px-3 py-2 border text-left" style="max-width: 100px; width: 100px;">Ширина(м)</th>
+                                    <th class="px-3 py-2 border text-left" style="max-width: 100px; width: 100px;">Висота(м)</th>
+                                    <th class="px-3 py-2 border text-left" style="max-width: 100px; width: 100px;">Кількісь(шт)</th>
                                     @if($isUv)
                                         <th class="px-3 py-2 border text-left">Шари друку (шт):CMYK</th>
                                         <th class="px-3 py-2 border text-left">Шари друку (шт):Білий</th>
                                     @endif
-                                    <th class="px-3 py-2 border text-right">Ціна</th>
+                                    <th class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px;">Ціна</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -253,7 +420,7 @@
                                     @endphp
                                     <tr>
                                         @if($idx === 0)
-                                            <td class="px-3 py-2 border align-top" style="{{ $typeCellStyle }}" rowspan="{{ max(count($positions), 1) }}">{{ $typeValue }}</td>
+                                            <td class="px-3 py-2 border align-top" style="width: 200px; {{ $typeCellStyle }}" rowspan="{{ max(count($positions), 1) }}">{{ $typeValue }}</td>
                                         @endif
                                         @if(count($positions) > 1)
                                             <td class="px-3 py-2 border">{{ $position['index'] ?? ($idx + 1) }}</td>
@@ -262,39 +429,39 @@
                                         @if($showThickness)
                                             <td class="px-3 py-2 border" style="{{ $cellStyle($thicknessValue) }}">{{ $thicknessValue }}</td>
                                         @endif
-                                        <td class="px-3 py-2 border" style="{{ $widthCellStyle }}">{{ $widthValue }}</td>
-                                        <td class="px-3 py-2 border" style="{{ $heightCellStyle }}">{{ $heightValue }}</td>
-                                        <td class="px-3 py-2 border" style="{{ $qtyCellStyle }}">{{ $qtyValue }}</td>
+                                        <td class="px-3 py-2 border" style="max-width: 100px; width: 100px; {{ $widthCellStyle }}">{{ $widthValue }}</td>
+                                        <td class="px-3 py-2 border" style="max-width: 100px; width: 100px; {{ $heightCellStyle }}">{{ $heightValue }}</td>
+                                        <td class="px-3 py-2 border" style="max-width: 100px; width: 100px; {{ $qtyCellStyle }}">{{ $qtyValue }}</td>
                                         @if($isUv)
                                             <td class="px-3 py-2 border" style="{{ $cmykCellStyle }}">{{ $cmykValue }}</td>
                                             <td class="px-3 py-2 border" style="{{ $whiteCellStyle }}">{{ $whiteValue }}</td>
                                         @endif
-                                        <td class="px-3 py-2 border text-right" style="{{ $cellStyle($costValue) }}">{{ $costValue }}</td>
+                                        <td class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px; {{ $cellStyle($costValue) }}">{{ $costValue }}</td>
                                     </tr>
                                 @empty
                                     <tr><td class="px-3 py-2 border text-gray-500" colspan="{{ $isUv ? 10 : 8 }}">Позиції відсутні.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
-                    @endunless
+                    @endif
 
                     @if($showServices)
-                        <table class="min-w-full text-sm">
-                            <thead class="bg-gray-50">
+                        <table class="min-w-full table-fixed text-sm">
+                            <thead style="background-color: #D3D4D4;">
                                 <tr>
-                                    <th class="px-3 py-2 border text-left">Послуги до виробу</th>
-                                    <th class="px-3 py-2 border text-left">Назва послуги</th>
+                                    <th class="px-3 py-2 border text-left" style="width: 200px;">Послуги до виробу</th>
+                                    <th class="px-3 py-2 border text-left" style="max-width: 150px; width: 150px;">Назва послуги</th>
                                     <th class="px-3 py-2 border text-left">Опис</th>
-                                    <th class="px-3 py-2 border text-right">Ціна</th>
+                                    <th class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px;">Ціна</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($serviceRows as $sIndex => $row)
                                     <tr>
                                         @if($sIndex === 0)
-                                            <td class="px-3 py-2 border align-top" rowspan="{{ max(count($serviceRows), 1) }}">Послуги до виробу #{{ $product['index'] ?? 1 }}</td>
+                                            <td class="px-3 py-2 border align-top" style="width: 200px;" rowspan="{{ max(count($serviceRows), 1) }}">Послуги до виробу #{{ $product['display_index'] ?? ($product['index'] ?? 1) }}</td>
                                         @endif
-                                        <td class="px-3 py-2 border">
+                                        <td class="px-3 py-2 border" style="max-width: 150px; width: 150px;">
                                             {{ $row['name'] ?? '—' }}
                                             @if(($row['key'] ?? '') === 'rolling' && !empty($row['rolling_individual']))
                                                 <strong>(Індивідуально)</strong>
@@ -336,7 +503,7 @@
                                                 <div class="whitespace-pre-line">{{ $row['description'] ?? '—' }}</div>
                                             @endif
                                         </td>
-                                        <td class="px-3 py-2 border text-right">{{ number_format((float)($row['cost'] ?? 0), 2, '.', ' ') }}</td>
+                                        <td class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px;">{{ number_format((float)($row['cost'] ?? 0), 2, '.', ' ') }}</td>
                                     </tr>
                                 @empty
                                     <tr><td class="px-3 py-2 border text-gray-500" colspan="4">Послуги не застосовані.</td></tr>
@@ -347,7 +514,7 @@
 
                     @php
                         $footerLabel = $showServices
-                            ? 'Вартість послуг до виробу #'.($product['index'] ?? 1).':'
+                            ? 'Вартість послуг до виробу #'.($product['display_index'] ?? ($product['index'] ?? 1)).':'
                             : 'Вартість виробу:';
                         $footerValue = $showServices
                             ? (float)($product['services_cost'] ?? 0)

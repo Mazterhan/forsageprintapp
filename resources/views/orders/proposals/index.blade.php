@@ -14,27 +14,104 @@
         $sortLink = fn (string $column) => route('orders.proposals', array_merge(request()->query(), ['sort' => $column, 'direction' => $nextDir($column)]));
     @endphp
 
+    <style>
+        .proposal-table thead tr {
+            background-color: #D4D4D4;
+        }
+
+        .proposal-row {
+            transition: background-color 0.5s ease, background-image 0.5s ease;
+        }
+
+        .proposal-row td {
+            background: transparent;
+            transition: border-color 0.5s ease;
+        }
+
+        .proposal-row.row-alt {
+            background-color: #F9FAFB;
+        }
+
+        .proposal-row.row-base {
+            background-color: #FFFFFF;
+        }
+
+        .proposal-row:hover {
+            background-image: linear-gradient(90deg, #e9f7f7 0%, #D8F1F2 100%);
+            background-color: #D8F1F2;
+        }
+
+        .proposal-row.is-active td {
+            border-top: 2px solid #C3C3C3 !important;
+            border-bottom: 2px solid #C3C3C3 !important;
+        }
+
+        .proposal-row.is-active td:first-child {
+            border-left: 2px solid #C3C3C3 !important;
+        }
+
+        .proposal-row.is-active td:last-child {
+            border-right: 2px solid #C3C3C3 !important;
+        }
+    </style>
+
     <div class="py-12">
         <div class="max-w-[1700px] mx-auto px-6 sm:px-8 lg:px-12">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg w-full">
                 <div class="p-6 text-gray-900">
                     <div class="overflow-x-auto">
-                        <table class="min-w-full text-sm border border-gray-200">
-                            <thead class="bg-gray-50">
+                        <table class="proposal-table min-w-full text-sm border border-gray-200">
+                            <thead>
                                 <tr>
-                                    <th class="px-4 py-3 border-b text-left"><a class="hover:underline" href="{{ $sortLink('date') }}">Дата</a></th>
-                                    <th class="px-4 py-3 border-b text-left"><a class="hover:underline" href="{{ $sortLink('number') }}">Номер заявки</a></th>
-                                    <th class="px-4 py-3 border-b text-left"><a class="hover:underline" href="{{ $sortLink('user') }}">Користувач</a></th>
-                                    <th class="px-4 py-3 border-b text-left"><a class="hover:underline" href="{{ $sortLink('client') }}">Ім'я замовника</a></th>
-                                    <th class="px-4 py-3 border-b text-right"><a class="hover:underline" href="{{ $sortLink('cost') }}">Вартість</a></th>
+                                    <th class="px-4 py-3 border-b text-left text-[14px]">
+                                        <a class="inline-flex items-center gap-1" href="{{ $sortLink('date') }}">
+                                            Дата
+                                            @if ($sort === 'date')
+                                                <span class="text-gray-600">{{ $direction === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
+                                    <th class="px-4 py-3 border-b text-left text-[14px]">
+                                        <a class="inline-flex items-center gap-1" href="{{ $sortLink('number') }}">
+                                            Номер заявки
+                                            @if ($sort === 'number')
+                                                <span class="text-gray-600">{{ $direction === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
+                                    <th class="px-4 py-3 border-b text-left text-[14px]">
+                                        <a class="inline-flex items-center gap-1" href="{{ $sortLink('user') }}">
+                                            Користувач
+                                            @if ($sort === 'user')
+                                                <span class="text-gray-600">{{ $direction === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
+                                    <th class="px-4 py-3 border-b text-left text-[14px]">
+                                        <a class="inline-flex items-center gap-1" href="{{ $sortLink('client') }}">
+                                            Ім'я замовника
+                                            @if ($sort === 'client')
+                                                <span class="text-gray-600">{{ $direction === 'asc' ? '▲' : '▼' }}</span>
+                                            @else
+                                                <span class="text-gray-400">↕</span>
+                                            @endif
+                                        </a>
+                                    </th>
+                                    <th class="px-4 py-3 border-b text-right text-[14px]">Вартість</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($proposals as $proposal)
-                                    <tr class="hover:bg-gray-50">
+                                    <tr class="proposal-row {{ $loop->odd ? 'row-alt' : 'row-base' }}" tabindex="0">
                                         <td class="px-4 py-3 border-b">{{ optional($proposal->created_at)->format('d.m.Y H:i') }}</td>
                                         <td class="px-4 py-3 border-b">
-                                            <a href="{{ route('orders.proposals.show', $proposal) }}" class="text-blue-700 hover:underline font-semibold">
+                                            <a href="{{ route('orders.proposals.show', $proposal) }}" class="text-indigo-600 hover:text-indigo-900">
                                                 {{ $proposal->proposal_number }}
                                             </a>
                                         </td>
@@ -56,4 +133,16 @@
             </div>
         </div>
     </div>
+
+    <script>
+        (function () {
+            const rows = Array.from(document.querySelectorAll('.proposal-row'));
+            rows.forEach((row) => {
+                row.addEventListener('click', () => {
+                    rows.forEach((item) => item.classList.remove('is-active'));
+                    row.classList.add('is-active');
+                });
+            });
+        })();
+    </script>
 </x-app-layout>

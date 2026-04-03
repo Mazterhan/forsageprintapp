@@ -837,7 +837,7 @@
                                         x-text="`Розгорнути деталі виробу #${displayProductNumber(productIndex)}`"
                                     ></button>
                                     <button
-                                        x-show="products.length > 1 && productIndex !== 0"
+                                        x-show="products.length > 1"
                                         type="button"
                                         @click="removeProduct(productIndex)"
                                         class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white"
@@ -857,7 +857,7 @@
                                         x-text="`Згорнути деталі виробу #${displayProductNumber(productIndex)}`"
                                     ></button>
                                     <button
-                                        x-show="products.length > 1 && productIndex !== 0"
+                                        x-show="products.length > 1"
                                         type="button"
                                         @click="removeProduct(productIndex)"
                                         class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white"
@@ -2046,6 +2046,13 @@
                         return;
                     }
                     this.products.splice(productIndex, 1);
+                    if (this.products.length === 1) {
+                        this.products[0].isExpanded = true;
+                        return;
+                    }
+                    if (!this.products.some((product) => product.isExpanded)) {
+                        this.products[0].isExpanded = true;
+                    }
                 },
 
                 canShowAddProductButton() {
@@ -3296,7 +3303,7 @@
                         }));
 
                         return {
-                            index: index + 1,
+                            index: this.displayProductNumber(index),
                             uid: product.uid,
                             isExpanded: Boolean(product.isExpanded),
                             productTypeId: product.productTypeId ? String(product.productTypeId) : '',
