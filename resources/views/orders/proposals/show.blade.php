@@ -85,7 +85,7 @@
                                         @php
                                             $hasPositionCost = array_key_exists('cost', $position) && $position['cost'] !== null && $position['cost'] !== '';
                                             $positionCost = $hasPositionCost ? (float)$position['cost'] : null;
-                                            $isZeroPriceRow = $hasPositionCost && abs($positionCost) < 0.000001;
+                                            $isZeroPriceRow = $hasPositionCost && abs(round((float)$positionCost, 2)) < 0.000001;
                                             $isZeroLike = static function ($value): bool {
                                                 if ($value === null || $value === '') {
                                                     return false;
@@ -121,20 +121,32 @@
                                             $cmykValue = $isUv ? (((int)($position['cmyk'] ?? 0) > 0) ? ($position['cmyk'] ?? 0) : '—') : 'Н/Д';
                                             $whiteValue = $isUv ? (((int)($position['white'] ?? 0) > 0) ? ($position['white'] ?? 0) : '—') : 'Н/Д';
                                             $costValue = $hasPositionCost ? number_format((float)$position['cost'], 2, '.', ' ') : 'Н/Д';
+                                            $uvBothEmpty = $isUv && $cmykValue === '—' && $whiteValue === '—';
+                                            $danger = 'background-color:#F01326;color:#fff;';
+                                            $typeValue = ($product['productTypeName'] ?? '') !== '' ? $product['productTypeName'] : 'Н/Д';
+                                            $isCleanWithCustomerMaterial = $typeValue === 'Чистий матеріал'
+                                                && in_array($materialValue, ['Матеріал замовника рулонний', 'Матеріал замовника листовий'], true);
+                                            $typeCellStyle = $typeValue === 'Н/Д' ? $danger : '';
+                                            $materialCellStyle = $materialValue === '—' ? $danger : $cellStyle($materialValue);
+                                            $cmykCellStyle = $uvBothEmpty ? $danger : $cellStyle($cmykValue);
+                                            $whiteCellStyle = $uvBothEmpty ? $danger : $cellStyle($whiteValue);
+                                            $widthCellStyle = ($isCleanWithCustomerMaterial && $isZeroLike($widthValue)) ? $danger : $cellStyle($widthValue);
+                                            $heightCellStyle = ($isCleanWithCustomerMaterial && $isZeroLike($heightValue)) ? $danger : $cellStyle($heightValue);
+                                            $qtyCellStyle = ($isCleanWithCustomerMaterial && $isZeroLike($qtyValue)) ? $danger : $cellStyle($qtyValue);
                                         @endphp
                                         <tr>
                                             @if($idx === 0)
                                                 <td class="px-3 py-2 border align-top" rowspan="{{ max(count($positions), 1) }}">{{ $product['index'] ?? 'Н/Д' }}</td>
-                                                <td class="px-3 py-2 border align-top" rowspan="{{ max(count($positions), 1) }}">{{ ($product['productTypeName'] ?? '') !== '' ? $product['productTypeName'] : 'Н/Д' }}</td>
+                                                <td class="px-3 py-2 border align-top" style="{{ $typeCellStyle }}" rowspan="{{ max(count($positions), 1) }}">{{ $typeValue }}</td>
                                             @endif
-                                            <td class="px-3 py-2 border">#{{ $position['index'] ?? ($idx + 1) }}</td>
-                                            <td class="px-3 py-2 border" style="{{ $cellStyle($materialValue) }}">{{ $materialValue }}</td>
+                                            <td class="px-3 py-2 border">{{ $position['index'] ?? ($idx + 1) }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $materialCellStyle }}">{{ $materialValue }}</td>
                                             <td class="px-3 py-2 border" style="{{ $cellStyle($thicknessValue) }}">{{ $thicknessValue }}</td>
-                                            <td class="px-3 py-2 border" style="{{ $cellStyle($widthValue) }}">{{ $widthValue }}</td>
-                                            <td class="px-3 py-2 border" style="{{ $cellStyle($heightValue) }}">{{ $heightValue }}</td>
-                                            <td class="px-3 py-2 border" style="{{ $cellStyle($qtyValue) }}">{{ $qtyValue }}</td>
-                                            <td class="px-3 py-2 border" style="{{ $cellStyle($cmykValue) }}">{{ $cmykValue }}</td>
-                                            <td class="px-3 py-2 border" style="{{ $cellStyle($whiteValue) }}">{{ $whiteValue }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $widthCellStyle }}">{{ $widthValue }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $heightCellStyle }}">{{ $heightValue }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $qtyCellStyle }}">{{ $qtyValue }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $cmykCellStyle }}">{{ $cmykValue }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $whiteCellStyle }}">{{ $whiteValue }}</td>
                                             <td class="px-3 py-2 border text-right" style="{{ $cellStyle($costValue) }}">{{ $costValue }}</td>
                                             @if($idx === 0)
                                                 <td class="px-3 py-2 border text-right align-top font-semibold" rowspan="{{ max(count($positions), 1) }}">
@@ -154,11 +166,14 @@
                 @php
                     $positions = is_array($product['positions'] ?? null) ? $product['positions'] : [];
                     $serviceRows = is_array($product['service_rows'] ?? null) ? $product['service_rows'] : [];
-                    $showServices = count($positions) === 1;
+                    $servicesEnabledRaw = $product['servicesEnabledRaw'] ?? ($product['services_enabled'] ?? null);
+                    $servicesEnabled = in_array((string)$servicesEnabledRaw, ['1', 'true', 'yes'], true) || $servicesEnabledRaw === true || $servicesEnabledRaw === 1;
+                    $showServices = count($positions) === 1 && $servicesEnabled;
                     $isUv = mb_strtolower((string)($product['productTypeName'] ?? ''), 'UTF-8') === mb_strtolower('УФ друк', 'UTF-8');
                     $showThickness = (string)($product['materialType'] ?? '') === 'Листовий';
                 @endphp
 
+                @if(!$hasMultipleProducts || $showServices)
                 <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                     @unless($hasMultipleProducts)
                         <div class="px-4 py-3 bg-gray-50 border-b font-semibold text-gray-800">
@@ -188,25 +203,73 @@
                             </thead>
                             <tbody>
                                 @forelse($positions as $idx => $position)
+                                    @php
+                                        $hasPositionCost = array_key_exists('cost', $position) && $position['cost'] !== null && $position['cost'] !== '';
+                                        $positionCost = $hasPositionCost ? (float)$position['cost'] : null;
+                                        $isZeroPriceRow = $hasPositionCost && abs(round((float)$positionCost, 2)) < 0.000001;
+                                        $isZeroLike = static function ($value): bool {
+                                            if ($value === null || $value === '') {
+                                                return false;
+                                            }
+                                            if (is_string($value)) {
+                                                $trimmed = trim($value);
+                                                if ($trimmed === '' || $trimmed === '—' || mb_strtoupper($trimmed, 'UTF-8') === 'Н/Д') {
+                                                    return false;
+                                                }
+                                                $normalized = str_replace(',', '.', $trimmed);
+                                                if (!is_numeric($normalized)) {
+                                                    return false;
+                                                }
+                                                return abs((float)$normalized) < 0.000001;
+                                            }
+                                            if (!is_numeric($value)) {
+                                                return false;
+                                            }
+                                            return abs((float)$value) < 0.000001;
+                                        };
+                                        $cellStyle = static function ($value) use ($isZeroPriceRow, $isZeroLike): string {
+                                            return ($isZeroPriceRow && $isZeroLike($value)) ? 'background-color:#F01326;color:#fff;' : '';
+                                        };
+                                        $materialValue = ($product['material'] ?? '') !== '' ? $product['material'] : '—';
+                                        $thicknessValue = ($product['manualThickness'] ?? '') !== '' ? $product['manualThickness'] : ($product['thickness'] ?? '—');
+                                        $widthValue = ($position['width'] ?? '') !== '' ? $position['width'] : '—';
+                                        $heightValue = ($position['height'] ?? '') !== '' ? $position['height'] : '—';
+                                        $qtyValue = ($position['qty'] ?? '') !== '' ? $position['qty'] : '—';
+                                        $cmykValue = ((int)($position['cmyk'] ?? 0) > 0) ? ($position['cmyk'] ?? 0) : '—';
+                                        $whiteValue = ((int)($position['white'] ?? 0) > 0) ? ($position['white'] ?? 0) : '—';
+                                        $costValue = $hasPositionCost ? number_format((float)$position['cost'], 2, '.', ' ') : 'Н/Д';
+                                        $uvBothEmpty = $isUv && $cmykValue === '—' && $whiteValue === '—';
+                                        $danger = 'background-color:#F01326;color:#fff;';
+                                        $typeValue = $product['productTypeName'] ?? '—';
+                                        $isCleanWithCustomerMaterial = $typeValue === 'Чистий матеріал'
+                                            && in_array($materialValue, ['Матеріал замовника рулонний', 'Матеріал замовника листовий'], true);
+                                        $typeCellStyle = $typeValue === 'Н/Д' ? $danger : '';
+                                        $materialCellStyle = $materialValue === '—' ? $danger : $cellStyle($materialValue);
+                                        $cmykCellStyle = $uvBothEmpty ? $danger : $cellStyle($cmykValue);
+                                        $whiteCellStyle = $uvBothEmpty ? $danger : $cellStyle($whiteValue);
+                                        $widthCellStyle = ($isCleanWithCustomerMaterial && $isZeroLike($widthValue)) ? $danger : $cellStyle($widthValue);
+                                        $heightCellStyle = ($isCleanWithCustomerMaterial && $isZeroLike($heightValue)) ? $danger : $cellStyle($heightValue);
+                                        $qtyCellStyle = ($isCleanWithCustomerMaterial && $isZeroLike($qtyValue)) ? $danger : $cellStyle($qtyValue);
+                                    @endphp
                                     <tr>
                                         @if($idx === 0)
-                                            <td class="px-3 py-2 border align-top" rowspan="{{ max(count($positions), 1) }}">{{ $product['productTypeName'] ?? '—' }}</td>
+                                            <td class="px-3 py-2 border align-top" style="{{ $typeCellStyle }}" rowspan="{{ max(count($positions), 1) }}">{{ $typeValue }}</td>
                                         @endif
                                         @if(count($positions) > 1)
-                                            <td class="px-3 py-2 border">#{{ $position['index'] ?? ($idx + 1) }}</td>
+                                            <td class="px-3 py-2 border">{{ $position['index'] ?? ($idx + 1) }}</td>
                                         @endif
-                                        <td class="px-3 py-2 border">{{ $product['material'] ?? '—' }}</td>
+                                        <td class="px-3 py-2 border" style="{{ $materialCellStyle }}">{{ $materialValue }}</td>
                                         @if($showThickness)
-                                            <td class="px-3 py-2 border">{{ ($product['manualThickness'] ?? '') !== '' ? $product['manualThickness'] : ($product['thickness'] ?? '—') }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $cellStyle($thicknessValue) }}">{{ $thicknessValue }}</td>
                                         @endif
-                                        <td class="px-3 py-2 border">{{ ($position['width'] ?? '') !== '' ? $position['width'] : '—' }}</td>
-                                        <td class="px-3 py-2 border">{{ ($position['height'] ?? '') !== '' ? $position['height'] : '—' }}</td>
-                                        <td class="px-3 py-2 border">{{ ($position['qty'] ?? '') !== '' ? $position['qty'] : '—' }}</td>
+                                        <td class="px-3 py-2 border" style="{{ $widthCellStyle }}">{{ $widthValue }}</td>
+                                        <td class="px-3 py-2 border" style="{{ $heightCellStyle }}">{{ $heightValue }}</td>
+                                        <td class="px-3 py-2 border" style="{{ $qtyCellStyle }}">{{ $qtyValue }}</td>
                                         @if($isUv)
-                                            <td class="px-3 py-2 border">{{ ((int)($position['cmyk'] ?? 0) > 0) ? ($position['cmyk'] ?? 0) : '—' }}</td>
-                                            <td class="px-3 py-2 border">{{ ((int)($position['white'] ?? 0) > 0) ? ($position['white'] ?? 0) : '—' }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $cmykCellStyle }}">{{ $cmykValue }}</td>
+                                            <td class="px-3 py-2 border" style="{{ $whiteCellStyle }}">{{ $whiteValue }}</td>
                                         @endif
-                                        <td class="px-3 py-2 border text-right">{{ number_format((float)($position['cost'] ?? 0), 2, '.', ' ') }}</td>
+                                        <td class="px-3 py-2 border text-right" style="{{ $cellStyle($costValue) }}">{{ $costValue }}</td>
                                     </tr>
                                 @empty
                                     <tr><td class="px-3 py-2 border text-gray-500" colspan="{{ $isUv ? 10 : 8 }}">Позиції відсутні.</td></tr>
@@ -229,7 +292,7 @@
                                 @forelse($serviceRows as $sIndex => $row)
                                     <tr>
                                         @if($sIndex === 0)
-                                            <td class="px-3 py-2 border align-top" rowspan="{{ max(count($serviceRows), 1) }}">Послуги до виробу</td>
+                                            <td class="px-3 py-2 border align-top" rowspan="{{ max(count($serviceRows), 1) }}">Послуги до виробу #{{ $product['index'] ?? 1 }}</td>
                                         @endif
                                         <td class="px-3 py-2 border">
                                             {{ $row['name'] ?? '—' }}
@@ -239,7 +302,9 @@
                                         </td>
                                         <td class="px-3 py-2 border">
                                             @if(($row['key'] ?? '') === 'rolling' && is_array($row['rolling_meta'] ?? null))
-                                                @php($meta = $row['rolling_meta'])
+                                                @php
+                                                    $meta = $row['rolling_meta'];
+                                                @endphp
                                                 <table class="w-full text-xs border border-gray-200">
                                                     <tbody>
                                                         @if(!empty($row['rolling_individual']))
@@ -280,11 +345,20 @@
                         </table>
                     @endif
 
+                    @php
+                        $footerLabel = $showServices
+                            ? 'Вартість послуг до виробу #'.($product['index'] ?? 1).':'
+                            : 'Вартість виробу:';
+                        $footerValue = $showServices
+                            ? (float)($product['services_cost'] ?? 0)
+                            : (float)($product['total_cost'] ?? 0);
+                    @endphp
                     <div class="px-4 py-3 border-t text-right text-sm">
-                        <span class="font-semibold">Вартість виробу:</span>
-                        <span class="font-bold">{{ number_format((float)($product['total_cost'] ?? 0), 2, '.', ' ') }}</span>
+                        <span class="font-semibold">{{ $footerLabel }}</span>
+                        <span class="font-bold">{{ number_format($footerValue, 2, '.', ' ') }}</span>
                     </div>
                 </div>
+                @endif
             @empty
                 <div class="bg-white shadow-sm sm:rounded-lg p-6 text-gray-500">У заявці немає збережених блоків виробів.</div>
             @endforelse
