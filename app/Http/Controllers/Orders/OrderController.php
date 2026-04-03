@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Orders;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\OrderProposal;
 use App\Models\PriceItem;
 use App\Models\ProductCategory;
 use App\Models\ProductTypeCategoryRule;
@@ -19,6 +20,12 @@ class OrderController extends Controller
 
     public function calculation(Request $request)
     {
+        $proposalId = $request->query('proposal');
+        $proposal = null;
+        if ($proposalId) {
+            $proposal = OrderProposal::query()->find($proposalId);
+        }
+
         $clients = Client::query()
             ->where('status', 'active')
             ->orderBy('name')
@@ -229,6 +236,8 @@ class OrderController extends Controller
             'materialCodeByMaterial' => $materialCodeByMaterial,
             'servicePriceByCode' => $servicePriceByCode,
             'typeCategoryMatrix' => $typeCategoryMatrix,
+            'proposalId' => $proposal?->id,
+            'initialState' => $proposal?->payload,
         ]);
     }
 
