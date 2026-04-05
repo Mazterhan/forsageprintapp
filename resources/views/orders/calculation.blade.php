@@ -37,7 +37,7 @@
                     saveUrl: @js(route('orders.proposals.store')),
                 })"
             >
-                <div class="sticky top-0 z-[9999] isolate overflow-visible border-2 border-gray-700 rounded-lg p-4 shadow-sm" style="background-color: #FCEEDF;">
+                <div class="sticky top-0 z-[9999] isolate overflow-visible border border-gray-300 rounded-lg p-4 shadow-sm" style="background-color: #FCEEDF;">
                     <div class="flex flex-wrap items-end gap-4">
                         <div class="text-sm font-semibold text-gray-700">Замовник</div>
                         <div class="min-w-[260px] flex-1">
@@ -825,9 +825,11 @@
                                 <input type="text" :value="getProductTotalCostDisplay(product)" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                 <div class="ml-10 font-bold text-gray-800">Собівартість (грн)</div>
                                 <input type="text" value="0.00" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
-                                <button x-show="products.length === 1" type="button" @click="saveProposal()" :disabled="isSaving" class="ml-auto inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
-                                    <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
-                                </button>
+                                @if (auth()->user()?->role !== 'user')
+                                    <button x-show="products.length === 1" type="button" @click="saveProposal()" :disabled="isSaving" class="ml-auto inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
+                                        <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
+                                    </button>
+                                @endif
                                 <div x-show="!product.isExpanded && products.length > 1" class="ml-auto flex items-center gap-2">
                                     <button
                                         type="button"
@@ -883,9 +885,11 @@
                                 <input type="text" value="0.00" disabled class="w-[160px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                             </div>
                         </div>
-                        <button type="button" @click="saveProposal()" :disabled="isSaving" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white h-fit disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
-                            <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
-                        </button>
+                        @if (auth()->user()?->role !== 'user')
+                            <button type="button" @click="saveProposal()" :disabled="isSaving" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white h-fit disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
+                                <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
+                            </button>
+                        @endif
                     </div>
                 </template>
             </div>

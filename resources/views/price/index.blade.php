@@ -1,8 +1,11 @@
 <x-app-layout>
     @section('title', $title)
+    @php
+        $canManagePrice = in_array(auth()->user()?->role, ['admin', 'manager'], true);
+    @endphp
     <style>
         .price-table thead tr {
-            background-color: #D4D4D4;
+            background-color: #FCEEDF;
         }
 
         .price-table thead th,
@@ -50,9 +53,11 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $title }}</h2>
-            <a href="{{ route('price.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                {{ __('додати позицію') }}
-            </a>
+            @if ($canManagePrice)
+                <a href="{{ route('price.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                    {{ __('додати позицію') }}
+                </a>
+            @endif
         </div>
     </x-slot>
 
@@ -181,20 +186,22 @@
                                             @endif
                                         </a>
                                     </th>
-                                    <th class="px-4 py-3 border-b text-left text-[14px]">
-                                        @php
-                                            $next = $sort === 'purchase_price' && $direction === 'asc' ? 'desc' : 'asc';
-                                        @endphp
-                                        <a href="{{ route('price.index', array_merge(request()->query(), ['sort' => 'purchase_price', 'direction' => $next])) }}" class="inline-flex items-center gap-1">
-                                            Закупівельна ціна
-                                            @if ($sort === 'purchase_price')
-                                                <span class="text-gray-600">{{ $direction === 'asc' ? '▲' : '▼' }}</span>
-                                            @else
-                                                <span class="text-gray-400">↕</span>
-                                            @endif
-                                        </a>
-                                    </th>
-                                    <th class="px-4 py-3 border-b text-center text-[14px]">Націнка %</th>
+                                    @if ($canManagePrice)
+                                        <th class="px-4 py-3 border-b text-left text-[14px]">
+                                            @php
+                                                $next = $sort === 'purchase_price' && $direction === 'asc' ? 'desc' : 'asc';
+                                            @endphp
+                                            <a href="{{ route('price.index', array_merge(request()->query(), ['sort' => 'purchase_price', 'direction' => $next])) }}" class="inline-flex items-center gap-1">
+                                                Закупівельна ціна
+                                                @if ($sort === 'purchase_price')
+                                                    <span class="text-gray-600">{{ $direction === 'asc' ? '▲' : '▼' }}</span>
+                                                @else
+                                                    <span class="text-gray-400">↕</span>
+                                                @endif
+                                            </a>
+                                        </th>
+                                        <th class="px-4 py-3 border-b text-center text-[14px]">Націнка %</th>
+                                    @endif
                                     <th class="px-4 py-3 border-b text-center text-[14px]">
                                         @php
                                             $next = $sort === 'service_price' && $direction === 'asc' ? 'desc' : 'asc';
@@ -208,13 +215,15 @@
                                             @endif
                                         </a>
                                     </th>
-                                    <th class="px-4 py-3 border-b text-center text-[14px]">Дія</th>
+                                    @if ($canManagePrice)
+                                        <th class="px-4 py-3 border-b text-center text-[14px]">Дія</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
                                 @if ($items->isEmpty())
                                     <tr>
-                                        <td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">
+                                        <td colspan="{{ $canManagePrice ? 7 : 4 }}" class="px-4 py-6 text-center text-sm text-gray-500">
                                             {{ __('Записів не знайдено.') }}
                                         </td>
                                     </tr>
@@ -228,63 +237,73 @@
                                             </a>
                                         </td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $item->category ?: ($item->model_type === 'Послуга' ? 'Послуга' : '') }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">
-                                            <input
-                                                form="price-bulk-update-form"
-                                                type="text"
-                                                name="items[{{ $item->id }}][purchase_price]"
-                                                value="{{ $formatCellNumber($item->purchase_price) }}"
-                                                class="price-edit-field price-purchase w-28 border-gray-300 rounded-md shadow-sm text-sm"
-                                                data-original="{{ $formatCellNumber($item->purchase_price) }}"
-                                                data-row-id="{{ $item->id }}"
-                                            />
-                                        </td>
+                                        @if ($canManagePrice)
+                                            <td class="px-4 py-2 text-sm text-gray-700">
+                                                <input
+                                                    form="price-bulk-update-form"
+                                                    type="text"
+                                                    name="items[{{ $item->id }}][purchase_price]"
+                                                    value="{{ $formatCellNumber($item->purchase_price) }}"
+                                                    class="price-edit-field price-purchase w-28 border-gray-300 rounded-md shadow-sm text-sm"
+                                                    data-original="{{ $formatCellNumber($item->purchase_price) }}"
+                                                    data-row-id="{{ $item->id }}"
+                                                />
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-700 text-center">
+                                                @php
+                                                    $rowMarkup = '';
+                                                    if ($item->purchase_price !== null && (float) $item->purchase_price > 0 && $item->service_price !== null) {
+                                                        $rowMarkup = $formatCellNumber((((float) $item->service_price - (float) $item->purchase_price) / (float) $item->purchase_price) * 100);
+                                                    }
+                                                @endphp
+                                                <input
+                                                    type="text"
+                                                    value="{{ $rowMarkup }}"
+                                                    class="price-edit-field price-markup w-24 border-gray-300 rounded-md shadow-sm text-sm text-center"
+                                                    data-original="{{ $rowMarkup }}"
+                                                    data-row-id="{{ $item->id }}"
+                                                />
+                                            </td>
+                                        @endif
                                         <td class="px-4 py-2 text-sm text-gray-700 text-center">
-                                            @php
-                                                $rowMarkup = '';
-                                                if ($item->purchase_price !== null && (float) $item->purchase_price > 0 && $item->service_price !== null) {
-                                                    $rowMarkup = $formatCellNumber((((float) $item->service_price - (float) $item->purchase_price) / (float) $item->purchase_price) * 100);
-                                                }
-                                            @endphp
-                                            <input
-                                                type="text"
-                                                value="{{ $rowMarkup }}"
-                                                class="price-edit-field price-markup w-24 border-gray-300 rounded-md shadow-sm text-sm text-center"
-                                                data-original="{{ $rowMarkup }}"
-                                                data-row-id="{{ $item->id }}"
-                                            />
+                                            @if ($canManagePrice)
+                                                <input
+                                                    form="price-bulk-update-form"
+                                                    type="text"
+                                                    name="items[{{ $item->id }}][service_price]"
+                                                    value="{{ $formatCellNumber($item->service_price) }}"
+                                                    class="price-edit-field price-service w-28 border-gray-300 rounded-md shadow-sm text-sm text-center"
+                                                    data-original="{{ $formatCellNumber($item->service_price) }}"
+                                                    data-row-id="{{ $item->id }}"
+                                                />
+                                            @else
+                                                {{ $formatCellNumber($item->service_price) }}
+                                            @endif
                                         </td>
-                                        <td class="px-4 py-2 text-sm text-gray-700 text-center">
-                                            <input
-                                                form="price-bulk-update-form"
-                                                type="text"
-                                                name="items[{{ $item->id }}][service_price]"
-                                                value="{{ $formatCellNumber($item->service_price) }}"
-                                                class="price-edit-field price-service w-28 border-gray-300 rounded-md shadow-sm text-sm text-center"
-                                                data-original="{{ $formatCellNumber($item->service_price) }}"
-                                                data-row-id="{{ $item->id }}"
-                                            />
-                                        </td>
-                                        <td class="px-4 py-2 text-sm text-gray-700 text-center">
-                                            <form method="POST" action="{{ route('price.toggle', $item) }}">
-                                                @csrf
-                                                @method('PATCH')
-                                                <button type="submit" class="text-gray-600 hover:text-gray-900">
-                                                    {{ $item->is_active ? __('Деактивувати') : __('Активувати') }}
-                                                </button>
-                                            </form>
-                                        </td>
+                                        @if ($canManagePrice)
+                                            <td class="px-4 py-2 text-sm text-gray-700 text-center">
+                                                <form method="POST" action="{{ route('price.toggle', $item) }}">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <button type="submit" class="text-gray-600 hover:text-gray-900">
+                                                        {{ $item->is_active ? __('Деактивувати') : __('Активувати') }}
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        @endif
                                     </tr>
                                 @endforeach
                             </tbody>
                         </table>
                     </div>
 
-                    <div class="mt-4">
-                        <button type="submit" form="price-bulk-update-form" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">
-                            {{ __('Зберегти зміни') }}
-                        </button>
-                    </div>
+                    @if ($canManagePrice)
+                        <div class="mt-4">
+                            <button type="submit" form="price-bulk-update-form" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">
+                                {{ __('Зберегти зміни') }}
+                            </button>
+                        </div>
+                    @endif
 
                     <div class="mt-4">
                         {{ $items->links() }}

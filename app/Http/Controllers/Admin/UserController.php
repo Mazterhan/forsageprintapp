@@ -8,6 +8,8 @@ use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Models\Department;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 class UserController extends Controller
@@ -108,5 +110,20 @@ class UserController extends Controller
         return redirect()
             ->route('admin.users.index')
             ->with('status', __('User status updated.'));
+    }
+
+    public function resetPassword(Request $request, User $user): RedirectResponse
+    {
+        $data = $request->validateWithBag('resetUserPassword', [
+            'password' => ['required', 'string', 'confirmed', Password::defaults()],
+        ]);
+
+        $user->update([
+            'password' => $data['password'],
+        ]);
+
+        return redirect()
+            ->route('admin.users.edit', $user)
+            ->with('status', __('Пароль користувача оновлено.'));
     }
 }

@@ -8,6 +8,11 @@
 
     <div class="py-12">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+            @if (session('status'))
+                <div class="mb-4 text-sm text-green-700 bg-green-100 px-4 py-2 rounded">
+                    {{ session('status') }}
+                </div>
+            @endif
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     <form method="POST" action="{{ route('admin.users.update', $user) }}" class="space-y-6">
@@ -101,6 +106,41 @@
                     </form>
                 </div>
             </div>
+
+            <div class="mt-6 flex items-center gap-3">
+                <input id="toggle-reset-password-enable" type="checkbox" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" />
+                <button id="toggle-reset-password-button" type="button" disabled class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed">
+                    {{ __('Скидання пароля') }}
+                </button>
+            </div>
+
+            <div id="reset-password-section" class="mt-6 bg-white overflow-hidden shadow-sm sm:rounded-lg {{ $errors->resetUserPassword->isNotEmpty() ? '' : 'hidden' }}">
+                <div class="p-6 text-gray-900">
+                    <h3 class="text-lg font-semibold text-gray-800">{{ __('Скидання пароля') }}</h3>
+                    <p class="mt-1 text-sm text-gray-600">{{ __('Вкажіть новий пароль для користувача.') }}</p>
+
+                    <form method="POST" action="{{ route('admin.users.reset-password', $user) }}" class="mt-6 space-y-4">
+                        @csrf
+                        @method('PATCH')
+
+                        <div>
+                            <x-input-label for="password" :value="__('Новий пароль')" />
+                            <x-text-input id="password" name="password" type="password" class="mt-1 block w-full" autocomplete="new-password" />
+                            <x-input-error class="mt-2" :messages="$errors->resetUserPassword->get('password')" />
+                        </div>
+
+                        <div>
+                            <x-input-label for="password_confirmation" :value="__('Підтвердження пароля')" />
+                            <x-text-input id="password_confirmation" name="password_confirmation" type="password" class="mt-1 block w-full" autocomplete="new-password" />
+                            <x-input-error class="mt-2" :messages="$errors->resetUserPassword->get('password_confirmation')" />
+                        </div>
+
+                        <div class="flex items-center gap-4">
+                            <x-primary-button>{{ __('Скинути пароль') }}</x-primary-button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -109,6 +149,9 @@
             const deptSelect = document.getElementById('department_id');
             const categorySelect = document.getElementById('department_category_id');
             const positionSelect = document.getElementById('department_position_id');
+            const resetToggleCheckbox = document.getElementById('toggle-reset-password-enable');
+            const resetToggleButton = document.getElementById('toggle-reset-password-button');
+            const resetSection = document.getElementById('reset-password-section');
 
             const filterCategories = () => {
                 const deptId = deptSelect.value;
@@ -140,6 +183,19 @@
                 filterCategories();
                 filterPositions();
             });
+
+            if (resetToggleCheckbox && resetToggleButton && resetSection) {
+                const syncResetButtonState = () => {
+                    resetToggleButton.disabled = !resetToggleCheckbox.checked;
+                };
+
+                resetToggleCheckbox.addEventListener('change', syncResetButtonState);
+                resetToggleButton.addEventListener('click', () => {
+                    resetSection.classList.toggle('hidden');
+                });
+
+                syncResetButtonState();
+            }
 
             filterCategories();
             filterPositions();

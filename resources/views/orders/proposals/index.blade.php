@@ -16,7 +16,7 @@
 
     <style>
         .proposal-table thead tr {
-            background-color: #D4D4D4;
+            background-color: #FCEEDF;
         }
 
         .proposal-row {
