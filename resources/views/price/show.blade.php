@@ -1,5 +1,8 @@
 <x-app-layout>
     @section('title', $title)
+    @php
+        $canManagePrice = in_array(auth()->user()?->role, ['admin', 'manager'], true);
+    @endphp
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
             {{ $item->name }}
@@ -76,31 +79,34 @@
                                     type="text"
                                     class="mt-1 block w-full"
                                     :value="old('service_price', $formatCellNumber($item->service_price))"
+                                    :disabled="!$canManagePrice"
                                 />
                                 <x-input-error class="mt-2" :messages="$errors->get('service_price')" />
                             </div>
-                            <div class="md:col-span-4">
-                                <x-input-label for="purchase_price" :value="__('Закупівельна вартість')" />
-                                <x-text-input
-                                    id="purchase_price"
-                                    name="purchase_price"
-                                    type="text"
-                                    class="mt-1 block w-full"
-                                    :value="old('purchase_price', $formatCellNumber($item->purchase_price))"
-                                />
-                                <x-input-error class="mt-2" :messages="$errors->get('purchase_price')" />
-                            </div>
-                            <div class="md:col-span-4">
-                                <x-input-label for="markup_percent" :value="__('Націнка %')" />
-                                <x-text-input
-                                    id="markup_percent"
-                                    type="text"
-                                    class="mt-1 block w-full"
-                                    value="{{ $item->purchase_price !== null && (float) $item->purchase_price > 0 && $item->service_price !== null
-                                        ? $formatCellNumber((((float) $item->service_price - (float) $item->purchase_price) / (float) $item->purchase_price) * 100)
-                                        : '' }}"
-                                />
-                            </div>
+                            @if ($canManagePrice)
+                                <div class="md:col-span-4">
+                                    <x-input-label for="purchase_price" :value="__('Закупівельна вартість')" />
+                                    <x-text-input
+                                        id="purchase_price"
+                                        name="purchase_price"
+                                        type="text"
+                                        class="mt-1 block w-full"
+                                        :value="old('purchase_price', $formatCellNumber($item->purchase_price))"
+                                    />
+                                    <x-input-error class="mt-2" :messages="$errors->get('purchase_price')" />
+                                </div>
+                                <div class="md:col-span-4">
+                                    <x-input-label for="markup_percent" :value="__('Націнка %')" />
+                                    <x-text-input
+                                        id="markup_percent"
+                                        type="text"
+                                        class="mt-1 block w-full"
+                                        value="{{ $item->purchase_price !== null && (float) $item->purchase_price > 0 && $item->service_price !== null
+                                            ? $formatCellNumber((((float) $item->service_price - (float) $item->purchase_price) / (float) $item->purchase_price) * 100)
+                                            : '' }}"
+                                    />
+                                </div>
+                            @endif
                         </div>
                     </form>
 
@@ -125,32 +131,37 @@
                             form="price-item-update-form"
                             rows="3"
                             class="mt-1 block w-full min-w-0 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm resize-y"
+                            @disabled(! $canManagePrice)
                         >{{ old('comment', $item->comment) }}</textarea>
                         <x-input-error class="mt-2" :messages="$errors->get('comment')" />
                     </div>
 
                     <div class="flex items-center gap-4">
-                        <button form="price-item-update-form" type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">
-                            {{ __('Зберегти') }}
-                        </button>
+                        @if ($canManagePrice)
+                            <button form="price-item-update-form" type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">
+                                {{ __('Зберегти') }}
+                            </button>
+                        @endif
                         <a href="{{ route('price.index') }}" class="inline-flex items-center px-4 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-200">
                             {{ __('Повернутись') }}
                         </a>
-                        <form method="POST" action="{{ route('price.toggle', $item) }}">
-                            @csrf
-                            @method('PATCH')
-                            <button type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">
-                                {{ $item->is_active ? __('Деактивувати') : __('Активувати') }}
-                            </button>
-                        </form>
-                        @if (! $item->is_active && $item->visible)
-                            <form method="POST" action="{{ route('price.hide', $item) }}">
+                        @if ($canManagePrice)
+                            <form method="POST" action="{{ route('price.toggle', $item) }}">
                                 @csrf
                                 @method('PATCH')
-                                <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md text-sm text-white hover:bg-red-500">
-                                    {{ __('Видалити') }}
+                                <button type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">
+                                    {{ $item->is_active ? __('Деактивувати') : __('Активувати') }}
                                 </button>
                             </form>
+                            @if (! $item->is_active && $item->visible)
+                                <form method="POST" action="{{ route('price.hide', $item) }}">
+                                    @csrf
+                                    @method('PATCH')
+                                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md text-sm text-white hover:bg-red-500">
+                                        {{ __('Видалити') }}
+                                    </button>
+                                </form>
+                            @endif
                         @endif
                     </div>
                 </div>
@@ -165,10 +176,14 @@
                                 <tr>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дата</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Роздрібна ціна</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Закупівельна вартість</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка %</th>
+                                    @if ($canManagePrice)
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Закупівельна вартість</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка %</th>
+                                    @endif
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Користувач</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дія</th>
+                                    @if ($canManagePrice)
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дія</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -176,25 +191,29 @@
                                     <tr>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ optional($row->created_at)->format('Y-m-d H:i') }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ number_format((float) $row->service_price, 2, '.', '') }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ number_format((float) $row->purchase_price, 2, '.', '') }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_percent !== null ? number_format((float) $row->markup_percent, 2, '.', '') : '' }}</td>
+                                        @if ($canManagePrice)
+                                            <td class="px-4 py-2 text-sm text-gray-700">{{ number_format((float) $row->purchase_price, 2, '.', '') }}</td>
+                                            <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_percent !== null ? number_format((float) $row->markup_percent, 2, '.', '') : '' }}</td>
+                                        @endif
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $row->user?->name }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">
-                                            <form method="POST" action="{{ route('price.history.revert', [$item, $row]) }}">
-                                                @csrf
-                                                <button
-                                                    type="submit"
-                                                    class="text-indigo-600 hover:text-indigo-900"
-                                                    onclick="return confirm('Діюча ціна товару буде оновлена на вибрану')"
-                                                >
-                                                    {{ __('Повернути') }}
-                                                </button>
-                                            </form>
-                                        </td>
+                                        @if ($canManagePrice)
+                                            <td class="px-4 py-2 text-sm text-gray-700">
+                                                <form method="POST" action="{{ route('price.history.revert', [$item, $row]) }}">
+                                                    @csrf
+                                                    <button
+                                                        type="submit"
+                                                        class="text-indigo-600 hover:text-indigo-900"
+                                                        onclick="return confirm('Діюча ціна товару буде оновлена на вибрану')"
+                                                    >
+                                                        {{ __('Повернути') }}
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        @endif
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="px-4 py-6 text-center text-sm text-gray-500">
+                                        <td colspan="{{ $canManagePrice ? 6 : 3 }}" class="px-4 py-6 text-center text-sm text-gray-500">
                                             {{ __('Історія порожня.') }}
                                         </td>
                                     </tr>

@@ -45,6 +45,10 @@ class ProposalController extends Controller
 
     public function store(Request $request): JsonResponse|RedirectResponse
     {
+        if ($request->user()?->role === 'user') {
+            abort(403);
+        }
+
         $data = $request->validate([
             'proposal_id' => ['nullable', 'integer', 'exists:order_proposals,id'],
             'state' => ['required', 'array'],

@@ -12,15 +12,13 @@
 
                 <!-- Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                    @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
-                        <x-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
-                            {{ __('Замовлення') }}
-                        </x-nav-link>
-                    @endif
+                    <x-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
+                        {{ __('Замовлення') }}
+                    </x-nav-link>
                     <x-nav-link :href="route('price.index')" :active="request()->routeIs('price.*')">
                         {{ __('Прайс') }}
                     </x-nav-link>
-                    @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
+                    @if (Auth::user()->role === 'admin')
                         <x-nav-link :href="route('admin.index')" :active="request()->routeIs('admin.index')">
                             {{ __('Адміністрування') }}
                         </x-nav-link>
@@ -80,15 +78,13 @@
     <!-- Responsive Navigation Menu -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
-            @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
-                <x-responsive-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
-                    {{ __('Замовлення') }}
-                </x-responsive-nav-link>
-            @endif
+            <x-responsive-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
+                {{ __('Замовлення') }}
+            </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('price.index')" :active="request()->routeIs('price.*')">
                 {{ __('Прайс') }}
             </x-responsive-nav-link>
-            @if (Auth::user()->role === 'admin' || Auth::user()->role === 'manager')
+            @if (Auth::user()->role === 'admin')
                 <x-responsive-nav-link :href="route('admin.index')" :active="request()->routeIs('admin.index')">
                     {{ __('Адміністрування') }}
                 </x-responsive-nav-link>

@@ -19,7 +19,7 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-Route::middleware(['auth', 'role:admin|manager'])->group(function () {
+Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin', function () {
         $sort = (string) request()->query('sort', '');
         $direction = strtolower((string) request()->query('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
@@ -52,12 +52,18 @@ Route::middleware(['auth', 'role:admin|manager'])->group(function () {
     })->name('admin.index');
 });
 
-Route::middleware(['auth', 'role:admin|manager'])
+Route::middleware('auth')
     ->prefix('orders')
     ->name('orders.')
     ->group(function () {
         Route::get('/', [OrderController::class, 'index'])->name('index');
         Route::get('/calculation', [OrderController::class, 'calculation'])->name('calculation');
+    });
+
+Route::middleware(['auth', 'role:admin|manager'])
+    ->prefix('orders')
+    ->name('orders.')
+    ->group(function () {
         Route::get('/proposals', [ProposalController::class, 'index'])->name('proposals');
         Route::post('/proposals', [ProposalController::class, 'store'])->name('proposals.store');
         Route::get('/proposals/{orderProposal}', [ProposalController::class, 'show'])->name('proposals.show');
@@ -76,15 +82,21 @@ Route::middleware('auth')
     ->name('price.')
     ->group(function () {
         Route::get('/', [PriceController::class, 'index'])->name('index');
-        Route::patch('/bulk-update', [PriceController::class, 'bulkUpdate'])->name('bulk-update');
         Route::get('/{priceItem}', [PriceController::class, 'show'])->name('show');
+    });
+
+Route::middleware(['auth', 'role:admin|manager'])
+    ->prefix('price')
+    ->name('price.')
+    ->group(function () {
+        Route::patch('/bulk-update', [PriceController::class, 'bulkUpdate'])->name('bulk-update');
         Route::patch('/{priceItem}', [PriceController::class, 'update'])->name('update');
         Route::post('/{priceItem}/history/{history}/revert', [PriceController::class, 'revertHistory'])->name('history.revert');
         Route::patch('/{priceItem}/toggle', [PriceController::class, 'toggle'])->name('toggle');
         Route::patch('/{priceItem}/hide', [PriceController::class, 'hide'])->name('hide');
     });
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'role:admin|manager'])->group(function () {
     Route::get('/new_item', [PriceController::class, 'create'])->name('price.create');
     Route::post('/new_item', [PriceController::class, 'store'])->name('price.store');
 });
@@ -98,6 +110,7 @@ Route::middleware(['auth', 'role:admin'])
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
         Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
         Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::patch('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
         Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('users.toggle');
 
         Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
