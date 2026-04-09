@@ -2,6 +2,10 @@
     @section('title', __('Заявка :number', ['number' => $proposal->proposal_number]))
     @php
         $hasMultipleProducts = count($products ?? []) > 1;
+        $urgencyCoefficientDisplay = $state['urgency_coefficient']
+            ?? $state['urgencyCoefficient']
+            ?? data_get($state, 'summary.urgency_coefficient')
+            ?? '1.00';
         $requestedViewMode = request('view_mode');
         $viewMode = in_array($requestedViewMode, ['combined', 'grouped', 'combined_services'], true)
             ? $requestedViewMode
@@ -40,7 +44,7 @@
                 <div class="flex flex-row items-start justify-between gap-6 w-full">
                     <div class="space-y-2 flex-1 min-w-0">
                         <div><span class="font-semibold">Замовник:</span> {{ ($state['client_name'] ?? $proposal->client_name) ?: '—' }}</div>
-                        <div><span class="font-semibold">Коефіцієнт терміновості:</span> {{ $state['urgency_coefficient'] ?? '1.00' }}</div>
+                        <div><span class="font-semibold">Коефіцієнт терміновості:</span> {{ $urgencyCoefficientDisplay }}</div>
                     </div>
                     <div class="space-y-2 text-left w-max shrink-0">
                         <div><span class="font-semibold">Дата створення:</span> {{ optional($proposal->created_at)->format('d.m.Y H:i') }}</div>

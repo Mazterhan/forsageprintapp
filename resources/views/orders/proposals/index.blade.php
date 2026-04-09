@@ -109,7 +109,9 @@
                             <tbody>
                                 @forelse($proposals as $proposal)
                                     <tr class="proposal-row {{ $loop->odd ? 'row-alt' : 'row-base' }}" tabindex="0">
-                                        <td class="px-4 py-3 border-b">{{ optional($proposal->created_at)->format('d.m.Y H:i') }}</td>
+                                        <td class="px-4 py-3 border-b">
+                                            {{ optional(((int) ($proposal->corrections_count ?? 0)) > 0 ? $proposal->updated_at : $proposal->created_at)->format('d.m.Y H:i') }}
+                                        </td>
                                         <td class="px-4 py-3 border-b">
                                             <a href="{{ route('orders.proposals.show', $proposal) }}" class="text-indigo-600 hover:text-indigo-900">
                                                 {{ $proposal->proposal_number }}

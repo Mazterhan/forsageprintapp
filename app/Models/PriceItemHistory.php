@@ -24,6 +24,7 @@ class PriceItemHistory extends Model
         'service_price' => 'decimal:2',
         'purchase_price' => 'decimal:2',
         'markup_percent' => 'decimal:2',
+        'created_at' => 'datetime',
     ];
 
     public function priceItem(): BelongsTo

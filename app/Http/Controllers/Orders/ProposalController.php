@@ -17,22 +17,26 @@ class ProposalController extends Controller
         $direction = strtolower((string) $request->query('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
 
         $sortMap = [
-            'date' => 'created_at',
             'number' => 'proposal_number',
             'user' => 'users.name',
             'client' => 'client_name',
             'cost' => 'total_cost',
         ];
 
-        $proposals = OrderProposal::query()
+        $query = OrderProposal::query()
             ->leftJoin('users', 'users.id', '=', 'order_proposals.user_id')
             ->select('order_proposals.*')
-            ->with('user:id,name')
-            ->when(isset($sortMap[$sort]), function ($query) use ($sortMap, $sort, $direction) {
-                $query->orderBy($sortMap[$sort], $direction);
-            }, function ($query) {
-                $query->orderByDesc('order_proposals.created_at');
-            })
+            ->with('user:id,name');
+
+        if ($sort === 'date') {
+            $query->orderByRaw("CASE WHEN order_proposals.corrections_count > 0 THEN order_proposals.updated_at ELSE order_proposals.created_at END {$direction}");
+        } elseif (isset($sortMap[$sort])) {
+            $query->orderBy($sortMap[$sort], $direction);
+        } else {
+            $query->orderByRaw('CASE WHEN order_proposals.corrections_count > 0 THEN order_proposals.updated_at ELSE order_proposals.created_at END DESC');
+        }
+
+        $proposals = $query
             ->paginate(30)
             ->withQueryString();
 
@@ -51,13 +55,19 @@ class ProposalController extends Controller
 
         $data = $request->validate([
             'proposal_id' => ['nullable', 'integer', 'exists:order_proposals,id'],
+            'urgency_coefficient' => ['nullable'],
             'state' => ['required', 'array'],
             'state.products' => ['required', 'array', 'min:1'],
+            'state.client_id' => ['nullable', 'integer'],
             'state.client_name' => ['nullable', 'string', 'max:255'],
+            'state.urgency_coefficient' => ['nullable'],
+            'state.urgencyCoefficient' => ['nullable'],
+            'state.summary' => ['nullable', 'array'],
             'state.summary.order_total' => ['nullable'],
         ]);
 
-        $state = $data['state'];
+        // Keep the full calculator state in payload; validated() may drop nested keys not explicitly listed.
+        $state = (array) $request->input('state', []);
         $totalCost = (float) Arr::get($state, 'summary.order_total', 0);
         $clientName = trim((string) Arr::get($state, 'client_name', ''));
 
@@ -74,6 +84,27 @@ class ProposalController extends Controller
         } else {
             $proposal->corrections_count = ((int) $proposal->corrections_count) + 1;
         }
+
+        $existingPayload = is_array($proposal->payload ?? null) ? $proposal->payload : [];
+        $urgencyCoefficient = Arr::get($state, 'urgency_coefficient')
+            ?? Arr::get($state, 'urgencyCoefficient')
+            ?? ($data['urgency_coefficient'] ?? null)
+            ?? Arr::get($existingPayload, 'urgency_coefficient')
+            ?? Arr::get($existingPayload, 'urgencyCoefficient')
+            ?? '1.00';
+        $urgencyCoefficient = trim((string) $urgencyCoefficient);
+        if ($urgencyCoefficient === '') {
+            $urgencyCoefficient = '1.00';
+        }
+        $state['urgency_coefficient'] = $urgencyCoefficient;
+        $state['urgencyCoefficient'] = $urgencyCoefficient;
+
+        $summary = Arr::get($state, 'summary', []);
+        if (!is_array($summary)) {
+            $summary = [];
+        }
+        $summary['urgency_coefficient'] = $urgencyCoefficient;
+        $state['summary'] = $summary;
 
         $proposal->client_name = $clientName !== '' ? $clientName : null;
         $proposal->total_cost = round($totalCost, 2);

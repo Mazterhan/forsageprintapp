@@ -822,13 +822,13 @@
                         <div class="border border-gray-300 rounded-lg p-4 space-y-3" style="background-color: #FCEEDF;">
                             <div class="flex flex-wrap items-center gap-3">
                                 <div class="font-bold text-gray-800" x-text="products.length > 1 ? `Вартість виробу #${displayProductNumber(productIndex)}` : 'Вартість загальна (грн)'"></div>
-                                <input type="text" :value="getProductTotalCostDisplay(product)" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                <input type="text" :value="getBottomTotalCostDisplay(product)" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                 <div class="ml-10 font-bold text-gray-800">Собівартість (грн)</div>
                                 <input type="text" value="0.00" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                 @if (auth()->user()?->role !== 'user')
-                                    <button x-show="products.length === 1" type="button" @click="saveProposal()" :disabled="isSaving" class="ml-auto inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
-                                        <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
-                                    </button>
+                                <button x-show="products.length === 1" type="button" @click="requestSaveProposal()" :disabled="isSaving" class="ml-auto inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
+                                    <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
+                                </button>
                                 @endif
                                 <div x-show="!product.isExpanded && products.length > 1" class="ml-auto flex items-center gap-2">
                                     <button
@@ -886,12 +886,45 @@
                             </div>
                         </div>
                         @if (auth()->user()?->role !== 'user')
-                            <button type="button" @click="saveProposal()" :disabled="isSaving" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white h-fit disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
+                            <button type="button" @click="requestSaveProposal()" :disabled="isSaving" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white h-fit disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
                                 <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
                             </button>
                         @endif
                     </div>
                 </template>
+
+                <div
+                    x-show="showMinOrderTotalModal"
+                    class="fixed inset-0 z-[12000] flex items-center justify-center"
+                    style="display: none;"
+                >
+                    <div class="absolute inset-0 bg-black/40" @click="closeMinOrderTotalModal()"></div>
+                    <div class="relative w-[430px] max-w-[430px] rounded-lg shadow-xl border border-gray-300 p-6" style="background-color: #E0E0E0;">
+                        <p class="text-base font-semibold text-gray-900">
+                            Загальна вартість замовлення змінена!
+                        </p>
+                        <p class="mt-1 text-base font-semibold text-gray-900">
+                            Встановлена мінімальна вартість за замовлення 100 грн.
+                        </p>
+                        <div class="h-4"></div>
+                        <div class="flex items-center justify-center gap-3">
+                            <button
+                                type="button"
+                                @click="confirmMinOrderTotalAndSave()"
+                                class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm font-semibold text-white hover:bg-gray-700"
+                            >
+                                Згоден
+                            </button>
+                            <button
+                                type="button"
+                                @click="closeMinOrderTotalModal()"
+                                class="inline-flex items-center px-4 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm font-semibold text-gray-700 hover:bg-gray-200"
+                            >
+                                Повернутись
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -917,6 +950,9 @@
                 selectedClientQuery: '',
                 showClientDropdown: false,
                 urgencyCoefficient: '1.00',
+                minimumOrderTotal: 100,
+                showMinOrderTotalModal: false,
+                pendingMinimumOrderTotal: null,
                 products: [],
                 isSaving: false,
                 isHydrating: false,
@@ -995,7 +1031,7 @@
 
                     this.selectedClientId = state.client_id ? String(state.client_id) : '';
                     this.selectedClientQuery = String(state.client_name || '').trim();
-                    this.urgencyCoefficient = String(state.urgency_coefficient || '1.00');
+                    this.urgencyCoefficient = String(state.urgency_coefficient ?? state.urgencyCoefficient ?? '1.00');
 
                     if (sourceProducts.length === 0) {
                         this.products = [this.createProduct()];
@@ -3166,10 +3202,30 @@
                     return formatted === '' ? '0.00' : formatted;
                 },
 
+                getBottomTotalCostDisplay(product) {
+                    if (Array.isArray(this.products) && this.products.length === 1) {
+                        if (this.hasAnyWarnings()) {
+                            return '';
+                        }
+                        const formattedOrderTotal = this.formatMoney(this.getOrderTotalCostForSave());
+                        return formattedOrderTotal === '' ? '0.00' : formattedOrderTotal;
+                    }
+
+                    return this.getProductTotalCostDisplay(product);
+                },
+
                 getOrderTotalCost() {
                     const products = Array.isArray(this.products) ? this.products : [];
                     const total = products.reduce((sum, product) => sum + this.getProductTotalCost(product), 0);
                     return this.normalizeMoney(total);
+                },
+
+                getOrderTotalCostForSave() {
+                    if (this.pendingMinimumOrderTotal !== null) {
+                        return this.normalizeMoney(this.pendingMinimumOrderTotal);
+                    }
+
+                    return this.getOrderTotalCost();
                 },
 
                 getOrderTotalCostDisplay() {
@@ -3177,8 +3233,36 @@
                         return '';
                     }
 
-                    const formatted = this.formatMoney(this.getOrderTotalCost());
+                    const formatted = this.formatMoney(this.getOrderTotalCostForSave());
                     return formatted === '' ? '0.00' : formatted;
+                },
+
+                isMinimumOrderTotalRequired() {
+                    const total = this.getOrderTotalCost();
+                    return Number.isFinite(total) && total < this.minimumOrderTotal;
+                },
+
+                requestSaveProposal() {
+                    if (this.isSaving || !this.saveUrl) {
+                        return;
+                    }
+
+                    if (this.isMinimumOrderTotalRequired() && this.pendingMinimumOrderTotal === null) {
+                        this.showMinOrderTotalModal = true;
+                        return;
+                    }
+
+                    this.saveProposal();
+                },
+
+                confirmMinOrderTotalAndSave() {
+                    this.pendingMinimumOrderTotal = this.minimumOrderTotal;
+                    this.showMinOrderTotalModal = false;
+                    this.saveProposal();
+                },
+
+                closeMinOrderTotalModal() {
+                    this.showMinOrderTotalModal = false;
                 },
 
                 serializeServiceRows(product) {
@@ -3332,9 +3416,10 @@
                         client_id: this.selectedClientId ? Number(this.selectedClientId) : null,
                         client_name: String(this.selectedClientQuery || '').trim(),
                         urgency_coefficient: String(this.urgencyCoefficient || '1.00'),
+                        urgencyCoefficient: String(this.urgencyCoefficient || '1.00'),
                         products,
                         summary: {
-                            order_total: this.getOrderTotalCost(),
+                            order_total: this.getOrderTotalCostForSave(),
                             order_total_display: this.getOrderTotalCostDisplay(),
                             has_warnings: this.hasAnyWarnings(),
                         },
@@ -3359,6 +3444,7 @@
                             },
                             body: JSON.stringify({
                                 proposal_id: this.proposalId,
+                                urgency_coefficient: String(this.urgencyCoefficient || '1.00'),
                                 state: this.buildSaveState(),
                             }),
                         });
@@ -3376,6 +3462,7 @@
                     } catch (error) {
                         alert(error?.message || 'Не вдалося зберегти заявку.');
                     } finally {
+                        this.pendingMinimumOrderTotal = null;
                         this.isSaving = false;
                     }
                 },
