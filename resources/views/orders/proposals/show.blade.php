@@ -6,6 +6,20 @@
             ?? $state['urgencyCoefficient']
             ?? data_get($state, 'summary.urgency_coefficient')
             ?? '1.00';
+        $summaryOrderTotal = (float) ($summary['order_total'] ?? $proposal->total_cost ?? 0);
+        $productsTotalRaw = collect($products ?? [])->sum(function ($product) {
+            if (array_key_exists('total_cost', $product) && $product['total_cost'] !== null && $product['total_cost'] !== '') {
+                return (float) $product['total_cost'];
+            }
+
+            return (float) ($product['positions_cost'] ?? 0) + (float) ($product['services_cost'] ?? 0);
+        });
+        $minimumOrderApplied = array_key_exists('minimum_order_applied', $summary ?? [])
+            ? filter_var($summary['minimum_order_applied'], FILTER_VALIDATE_BOOLEAN)
+            : false;
+        if (!$minimumOrderApplied) {
+            $minimumOrderApplied = abs($summaryOrderTotal - 100.0) < 0.000001 && $productsTotalRaw < 100;
+        }
         $requestedViewMode = request('view_mode');
         $viewMode = in_array($requestedViewMode, ['combined', 'grouped', 'combined_services'], true)
             ? $requestedViewMode
@@ -534,8 +548,15 @@
                 <div class="bg-white shadow-sm sm:rounded-lg p-6 text-gray-500">У заявці немає збережених блоків виробів.</div>
             @endforelse
 
-            <div class="bg-white shadow-sm sm:rounded-lg p-4 text-right">
-                <span class="font-bold text-lg">Всього: {{ number_format((float)($summary['order_total'] ?? $proposal->total_cost ?? 0), 2, '.', ' ') }}</span>
+            <div class="bg-white shadow-sm sm:rounded-lg p-4">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="text-sm font-semibold text-gray-700">
+                        @if ($minimumOrderApplied)
+                            Врахована вартість мінімального замовлення —100грн.
+                        @endif
+                    </div>
+                    <span class="font-bold text-lg">Всього: {{ number_format($summaryOrderTotal, 2, '.', ' ') }}</span>
+                </div>
             </div>
         </div>
     </div>

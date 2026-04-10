@@ -3421,6 +3421,8 @@
                         summary: {
                             order_total: this.getOrderTotalCostForSave(),
                             order_total_display: this.getOrderTotalCostDisplay(),
+                            order_total_before_minimum: this.getOrderTotalCost(),
+                            minimum_order_applied: this.pendingMinimumOrderTotal !== null,
                             has_warnings: this.hasAnyWarnings(),
                         },
                         saved_at: new Date().toISOString(),
