@@ -854,6 +854,12 @@
                             >
                                 Мінімальна вартість замовлення - 100 грн
                             </div>
+                            <div
+                                x-show="shouldShowMinimumProductHint(product)"
+                                class="text-sm font-semibold text-gray-700"
+                            >
+                                Мінімальна вартість виробу - 100 грн.
+                            </div>
                             <div x-show="product.isExpanded" class="flex items-center justify-end">
                                 <div class="ml-auto flex items-center gap-2">
                                     <button
@@ -3356,6 +3362,15 @@
                     }
 
                     return this.isMinimumOrderTotalRequired();
+                },
+
+                shouldShowMinimumProductHint(product) {
+                    if (!Array.isArray(this.products) || this.products.length <= 1) {
+                        return false;
+                    }
+
+                    const total = this.getProductTotalCost(product);
+                    return Number.isFinite(total) && total < this.minimumOrderTotal;
                 },
 
                 isMinimumOrderTotalRequired() {
