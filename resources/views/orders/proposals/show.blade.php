@@ -256,7 +256,11 @@
                             @foreach($products as $product)
                                 @php
                                     $positions = is_array($product['positions'] ?? null) ? $product['positions'] : [];
-                                    $serviceRows = is_array($product['service_rows'] ?? null) ? $product['service_rows'] : [];
+                                    $serviceRowsRaw = is_array($product['service_rows'] ?? null) ? $product['service_rows'] : [];
+                                    $serviceRows = array_values(array_filter($serviceRowsRaw, static function ($row): bool {
+                                        $cost = $row['cost'] ?? null;
+                                        return is_numeric($cost) && (float)$cost > 0;
+                                    }));
                                     $servicesEnabledRaw = $product['servicesEnabledRaw'] ?? ($product['services_enabled'] ?? null);
                                     $servicesEnabled = in_array((string)$servicesEnabledRaw, ['1', 'true', 'yes'], true) || $servicesEnabledRaw === true || $servicesEnabledRaw === 1;
                                     $showServices = count($positions) === 1 && $servicesEnabled;
@@ -264,10 +268,10 @@
 
                                 @if($showServices)
                                     @php
-                                        $hasCombinedServiceRows = true;
                                         $groupRows = max(count($serviceRows), 1);
                                     @endphp
                                     @if(count($serviceRows) > 0)
+                                        @php $hasCombinedServiceRows = true; @endphp
                                         @foreach($serviceRows as $sIndex => $row)
                                             <tr>
                                                 @if($sIndex === 0)
@@ -361,7 +365,11 @@
             @forelse($products as $product)
                 @php
                     $positions = is_array($product['positions'] ?? null) ? $product['positions'] : [];
-                    $serviceRows = is_array($product['service_rows'] ?? null) ? $product['service_rows'] : [];
+                    $serviceRowsRaw = is_array($product['service_rows'] ?? null) ? $product['service_rows'] : [];
+                    $serviceRows = array_values(array_filter($serviceRowsRaw, static function ($row): bool {
+                        $cost = $row['cost'] ?? null;
+                        return is_numeric($cost) && (float)$cost > 0;
+                    }));
                     $servicesEnabledRaw = $product['servicesEnabledRaw'] ?? ($product['services_enabled'] ?? null);
                     $servicesEnabled = in_array((string)$servicesEnabledRaw, ['1', 'true', 'yes'], true) || $servicesEnabledRaw === true || $servicesEnabledRaw === 1;
                     $showServices = count($positions) === 1 && $servicesEnabled;
@@ -542,11 +550,33 @@
                     @endif
 
                     @php
+                        $positionsTableTotal = array_reduce(
+                            is_array($positions) ? $positions : [],
+                            static function (float $sum, array $position): float {
+                                $cost = $position['cost'] ?? null;
+                                if ($cost === null || $cost === '' || !is_numeric($cost)) {
+                                    return $sum;
+                                }
+                                return $sum + (float) $cost;
+                            },
+                            0.0
+                        );
+                        $servicesTableTotal = array_reduce(
+                            is_array($serviceRows) ? $serviceRows : [],
+                            static function (float $sum, array $row): float {
+                                $cost = $row['cost'] ?? null;
+                                if ($cost === null || $cost === '' || !is_numeric($cost)) {
+                                    return $sum;
+                                }
+                                return $sum + (float) $cost;
+                            },
+                            0.0
+                        );
                         $footerLabel = $showServices
                             ? 'Вартість послуг до виробу #'.($product['display_index'] ?? ($product['index'] ?? 1)).':'
                             : 'Вартість виробу:';
                         $footerValue = $showServices
-                            ? (float)($product['services_cost'] ?? 0)
+                            ? ($positionsTableTotal + $servicesTableTotal)
                             : (float)($product['total_cost'] ?? 0);
                     @endphp
                     <div class="px-4 py-3 border-t text-right text-sm">

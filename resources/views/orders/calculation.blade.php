@@ -1,5 +1,14 @@
 <x-app-layout>
     @section('title', __('Прорахунок замовлення'))
+    <style>
+        @keyframes minHintBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
+        .min-hint-blink {
+            animation: minHintBlink 1.2s ease-in-out infinite;
+        }
+    </style>
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
@@ -286,10 +295,10 @@
                                 <div x-show="isServiceBlockVisible(product, 'cutting')" class="border border-gray-200 rounded-md p-3 space-y-2">
                                     <div class="flex flex-wrap items-center gap-3">
                                         <div class="font-medium text-gray-700">Порізка</div>
-                                        <select x-model="product.services.cutting" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
-                                            <option value="Без порізки">Без порізки</option>
+                                        <select :value="String(product?.services?.cutting || 'Без порізки')" @change="product.services.cutting = $event.target.value" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                                            <option value="Без порізки" :selected="normalizeForCompare(product?.services?.cutting || 'Без порізки') === normalizeForCompare('Без порізки')">Без порізки</option>
                                             <template x-for="option in getCuttingOptions(product)" :key="option">
-                                                <option :value="option" x-text="option"></option>
+                                                <option :value="option" :selected="normalizeForCompare(product?.services?.cutting || '') === normalizeForCompare(option)" x-text="option"></option>
                                             </template>
                                         </select>
                                         <template x-if="getMaterialType(product.material) === 'Листовий'">
@@ -850,13 +859,13 @@
                             </div>
                             <div
                                 x-show="shouldShowMinimumOrderHint()"
-                                class="text-sm font-semibold text-gray-700"
+                                class="text-sm font-semibold text-gray-700 min-hint-blink"
                             >
                                 Мінімальна вартість замовлення - 100 грн
                             </div>
                             <div
                                 x-show="shouldShowMinimumProductHint(product)"
-                                class="text-sm font-semibold text-gray-700"
+                                class="text-sm font-semibold text-gray-700 min-hint-blink"
                             >
                                 Мінімальна вартість виробу - 100 грн.
                             </div>
@@ -1129,6 +1138,9 @@
                         product.services = {
                             ...baseProduct.services,
                             ...(item.services || {}),
+                            lamination: String(item?.services?.lamination ?? baseProduct.services.lamination).trim() || baseProduct.services.lamination,
+                            cutting: String(item?.services?.cutting ?? baseProduct.services.cutting).trim() || baseProduct.services.cutting,
+                            eyeletsMode: String(item?.services?.eyeletsMode ?? baseProduct.services.eyeletsMode).trim() || baseProduct.services.eyeletsMode,
                             cuttingLength: String(item?.services?.cuttingLength ?? baseProduct.services.cuttingLength),
                             weedingPrice: String(item?.services?.weedingPrice ?? baseProduct.services.weedingPrice),
                             rollingIp1Width: String(item?.services?.rollingIp1Width ?? baseProduct.services.rollingIp1Width),
@@ -1145,6 +1157,7 @@
                             showRollingIP2Dropdown: false,
                         };
 
+                        this.applySavedCuttingValue(product, item?.services?.cutting);
                         this.ensureRollingMaterials(product);
                         return product;
                     });
@@ -1153,6 +1166,7 @@
                         this.products.forEach((product, index) => {
                             const source = sourceProducts[index] || {};
                             product.productTypeId = this.resolveProductTypeIdFromState(source);
+                            this.applySavedCuttingValue(product, source?.services?.cutting);
                         });
                         this.isHydrating = false;
                         this.resetUnsavedChangesBaseline();
@@ -2369,6 +2383,11 @@
                         options = options.filter((option) => option !== 'Лазер');
                     }
 
+                    const currentCutting = String(product?.services?.cutting || '').trim();
+                    if (currentCutting !== '' && currentCutting !== 'Без порізки' && !options.includes(currentCutting)) {
+                        options.push(currentCutting);
+                    }
+
                     return options;
                 },
 
@@ -2377,6 +2396,18 @@
                     if (!options.includes(product.services.cutting)) {
                         product.services.cutting = 'Без порізки';
                     }
+                },
+
+                applySavedCuttingValue(product, savedCutting) {
+                    const sourceCutting = String(savedCutting ?? '').trim();
+                    if (sourceCutting === '') {
+                        return;
+                    }
+
+                    const options = this.getCuttingOptions(product);
+                    const normalizedSource = this.normalizeForCompare(sourceCutting);
+                    const matchedOption = options.find((option) => this.normalizeForCompare(option) === normalizedSource);
+                    product.services.cutting = matchedOption || sourceCutting;
                 },
 
                 showThicknessForMaterial(material) {
@@ -3339,10 +3370,30 @@
                     return this.normalizeMoney(positionsCost + servicesCost);
                 },
 
+                isProductTypeSelected(product) {
+                    return String(product?.productTypeId || '').trim() !== '';
+                },
+
+                isMinimumProductApplied(product) {
+                    if (!Array.isArray(this.products) || this.products.length <= 1) {
+                        return false;
+                    }
+                    if (!this.isProductTypeSelected(product)) {
+                        return false;
+                    }
+
+                    const total = this.getProductTotalCost(product);
+                    return Number.isFinite(total) && total < this.minimumOrderTotal;
+                },
+
                 getProductTotalCostForSave(product) {
                     const uid = String(product?.uid || '');
                     if (uid && Object.prototype.hasOwnProperty.call(this.pendingMinimumProductTotals, uid)) {
                         return this.normalizeMoney(this.pendingMinimumProductTotals[uid]);
+                    }
+
+                    if (this.isMinimumProductApplied(product)) {
+                        return this.minimumOrderTotal;
                     }
 
                     return this.getProductTotalCost(product);
@@ -3359,6 +3410,11 @@
 
                 getBottomTotalCostDisplay(product) {
                     if (Array.isArray(this.products) && this.products.length === 1) {
+                        if (this.isSingleProductMinimumApplied()) {
+                            const formattedMinimum = this.formatMoney(this.minimumOrderTotal);
+                            return formattedMinimum === '' ? '100.00' : formattedMinimum;
+                        }
+
                         if (this.hasAnyWarnings()) {
                             return '';
                         }
@@ -3385,11 +3441,24 @@
                         return this.normalizeMoney(total);
                     }
 
+                    if (Array.isArray(this.products) && this.products.length === 1) {
+                        const product = this.products[0];
+                        const rawTotal = this.getOrderTotalCost();
+                        if (this.isProductTypeSelected(product) && Number.isFinite(rawTotal) && rawTotal < this.minimumOrderTotal) {
+                            return this.minimumOrderTotal;
+                        }
+                    }
+
+                    if (Array.isArray(this.products) && this.products.length > 1) {
+                        const total = this.products.reduce((sum, product) => sum + this.getProductTotalCostForSave(product), 0);
+                        return this.normalizeMoney(total);
+                    }
+
                     return this.getOrderTotalCost();
                 },
 
                 getOrderTotalCostDisplay() {
-                    if (this.hasAnyWarnings()) {
+                    if (Array.isArray(this.products) && this.products.length === 1 && this.hasAnyWarnings()) {
                         return '';
                     }
 
@@ -3402,11 +3471,7 @@
                         return false;
                     }
 
-                    if (this.hasAnyWarnings()) {
-                        return false;
-                    }
-
-                    return this.isMinimumOrderTotalRequired();
+                    return this.isSingleProductMinimumApplied();
                 },
 
                 shouldShowMinimumProductHint(product) {
@@ -3414,13 +3479,21 @@
                         return false;
                     }
 
-                    const total = this.getProductTotalCost(product);
-                    return Number.isFinite(total) && total < this.minimumOrderTotal;
+                    return this.isMinimumProductApplied(product);
                 },
 
                 isMinimumOrderTotalRequired() {
                     const total = this.getOrderTotalCost();
                     return Number.isFinite(total) && total < this.minimumOrderTotal;
+                },
+
+                isSingleProductMinimumApplied() {
+                    if (!Array.isArray(this.products) || this.products.length !== 1) {
+                        return false;
+                    }
+
+                    const product = this.products[0];
+                    return this.isProductTypeSelected(product) && this.isMinimumOrderTotalRequired();
                 },
 
                 getProductsBelowMinimum() {
@@ -3476,7 +3549,7 @@
                         return;
                     }
 
-                    if (this.isMinimumOrderTotalRequired() && this.pendingMinimumOrderTotal === null) {
+                    if (Array.isArray(this.products) && this.products.length === 1 && this.isSingleProductMinimumApplied() && this.pendingMinimumOrderTotal === null) {
                         this.showMinOrderTotalModal = true;
                         return;
                     }
@@ -3626,8 +3699,14 @@
                 },
 
                 buildSaveState() {
-                    const minimumProductsApplied = Object.keys(this.pendingMinimumProductTotals || {}).length > 0;
-                    const minimumProductNumbers = this.getMinimumProductNumbersForSave();
+                    const minimumProductNumbers = this.products
+                        .map((product, index) => this.isMinimumProductApplied(product) ? this.displayProductNumber(index) : null)
+                        .filter((value) => Number.isFinite(value) && value > 0);
+                    const minimumProductsApplied = minimumProductNumbers.length > 0;
+                    const minimumOrderApplied = Array.isArray(this.products)
+                        && this.products.length === 1
+                        && this.isProductTypeSelected(this.products[0])
+                        && this.isMinimumOrderTotalRequired();
                     const products = (Array.isArray(this.products) ? this.products : []).map((product, index) => {
                         const positions = (Array.isArray(product.positions) ? product.positions : []).map((position, posIndex) => ({
                             index: posIndex + 1,
@@ -3671,7 +3750,7 @@
                             order_total: this.getOrderTotalCostForSave(),
                             order_total_display: this.getOrderTotalCostDisplay(),
                             order_total_before_minimum: this.getOrderTotalCost(),
-                            minimum_order_applied: this.pendingMinimumOrderTotal !== null,
+                            minimum_order_applied: minimumOrderApplied,
                             minimum_products_applied: minimumProductsApplied,
                             minimum_products_numbers: minimumProductNumbers,
                             has_warnings: this.hasAnyWarnings(),
