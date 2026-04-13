@@ -848,6 +848,12 @@
                                     ></button>
                                 </div>
                             </div>
+                            <div
+                                x-show="shouldShowMinimumOrderHint()"
+                                class="text-sm font-semibold text-gray-700"
+                            >
+                                Мінімальна вартість замовлення - 100 грн
+                            </div>
                             <div x-show="product.isExpanded" class="flex items-center justify-end">
                                 <div class="ml-auto flex items-center gap-2">
                                     <button
@@ -2180,6 +2186,7 @@
                         item.isExpanded = false;
                     });
                     this.products.unshift(product);
+                    this.pendingMinimumOrderTotal = null;
                 },
 
                 removeProduct(productIndex) {
@@ -2187,6 +2194,7 @@
                         return;
                     }
                     this.products.splice(productIndex, 1);
+                    this.pendingMinimumOrderTotal = null;
                     if (this.products.length === 1) {
                         this.products[0].isExpanded = true;
                         return;
@@ -3336,6 +3344,18 @@
 
                     const formatted = this.formatMoney(this.getOrderTotalCostForSave());
                     return formatted === '' ? '0.00' : formatted;
+                },
+
+                shouldShowMinimumOrderHint() {
+                    if (!Array.isArray(this.products) || this.products.length !== 1) {
+                        return false;
+                    }
+
+                    if (this.hasAnyWarnings()) {
+                        return false;
+                    }
+
+                    return this.isMinimumOrderTotalRequired();
                 },
 
                 isMinimumOrderTotalRequired() {
