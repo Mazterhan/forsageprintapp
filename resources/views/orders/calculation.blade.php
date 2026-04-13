@@ -956,14 +956,28 @@
                 products: [],
                 isSaving: false,
                 isHydrating: false,
+                unsavedChangesEnabled: false,
+                unsavedBaselineHash: '',
+                beforeUnloadHandler: null,
 
                 init() {
+                    const stateProposalId = this.initialState && typeof this.initialState === 'object'
+                        ? (this.initialState.proposal_id ?? null)
+                        : null;
+                    if (!this.proposalId && stateProposalId) {
+                        this.proposalId = stateProposalId;
+                    }
+
                     if (this.initialState && typeof this.initialState === 'object') {
                         this.loadState(this.initialState);
                     } else {
                         this.products = [this.createProduct()];
                     }
                     this.onClientChanged();
+                    this.setupUnsavedChangesGuard();
+                    this.$nextTick(() => {
+                        this.resetUnsavedChangesBaseline();
+                    });
                 },
 
                 createProduct() {
@@ -1028,6 +1042,10 @@
                     this.isHydrating = true;
                     const baseProduct = this.createProduct();
                     const sourceProducts = Array.isArray(state.products) ? state.products : [];
+                    const stateProposalId = state?.proposal_id ?? null;
+                    if (!this.proposalId && stateProposalId) {
+                        this.proposalId = stateProposalId;
+                    }
 
                     this.selectedClientId = state.client_id ? String(state.client_id) : '';
                     this.selectedClientQuery = String(state.client_name || '').trim();
@@ -1098,7 +1116,90 @@
                             product.productTypeId = this.resolveProductTypeIdFromState(source);
                         });
                         this.isHydrating = false;
+                        this.resetUnsavedChangesBaseline();
                     });
+                },
+
+                setupUnsavedChangesGuard() {
+                    if (!this.proposalId || this.beforeUnloadHandler) {
+                        return;
+                    }
+
+                    this.unsavedChangesEnabled = true;
+                    this.beforeUnloadHandler = (event) => {
+                        if (!this.unsavedChangesEnabled || this.isSaving || !this.hasUnsavedChanges()) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        event.returnValue = '';
+                    };
+
+                    window.addEventListener('beforeunload', this.beforeUnloadHandler);
+                },
+
+                buildUnsavedComparableState() {
+                    return {
+                        client_id: this.selectedClientId ? Number(this.selectedClientId) : null,
+                        client_name: String(this.selectedClientQuery || '').trim(),
+                        urgency_coefficient: String(this.urgencyCoefficient || '1.00'),
+                        products: (Array.isArray(this.products) ? this.products : []).map((product) => ({
+                            productTypeId: product.productTypeId ? String(product.productTypeId) : '',
+                            material: String(product.material || ''),
+                            thickness: String(product.thickness || ''),
+                            manualThickness: String(product.manualThickness || ''),
+                            servicesEnabledRaw: String(product.servicesEnabledRaw || '0'),
+                            positions: (Array.isArray(product.positions) ? product.positions : []).map((position) => ({
+                                width: String(position.width ?? '0'),
+                                height: String(position.height ?? '0'),
+                                qty: String(position.qty ?? '0'),
+                                cmyk: String(position.cmyk ?? '0'),
+                                white: String(position.white ?? '0'),
+                            })),
+                            services: {
+                                lamination: String(product?.services?.lamination ?? ''),
+                                cutting: String(product?.services?.cutting ?? ''),
+                                cuttingLength: String(product?.services?.cuttingLength ?? '0'),
+                                weedingPrice: String(product?.services?.weedingPrice ?? '0'),
+                                montage: String(product?.services?.montage ?? '0'),
+                                rolling: String(product?.services?.rolling ?? '0'),
+                                rollingIndividual: Boolean(product?.services?.rollingIndividual),
+                                rollingMaterialP1: String(product?.services?.rollingMaterialP1 ?? ''),
+                                rollingMaterialP2: String(product?.services?.rollingMaterialP2 ?? ''),
+                                rollingMaterialIP1: String(product?.services?.rollingMaterialIP1 ?? ''),
+                                rollingMaterialIP2: String(product?.services?.rollingMaterialIP2 ?? ''),
+                                rollingIp1Width: String(product?.services?.rollingIp1Width ?? '0'),
+                                rollingIp1Height: String(product?.services?.rollingIp1Height ?? '0'),
+                                rollingIp2Width: String(product?.services?.rollingIp2Width ?? '0'),
+                                rollingIp2Height: String(product?.services?.rollingIp2Height ?? '0'),
+                                eyeletsMode: String(product?.services?.eyeletsMode ?? ''),
+                                eyeletsValue: String(product?.services?.eyeletsValue ?? '0'),
+                                solderingLength: String(product?.services?.solderingLength ?? '0'),
+                                designAmount: String(product?.services?.designAmount ?? '0'),
+                                packagingQty: String(product?.services?.packagingQty ?? '0'),
+                            },
+                        })),
+                    };
+                },
+
+                getUnsavedStateHash() {
+                    return JSON.stringify(this.buildUnsavedComparableState());
+                },
+
+                resetUnsavedChangesBaseline() {
+                    if (!this.unsavedChangesEnabled) {
+                        return;
+                    }
+
+                    this.unsavedBaselineHash = this.getUnsavedStateHash();
+                },
+
+                hasUnsavedChanges() {
+                    if (!this.unsavedChangesEnabled || this.unsavedBaselineHash === '') {
+                        return false;
+                    }
+
+                    return this.getUnsavedStateHash() !== this.unsavedBaselineHash;
                 },
 
                 onClientChanged() {
@@ -3457,6 +3558,7 @@
                         }
 
                         this.proposalId = payload.proposal_id || this.proposalId;
+                        this.resetUnsavedChangesBaseline();
                         if (payload.redirect_url) {
                             window.location.href = payload.redirect_url;
                             return;
