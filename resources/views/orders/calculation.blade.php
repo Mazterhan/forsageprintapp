@@ -830,13 +830,13 @@
                                     <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
                                 </button>
                                 @endif
-                                <div x-show="!product.isExpanded && products.length > 1" class="ml-auto flex items-center gap-2">
+                                <div x-show="products.length > 1" class="ml-auto flex items-center gap-2">
                                     <button
                                         type="button"
-                                        @click="product.isExpanded = true"
+                                        @click="product.isExpanded = !product.isExpanded"
                                         class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white"
                                         style="background-color: #698DE3;"
-                                        x-text="`Розгорнути деталі виробу #${displayProductNumber(productIndex)}`"
+                                        x-text="product.isExpanded ? `Згорнути деталі виробу #${displayProductNumber(productIndex)}` : `Розгорнути деталі виробу #${displayProductNumber(productIndex)}`"
                                     ></button>
                                     <button
                                         x-show="products.length > 1"
@@ -859,26 +859,6 @@
                                 class="text-sm font-semibold text-gray-700"
                             >
                                 Мінімальна вартість виробу - 100 грн.
-                            </div>
-                            <div x-show="product.isExpanded" class="flex items-center justify-end">
-                                <div class="ml-auto flex items-center gap-2">
-                                    <button
-                                        x-show="products.length > 1"
-                                        type="button"
-                                        @click="product.isExpanded = false"
-                                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white"
-                                        style="background-color: #698DE3;"
-                                        x-text="`Згорнути деталі виробу #${displayProductNumber(productIndex)}`"
-                                    ></button>
-                                    <button
-                                        x-show="products.length > 1"
-                                        type="button"
-                                        @click="removeProduct(productIndex)"
-                                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white"
-                                        style="background-color: #EF795A;"
-                                        x-text="`Видалити тип виробу #${displayProductNumber(productIndex)}`"
-                                    ></button>
-                                </div>
                             </div>
                         </div>
                     </div>
