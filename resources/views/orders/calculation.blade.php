@@ -917,6 +917,50 @@
                         </div>
                     </div>
                 </div>
+
+                <div
+                    x-show="showMinProductsTotalModal"
+                    class="fixed inset-0 z-[12000] flex items-center justify-center"
+                    style="display: none;"
+                >
+                    <div class="absolute inset-0 bg-black/40" @click="closeMinProductsTotalModal()"></div>
+                    <div class="relative w-[430px] max-w-[430px] rounded-lg shadow-xl border border-gray-300 p-6" style="background-color: #E0E0E0;">
+                        <p class="text-base font-semibold text-gray-900">
+                            Вартість виробу(ів) змінена!
+                        </p>
+                        <p class="mt-1 text-base font-semibold text-gray-900">
+                            Встановлена мінімальна вартість за виріб 100 грн.
+                        </p>
+                        <p class="mt-3 text-sm text-gray-900">
+                            Змінена вартість наступних виробів:
+                        </p>
+                        <div class="mt-1 space-y-1 text-sm font-semibold text-gray-900">
+                            <template x-for="productNumber in minimumProductsList" :key="`minimum-product-${productNumber}`">
+                                <div x-text="`Виріб #${productNumber}`"></div>
+                            </template>
+                        </div>
+                        <p class="mt-4 text-sm text-gray-900">
+                            Загальна вартість замовлення буде скоригована з урахуванням зміни вартості зазначених позицій.
+                        </p>
+                        <div class="h-4"></div>
+                        <div class="flex items-center justify-center gap-3">
+                            <button
+                                type="button"
+                                @click="confirmMinProductsTotalAndSave()"
+                                class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm font-semibold text-white hover:bg-gray-700"
+                            >
+                                Згоден
+                            </button>
+                            <button
+                                type="button"
+                                @click="closeMinProductsTotalModal()"
+                                class="inline-flex items-center px-4 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm font-semibold text-gray-700 hover:bg-gray-200"
+                            >
+                                Повернутись
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -944,7 +988,10 @@
                 urgencyCoefficient: '1.00',
                 minimumOrderTotal: 100,
                 showMinOrderTotalModal: false,
+                showMinProductsTotalModal: false,
                 pendingMinimumOrderTotal: null,
+                pendingMinimumProductTotals: {},
+                minimumProductsList: [],
                 products: [],
                 isSaving: false,
                 isHydrating: false,
@@ -2173,6 +2220,8 @@
                     });
                     this.products.unshift(product);
                     this.pendingMinimumOrderTotal = null;
+                    this.pendingMinimumProductTotals = {};
+                    this.minimumProductsList = [];
                 },
 
                 removeProduct(productIndex) {
@@ -2181,6 +2230,8 @@
                     }
                     this.products.splice(productIndex, 1);
                     this.pendingMinimumOrderTotal = null;
+                    this.pendingMinimumProductTotals = {};
+                    this.minimumProductsList = [];
                     if (this.products.length === 1) {
                         this.products[0].isExpanded = true;
                         return;
@@ -3288,12 +3339,21 @@
                     return this.normalizeMoney(positionsCost + servicesCost);
                 },
 
+                getProductTotalCostForSave(product) {
+                    const uid = String(product?.uid || '');
+                    if (uid && Object.prototype.hasOwnProperty.call(this.pendingMinimumProductTotals, uid)) {
+                        return this.normalizeMoney(this.pendingMinimumProductTotals[uid]);
+                    }
+
+                    return this.getProductTotalCost(product);
+                },
+
                 getProductTotalCostDisplay(product) {
                     if (Array.isArray(this.products) && this.products.length === 1 && this.hasAnyWarnings()) {
                         return '';
                     }
 
-                    const formatted = this.formatMoney(this.getProductTotalCost(product));
+                    const formatted = this.formatMoney(this.getProductTotalCostForSave(product));
                     return formatted === '' ? '0.00' : formatted;
                 },
 
@@ -3318,6 +3378,11 @@
                 getOrderTotalCostForSave() {
                     if (this.pendingMinimumOrderTotal !== null) {
                         return this.normalizeMoney(this.pendingMinimumOrderTotal);
+                    }
+
+                    if (Array.isArray(this.products) && this.products.length > 1 && Object.keys(this.pendingMinimumProductTotals).length > 0) {
+                        const total = this.products.reduce((sum, product) => sum + this.getProductTotalCostForSave(product), 0);
+                        return this.normalizeMoney(total);
                     }
 
                     return this.getOrderTotalCost();
@@ -3358,8 +3423,56 @@
                     return Number.isFinite(total) && total < this.minimumOrderTotal;
                 },
 
+                getProductsBelowMinimum() {
+                    if (!Array.isArray(this.products) || this.products.length <= 1) {
+                        return [];
+                    }
+
+                    return this.products.filter((product) => {
+                        const total = this.getProductTotalCost(product);
+                        return Number.isFinite(total) && total < this.minimumOrderTotal;
+                    });
+                },
+
+                isMinimumProductTotalRequired() {
+                    return this.getProductsBelowMinimum().length > 0;
+                },
+
+                getMinimumProductNumbersForSave() {
+                    if (!Array.isArray(this.products) || this.products.length <= 1) {
+                        return [];
+                    }
+
+                    if (Array.isArray(this.minimumProductsList) && this.minimumProductsList.length > 0) {
+                        return this.minimumProductsList
+                            .map((value) => Number(value))
+                            .filter((value) => Number.isFinite(value) && value > 0);
+                    }
+
+                    const byUid = this.pendingMinimumProductTotals || {};
+                    if (!byUid || Object.keys(byUid).length === 0) {
+                        return [];
+                    }
+
+                    return this.products
+                        .map((product, index) => {
+                            const uid = String(product?.uid || '');
+                            if (!uid || !Object.prototype.hasOwnProperty.call(byUid, uid)) {
+                                return null;
+                            }
+                            return this.displayProductNumber(index);
+                        })
+                        .filter((value) => Number.isFinite(value) && value > 0);
+                },
+
                 requestSaveProposal() {
                     if (this.isSaving || !this.saveUrl) {
+                        return;
+                    }
+
+                    if (Array.isArray(this.products) && this.products.length > 1 && this.isMinimumProductTotalRequired() && Object.keys(this.pendingMinimumProductTotals).length === 0) {
+                        this.minimumProductsList = this.getProductsBelowMinimum().map((product) => this.displayProductNumber(this.products.indexOf(product)));
+                        this.showMinProductsTotalModal = true;
                         return;
                     }
 
@@ -3377,8 +3490,26 @@
                     this.saveProposal();
                 },
 
+                confirmMinProductsTotalAndSave() {
+                    const belowMinimum = this.getProductsBelowMinimum();
+                    const overrides = {};
+                    belowMinimum.forEach((product) => {
+                        if (product?.uid) {
+                            overrides[String(product.uid)] = this.minimumOrderTotal;
+                        }
+                    });
+
+                    this.pendingMinimumProductTotals = overrides;
+                    this.showMinProductsTotalModal = false;
+                    this.saveProposal();
+                },
+
                 closeMinOrderTotalModal() {
                     this.showMinOrderTotalModal = false;
+                },
+
+                closeMinProductsTotalModal() {
+                    this.showMinProductsTotalModal = false;
                 },
 
                 serializeServiceRows(product) {
@@ -3495,6 +3626,8 @@
                 },
 
                 buildSaveState() {
+                    const minimumProductsApplied = Object.keys(this.pendingMinimumProductTotals || {}).length > 0;
+                    const minimumProductNumbers = this.getMinimumProductNumbersForSave();
                     const products = (Array.isArray(this.products) ? this.products : []).map((product, index) => {
                         const positions = (Array.isArray(product.positions) ? product.positions : []).map((position, posIndex) => ({
                             index: posIndex + 1,
@@ -3523,7 +3656,7 @@
                             service_rows: this.serializeServiceRows(product),
                             positions_cost: this.getProductPositionsCost(product),
                             services_cost: this.getProductServicesCost(product),
-                            total_cost: this.getProductTotalCost(product),
+                            total_cost: this.getProductTotalCostForSave(product),
                         };
                     });
 
@@ -3539,6 +3672,8 @@
                             order_total_display: this.getOrderTotalCostDisplay(),
                             order_total_before_minimum: this.getOrderTotalCost(),
                             minimum_order_applied: this.pendingMinimumOrderTotal !== null,
+                            minimum_products_applied: minimumProductsApplied,
+                            minimum_products_numbers: minimumProductNumbers,
                             has_warnings: this.hasAnyWarnings(),
                         },
                         saved_at: new Date().toISOString(),
@@ -3582,6 +3717,8 @@
                         alert(error?.message || 'Не вдалося зберегти заявку.');
                     } finally {
                         this.pendingMinimumOrderTotal = null;
+                        this.pendingMinimumProductTotals = {};
+                        this.minimumProductsList = [];
                         this.isSaving = false;
                     }
                 },

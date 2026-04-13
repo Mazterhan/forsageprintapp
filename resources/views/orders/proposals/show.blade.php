@@ -20,6 +20,17 @@
         if (!$minimumOrderApplied) {
             $minimumOrderApplied = abs($summaryOrderTotal - 100.0) < 0.000001 && $productsTotalRaw < 100;
         }
+        $minimumProductsApplied = array_key_exists('minimum_products_applied', $summary ?? [])
+            ? filter_var($summary['minimum_products_applied'], FILTER_VALIDATE_BOOLEAN)
+            : false;
+        $minimumProductsNumbers = array_values(array_filter(array_map(static function ($value) {
+            if (is_numeric($value)) {
+                $parsed = (int) $value;
+                return $parsed > 0 ? $parsed : null;
+            }
+            return null;
+        }, is_array($summary['minimum_products_numbers'] ?? null) ? $summary['minimum_products_numbers'] : [])));
+        $minimumProductsText = implode(', ', array_map(static fn ($num) => '#'.$num, $minimumProductsNumbers));
         $requestedViewMode = request('view_mode');
         $viewMode = in_array($requestedViewMode, ['combined', 'grouped', 'combined_services'], true)
             ? $requestedViewMode
@@ -551,7 +562,9 @@
             <div class="bg-white shadow-sm sm:rounded-lg p-4">
                 <div class="flex items-center justify-between gap-4">
                     <div class="text-sm font-semibold text-gray-700">
-                        @if ($minimumOrderApplied)
+                        @if ($minimumProductsApplied && $minimumProductsText !== '')
+                            Врахована вартість мінімального замовлення — 100 грн для наступних виробів: {{ $minimumProductsText }}
+                        @elseif ($minimumOrderApplied)
                             Врахована вартість мінімального замовлення —100грн.
                         @endif
                     </div>
