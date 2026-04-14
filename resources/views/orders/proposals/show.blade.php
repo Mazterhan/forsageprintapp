@@ -573,8 +573,8 @@
                             0.0
                         );
                         $footerLabel = $showServices
-                            ? 'Вартість послуг до виробу #'.($product['display_index'] ?? ($product['index'] ?? 1)).':'
-                            : 'Вартість виробу:';
+                            ? 'Вартість виробу #'.($product['display_index'] ?? ($product['index'] ?? 1)).' та послуг до нього'
+                            : 'Вартість виробу #'.($product['display_index'] ?? ($product['index'] ?? 1)).':';
                         $footerValue = $showServices
                             ? ($positionsTableTotal + $servicesTableTotal)
                             : (float)($product['total_cost'] ?? 0);
