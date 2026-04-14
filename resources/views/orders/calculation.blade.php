@@ -3834,6 +3834,9 @@
                         if (!Number.isFinite(cmyk) || !Number.isFinite(white)) {
                             return NaN;
                         }
+                        if (cmyk <= 0 && white <= 0) {
+                            return NaN;
+                        }
 
                         const uvPrintLayerPrice = this.getServicePriceByCode('SERV-011');
                         const materialPrice = this.resolveMaterialPriceForProduct(product);
