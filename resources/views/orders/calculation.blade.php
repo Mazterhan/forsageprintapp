@@ -310,6 +310,12 @@
                                                     disabled
                                                     class="w-[120px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700"
                                                 />
+                                                <span
+                                                    x-show="product.services.cutting !== 'Без порізки' && isCuttingThicknessBelowMinimum(product)"
+                                                    class="text-sm font-semibold text-green-600 whitespace-nowrap"
+                                                >
+                                                    Товщина обраного матеріалу менша за мінімально допустиму. Для розрахунку порізки застосовано значення 1 мм.
+                                                </span>
                                             </div>
                                         </template>
                                         <template x-if="showThicknessForMaterial(product.material)">
@@ -3093,6 +3099,19 @@
                     return Number.isFinite(selected) ? selected : 0;
                 },
 
+                getCuttingThicknessForCalculation(product) {
+                    const thickness = this.getCuttingThicknessValue(product);
+                    if (!Number.isFinite(thickness) || thickness <= 0) {
+                        return 0;
+                    }
+                    return thickness < 1 ? 1 : thickness;
+                },
+
+                isCuttingThicknessBelowMinimum(product) {
+                    const thickness = this.getCuttingThicknessValue(product);
+                    return Number.isFinite(thickness) && thickness > 0 && thickness < 1;
+                },
+
                 resolveCuttingServiceCode(product) {
                     const cuttingMode = String(product?.services?.cutting || '').trim();
                     if (cuttingMode === 'Плотер') {
@@ -3151,7 +3170,7 @@
                         || cuttingMode === 'Фреза (композит)'
                         || cuttingMode === 'Лазер (картон)'
                     ) {
-                        const thickness = this.getCuttingThicknessValue(product);
+                        const thickness = this.getCuttingThicknessForCalculation(product);
                         const safeThickness = Number.isFinite(thickness) ? thickness : 0;
                         rawCost = this.normalizeMoney(safeLength * safeServicePrice * safeThickness * safeUrgency);
                     } else {
@@ -3202,7 +3221,7 @@
                         || cuttingMode === 'Фреза (композит)'
                         || cuttingMode === 'Лазер (картон)'
                     ) {
-                        const thickness = this.getCuttingThicknessValue(product);
+                        const thickness = this.getCuttingThicknessForCalculation(product);
                         const safeThickness = Number.isFinite(thickness) ? thickness : 0;
                         return this.normalizeMoney(safeLength * safeServicePrice * safeThickness * safeUrgency);
                     }
