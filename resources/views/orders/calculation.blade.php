@@ -119,7 +119,7 @@
                 </div>
 
                 <template x-for="(product, productIndex) in products" :key="product.uid">
-                    <div class="space-y-4">
+                    <div class="space-y-0">
                         <div x-show="product.isExpanded" class="relative z-0 border border-gray-300 rounded-lg p-4 space-y-4 bg-white">
                             <div class="flex flex-wrap items-end gap-4">
                                 <div class="text-sm font-semibold text-gray-700" x-text="`Тип виробу #${displayProductNumber(productIndex)}`"></div>
