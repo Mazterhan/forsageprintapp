@@ -206,6 +206,8 @@ class OrderController extends Controller
                 'SERV-010',
                 'SERV-011',
                 'SERV-012',
+                'SERV-018',
+                'SERV-019',
                 'SERV-014',
             ])
             ->pluck('service_price', 'internal_code')
