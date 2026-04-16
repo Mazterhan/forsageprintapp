@@ -2361,6 +2361,7 @@
                 getCuttingOptions(product) {
                     const scenario = this.getServiceScenario(product);
                     const materialCategory = this.normalizeText(this.getMaterialCategory(product.material));
+                    const materialType = this.getMaterialType(product.material);
 
                     let options = [];
 
@@ -2373,13 +2374,31 @@
                     }
 
                     // Business restrictions by selected material category:
-                    // - Картон: Фреза недоступна
-                    // - ПВХ або Композит: Лазер недоступний
+                    // - Картон (листовий): замість "Лазер" доступний "Лазер (картон)"
+                    // - Композит (листовий): замість "Фреза" доступний "Фреза (композит)"
+                    // - ПВХ: "Лазер" недоступний
+                    const isSheetCardboard = materialCategory === 'картон' && materialType === 'Листовий';
+                    const isSheetComposite = materialCategory === 'композит' && materialType === 'Листовий';
+
+                    if (isSheetCardboard) {
+                        options = options.filter((option) => option !== 'Лазер');
+                        if (!options.includes('Лазер (картон)')) {
+                            options.push('Лазер (картон)');
+                        }
+                    }
+
+                    if (isSheetComposite) {
+                        options = options.filter((option) => option !== 'Фреза');
+                        if (!options.includes('Фреза (композит)')) {
+                            options.push('Фреза (композит)');
+                        }
+                    }
+
                     if (materialCategory === 'картон') {
                         options = options.filter((option) => option !== 'Фреза');
                     }
 
-                    if (materialCategory === 'пвх' || materialCategory === 'композит') {
+                    if (materialCategory === 'пвх') {
                         options = options.filter((option) => option !== 'Лазер');
                     }
 
@@ -3090,9 +3109,15 @@
                     if (cuttingMode === 'Фреза') {
                         return this.isCustomerMaterial(product.material) ? 'SERV-003-MZ' : 'SERV-004';
                     }
+                    if (cuttingMode === 'Фреза (композит)') {
+                        return 'SERV-019';
+                    }
 
                     if (cuttingMode === 'Лазер') {
                         return this.isCustomerMaterial(product.material) ? 'SERV-001-MZ' : 'SERV-001';
+                    }
+                    if (cuttingMode === 'Лазер (картон)') {
+                        return 'SERV-018';
                     }
 
                     return '';
@@ -3120,7 +3145,12 @@
                     const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
                     let rawCost = 0;
 
-                    if (cuttingMode === 'Фреза' || cuttingMode === 'Лазер') {
+                    if (
+                        cuttingMode === 'Фреза'
+                        || cuttingMode === 'Лазер'
+                        || cuttingMode === 'Фреза (композит)'
+                        || cuttingMode === 'Лазер (картон)'
+                    ) {
                         const thickness = this.getCuttingThicknessValue(product);
                         const safeThickness = Number.isFinite(thickness) ? thickness : 0;
                         rawCost = this.normalizeMoney(safeLength * safeServicePrice * safeThickness * safeUrgency);
@@ -3136,10 +3166,10 @@
                     if (cuttingMode === 'Плотер') {
                         return 50;
                     }
-                    if (cuttingMode === 'Лазер') {
+                    if (cuttingMode === 'Лазер' || cuttingMode === 'Лазер (картон)') {
                         return 70;
                     }
-                    if (cuttingMode === 'Фреза') {
+                    if (cuttingMode === 'Фреза' || cuttingMode === 'Фреза (композит)') {
                         return 100;
                     }
                     return 0;
@@ -3166,7 +3196,12 @@
                     const servicePrice = this.getServicePriceByCode(serviceCode);
                     const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
 
-                    if (cuttingMode === 'Фреза' || cuttingMode === 'Лазер') {
+                    if (
+                        cuttingMode === 'Фреза'
+                        || cuttingMode === 'Лазер'
+                        || cuttingMode === 'Фреза (композит)'
+                        || cuttingMode === 'Лазер (картон)'
+                    ) {
                         const thickness = this.getCuttingThicknessValue(product);
                         const safeThickness = Number.isFinite(thickness) ? thickness : 0;
                         return this.normalizeMoney(safeLength * safeServicePrice * safeThickness * safeUrgency);
