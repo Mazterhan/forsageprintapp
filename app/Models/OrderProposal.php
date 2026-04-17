@@ -13,6 +13,8 @@ class OrderProposal extends Model
     protected $fillable = [
         'proposal_number',
         'user_id',
+        'deleted_by',
+        'deleted_date',
         'client_name',
         'total_cost',
         'corrections_count',
@@ -22,6 +24,8 @@ class OrderProposal extends Model
     protected $casts = [
         'total_cost' => 'decimal:2',
         'corrections_count' => 'integer',
+        'deleted_by' => 'integer',
+        'deleted_date' => 'datetime',
         'payload' => 'array',
     ];
 

@@ -66,6 +66,7 @@ Route::middleware(['auth', 'role:admin|manager'])
     ->group(function () {
         Route::get('/proposals', [ProposalController::class, 'index'])->name('proposals');
         Route::post('/proposals', [ProposalController::class, 'store'])->name('proposals.store');
+        Route::post('/proposals/deactivate', [ProposalController::class, 'deactivate'])->name('proposals.deactivate');
         Route::get('/proposals/{orderProposal}', [ProposalController::class, 'show'])->name('proposals.show');
         Route::get('/product-types', fn () => redirect()->route('admin.product-types.index'))->name('product-types.index');
         Route::post('/product-types', fn () => redirect()->route('admin.product-types.index'))->name('product-types.store');
