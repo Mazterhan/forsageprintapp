@@ -1424,6 +1424,11 @@
                         return true;
                     }
 
+                    const materialCode = String(this.getMaterialCode(material) || '').trim().toUpperCase();
+                    if (materialCode === 'MAT-FLM-009') {
+                        return this.isProductType(product.productTypeId, 'Чистий матеріал');
+                    }
+
                     if (this.isFilmMaterialRestrictedByType(material) && !this.isProductType(product.productTypeId, 'Сольвентний друк')) {
                         return false;
                     }
@@ -2344,6 +2349,11 @@
                 isServiceBlockVisible(product, block) {
                     const scenario = this.getServiceScenario(product);
                     const materialCode = this.getMaterialCode(product.material);
+                    const materialCategory = this.normalizeText(this.getMaterialCategory(product.material));
+
+                    if (materialCategory === 'папір' && ['cutting', 'weeding', 'montage', 'rolling'].includes(block)) {
+                        return false;
+                    }
 
                     if (block === 'lamination' && (materialCode === 'MAT-FLM-010' || materialCode === 'MAT-FLM-011')) {
                         return false;
@@ -2368,6 +2378,9 @@
                     const scenario = this.getServiceScenario(product);
                     const materialCategory = this.normalizeText(this.getMaterialCategory(product.material));
                     const materialType = this.getMaterialType(product.material);
+                    const isUvPrint = this.isProductType(product?.productTypeId, 'УФ друк');
+                    const isPureMaterial = this.isProductType(product?.productTypeId, 'Чистий матеріал');
+                    const isCustomerSheet = this.isCustomerMaterial(product?.material);
 
                     let options = [];
 
@@ -2406,6 +2419,16 @@
 
                     if (materialCategory === 'пвх') {
                         options = options.filter((option) => option !== 'Лазер');
+                    }
+
+                    if (materialCategory === 'композит' && (isUvPrint || isPureMaterial)) {
+                        options = options.filter((option) => option !== 'Лазер');
+                    }
+
+                    if (isCustomerSheet && (isUvPrint || isPureMaterial)) {
+                        if (!options.includes('Фреза (композит)')) {
+                            options.push('Фреза (композит)');
+                        }
                     }
 
                     const currentCutting = String(product?.services?.cutting || '').trim();
