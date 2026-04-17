@@ -2380,6 +2380,7 @@
                     const materialType = this.getMaterialType(product.material);
                     const isUvPrint = this.isProductType(product?.productTypeId, 'УФ друк');
                     const isPureMaterial = this.isProductType(product?.productTypeId, 'Чистий матеріал');
+                    const isCustomerSheet = this.isCustomerMaterial(product?.material);
 
                     let options = [];
 
@@ -2422,6 +2423,12 @@
 
                     if (materialCategory === 'композит' && (isUvPrint || isPureMaterial)) {
                         options = options.filter((option) => option !== 'Лазер');
+                    }
+
+                    if (isCustomerSheet && (isUvPrint || isPureMaterial)) {
+                        if (!options.includes('Фреза (композит)')) {
+                            options.push('Фреза (композит)');
+                        }
                     }
 
                     const currentCutting = String(product?.services?.cutting || '').trim();
