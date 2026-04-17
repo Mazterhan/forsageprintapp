@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
 class ProposalController extends Controller
 {
@@ -26,7 +27,8 @@ class ProposalController extends Controller
         $query = OrderProposal::query()
             ->leftJoin('users', 'users.id', '=', 'order_proposals.user_id')
             ->select('order_proposals.*')
-            ->with('user:id,name');
+            ->with('user:id,name')
+            ->whereNull('order_proposals.deleted_date');
 
         if ($sort === 'date') {
             $query->orderByRaw("CASE WHEN order_proposals.corrections_count > 0 THEN order_proposals.updated_at ELSE order_proposals.created_at END {$direction}");
@@ -73,7 +75,9 @@ class ProposalController extends Controller
 
         $proposal = null;
         if (!empty($data['proposal_id'])) {
-            $proposal = OrderProposal::query()->find($data['proposal_id']);
+            $proposal = OrderProposal::query()
+                ->whereNull('deleted_date')
+                ->find($data['proposal_id']);
         }
 
         if (!$proposal) {
@@ -132,6 +136,10 @@ class ProposalController extends Controller
 
     public function show(OrderProposal $orderProposal)
     {
+        if ($orderProposal->deleted_date !== null) {
+            abort(404);
+        }
+
         $state = is_array($orderProposal->payload) ? $orderProposal->payload : [];
         $products = Arr::get($state, 'products', []);
         $products = is_array($products) ? array_values($products) : [];
@@ -149,5 +157,38 @@ class ProposalController extends Controller
             'products' => $products,
             'summary' => Arr::get($state, 'summary', []),
         ]);
+    }
+
+    public function deactivate(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'proposal_ids' => ['required', 'array', 'min:1'],
+            'proposal_ids.*' => ['integer', 'distinct', 'exists:order_proposals,id'],
+        ]);
+
+        $ids = collect($validated['proposal_ids'])
+            ->map(fn ($value) => (int) $value)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return redirect()
+                ->route('orders.proposals')
+                ->withErrors(['proposal_ids' => 'Не обрано заявки для видалення.']);
+        }
+
+        DB::transaction(function () use ($ids, $request): void {
+            OrderProposal::query()
+                ->whereIn('id', $ids->all())
+                ->whereNull('deleted_date')
+                ->update([
+                    'deleted_by' => $request->user()?->id,
+                    'deleted_date' => now(),
+                ]);
+        });
+
+        return redirect()
+            ->route('orders.proposals')
+            ->with('status', 'Обрані заявки деактивовано.');
     }
 }

@@ -23,7 +23,13 @@ class OrderController extends Controller
         $proposalId = $request->query('proposal');
         $proposal = null;
         if ($proposalId) {
-            $proposal = OrderProposal::query()->find($proposalId);
+            $proposal = OrderProposal::query()
+                ->whereNull('deleted_date')
+                ->find($proposalId);
+
+            if (!$proposal) {
+                abort(404);
+            }
         }
 
         $clients = Client::query()
