@@ -1424,6 +1424,11 @@
                         return true;
                     }
 
+                    const materialCode = String(this.getMaterialCode(material) || '').trim().toUpperCase();
+                    if (materialCode === 'MAT-FLM-009') {
+                        return this.isProductType(product.productTypeId, 'Чистий матеріал');
+                    }
+
                     if (this.isFilmMaterialRestrictedByType(material) && !this.isProductType(product.productTypeId, 'Сольвентний друк')) {
                         return false;
                     }
