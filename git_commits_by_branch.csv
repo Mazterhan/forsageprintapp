@@ -1,0 +1,255 @@
+Branch	Commit	Time	Author	Comment	FilesChanged	Insertions	Deletions	spent time	Column1	Column2	Column3
+purchase/requisition	0fb648d	2/23/2026 18:14	Mazterhan	Merge branch 'module/orders'	3	345	23	12			
+calculator/formulas	487a878	2/24/2026 15:58	Mazterhan	some update	1	6	0				
+functionality/repair	487a878	2/24/2026 15:58	Mazterhan	some update	1	6	0				
+main	487a878	2/24/2026 15:58	Mazterhan	some update	1	6	0				
+module/administration	487a878	2/24/2026 15:58	Mazterhan	some update	1	6	0				
+purchase/requisition	487a878	2/24/2026 15:58	Mazterhan	some update	1	6	0	2			
+calculator/formulas	b49b0ed	3/12/2026 12:04	Mazterhan	removed 3-type of prices. One price left	18	144	315				
+functionality/repair	b49b0ed	3/12/2026 12:04	Mazterhan	removed 3-type of prices. One price left	18	144	315				
+main	b49b0ed	3/12/2026 12:04	Mazterhan	removed 3-type of prices. One price left	18	144	315				
+module/administration	b49b0ed	3/12/2026 12:04	Mazterhan	removed 3-type of prices. One price left	18	144	315				
+purchase/requisition	b49b0ed	3/12/2026 12:04	Mazterhan	removed 3-type of prices. One price left	18	144	315	2			
+calculator/formulas	71b1868	3/12/2026 18:23	Mazterhan	resolved /price2 functionality	8	821	0				
+functionality/repair	71b1868	3/12/2026 18:23	Mazterhan	resolved /price2 functionality	8	821	0				
+main	71b1868	3/12/2026 18:23	Mazterhan	resolved /price2 functionality	8	821	0				
+module/administration	71b1868	3/12/2026 18:23	Mazterhan	resolved /price2 functionality	8	821	0				
+purchase/requisition	71b1868	3/12/2026 18:23	Mazterhan	resolved /price2 functionality	8	821	0				
+calculator/formulas	bedf167	3/12/2026 19:07	Mazterhan	developed price history  to the /price/{id}	7	382	22				
+functionality/repair	bedf167	3/12/2026 19:07	Mazterhan	developed price history  to the /price/{id}	7	382	22				
+main	bedf167	3/12/2026 19:07	Mazterhan	developed price history  to the /price/{id}	7	382	22				
+module/administration	bedf167	3/12/2026 19:07	Mazterhan	developed price history  to the /price/{id}	7	382	22				
+purchase/requisition	bedf167	3/12/2026 19:07	Mazterhan	developed price history  to the /price/{id}	7	382	22	7			
+calculator/formulas	568afc2	3/13/2026 11:39	Mazterhan	modified /admin/editgroupsandcategories/product-categories	1	3	6				
+functionality/repair	568afc2	3/13/2026 11:39	Mazterhan	modified /admin/editgroupsandcategories/product-categories	1	3	6				
+main	568afc2	3/13/2026 11:39	Mazterhan	modified /admin/editgroupsandcategories/product-categories	1	3	6				
+module/administration	568afc2	3/13/2026 11:39	Mazterhan	modified /admin/editgroupsandcategories/product-categories	1	3	6				
+purchase/requisition	568afc2	3/13/2026 11:39	Mazterhan	modified /admin/editgroupsandcategories/product-categories	1	3	6				
+calculator/formulas	20789d2	3/13/2026 14:55	Mazterhan	add functionality for the new /price page grid	11	458	67				
+functionality/repair	20789d2	3/13/2026 14:55	Mazterhan	add functionality for the new /price page grid	11	458	67				
+main	20789d2	3/13/2026 14:55	Mazterhan	add functionality for the new /price page grid	11	458	67				
+module/administration	20789d2	3/13/2026 14:55	Mazterhan	add functionality for the new /price page grid	11	458	67				
+purchase/requisition	20789d2	3/13/2026 14:55	Mazterhan	add functionality for the new /price page grid	11	458	67				
+calculator/formulas	4deb11a	3/13/2026 16:19	Mazterhan	removed functionality that should not be used	5	66	116				
+functionality/repair	4deb11a	3/13/2026 16:19	Mazterhan	removed functionality that should not be used	5	66	116				
+main	4deb11a	3/13/2026 16:19	Mazterhan	removed functionality that should not be used	5	66	116				
+module/administration	4deb11a	3/13/2026 16:19	Mazterhan	removed functionality that should not be used	5	66	116				
+purchase/requisition	4deb11a	3/13/2026 16:19	Mazterhan	removed functionality that should not be used	5	66	116				
+calculator/formulas	b034a77	3/13/2026 16:40	Mazterhan	added comment to the position items	5	61	2				
+functionality/repair	b034a77	3/13/2026 16:40	Mazterhan	added comment to the position items	5	61	2				
+main	b034a77	3/13/2026 16:40	Mazterhan	added comment to the position items	5	61	2				
+module/administration	b034a77	3/13/2026 16:40	Mazterhan	added comment to the position items	5	61	2				
+purchase/requisition	b034a77	3/13/2026 16:40	Mazterhan	added comment to the position items	5	61	2	7			
+calculator/formulas	8fb52d8	3/15/2026 13:32	Mazterhan	repair calculator UI	1	5	12				
+functionality/repair	8fb52d8	3/15/2026 13:32	Mazterhan	repair calculator UI	1	5	12				
+main	8fb52d8	3/15/2026 13:32	Mazterhan	repair calculator UI	1	5	12				
+module/administration	8fb52d8	3/15/2026 13:32	Mazterhan	repair calculator UI	1	5	12				
+purchase/requisition	8fb52d8	3/15/2026 13:32	Mazterhan	repair calculator UI	1	5	12				
+calculator/formulas	7dbd43d	3/15/2026 13:34	Mazterhan	Merge branch 'functionality/repair'	36	1852	452				
+main	7dbd43d	3/15/2026 13:34	Mazterhan	Merge branch 'functionality/repair'	36	1852	452				
+module/administration	7dbd43d	3/15/2026 13:34	Mazterhan	Merge branch 'functionality/repair'	36	1852	452				
+purchase/requisition	7dbd43d	3/15/2026 13:34	Mazterhan	Merge branch 'functionality/repair'	36	1852	452				
+calculator/formulas	28b8f8b	3/15/2026 13:38	Mazterhan	initial commit	1	1	1				
+main	28b8f8b	3/15/2026 13:38	Mazterhan	initial commit	1	1	1				
+module/administration	28b8f8b	3/15/2026 13:38	Mazterhan	initial commit	1	1	1				
+purchase/requisition	28b8f8b	3/15/2026 13:38	Mazterhan	initial commit	1	1	1				
+calculator/formulas	ade41d9	3/15/2026 14:57	Mazterhan	added firs formuslas (for all top block)	2	151	2				
+main	ade41d9	3/15/2026 14:57	Mazterhan	added firs formuslas (for all top block)	2	151	2				
+module/administration	ade41d9	3/15/2026 14:57	Mazterhan	added firs formuslas (for all top block)	2	151	2				
+purchase/requisition	ade41d9	3/15/2026 14:57	Mazterhan	added firs formuslas (for all top block)	2	151	2				
+calculator/formulas	196ef15	3/15/2026 15:08	Mazterhan	made some fix for price positions	3	8	3				
+main	196ef15	3/15/2026 15:08	Mazterhan	made some fix for price positions	3	8	3				
+module/administration	196ef15	3/15/2026 15:08	Mazterhan	made some fix for price positions	3	8	3				
+purchase/requisition	196ef15	3/15/2026 15:08	Mazterhan	made some fix for price positions	3	8	3				
+calculator/formulas	1e5edd3	3/15/2026 15:10	Mazterhan	Merge branch 'calculator/formulas'	6	160	6				
+main	1e5edd3	3/15/2026 15:10	Mazterhan	Merge branch 'calculator/formulas'	6	160	6				
+module/administration	1e5edd3	3/15/2026 15:10	Mazterhan	Merge branch 'calculator/formulas'	6	160	6				
+purchase/requisition	1e5edd3	3/15/2026 15:10	Mazterhan	Merge branch 'calculator/formulas'	6	160	6	4			
+calculator/formulas	a63dfca	3/19/2026 15:19	Mazterhan	made some fix for price positions	4	140	19				
+main	a63dfca	3/19/2026 15:19	Mazterhan	made some fix for price positions	4	140	19				
+module/administration	a63dfca	3/19/2026 15:19	Mazterhan	made some fix for price positions	4	140	19				
+purchase/requisition	a63dfca	3/19/2026 15:19	Mazterhan	made some fix for price positions	4	140	19				
+calculator/formulas	da1b856	3/19/2026 16:02	Mazterhan	made thikness parameter for materials	3	32	5				
+main	da1b856	3/19/2026 16:02	Mazterhan	made thikness parameter for materials	3	32	5				
+module/administration	da1b856	3/19/2026 16:02	Mazterhan	made thikness parameter for materials	3	32	5				
+purchase/requisition	da1b856	3/19/2026 16:02	Mazterhan	made thikness parameter for materials	3	32	5				
+calculator/formulas	38814c3	3/19/2026 16:39	Mazterhan	made accuracy for price items	3	152	35				
+main	38814c3	3/19/2026 16:39	Mazterhan	made accuracy for price items	3	152	35				
+module/administration	38814c3	3/19/2026 16:39	Mazterhan	made accuracy for price items	3	152	35				
+purchase/requisition	38814c3	3/19/2026 16:39	Mazterhan	made accuracy for price items	3	152	35				
+calculator/formulas	cb86acb	3/19/2026 16:59	Mazterhan	made accuracy for customer item in calculator	1	19	11				
+main	cb86acb	3/19/2026 16:59	Mazterhan	made accuracy for customer item in calculator	1	19	11				
+module/administration	cb86acb	3/19/2026 16:59	Mazterhan	made accuracy for customer item in calculator	1	19	11				
+purchase/requisition	cb86acb	3/19/2026 16:59	Mazterhan	made accuracy for customer item in calculator	1	19	11				
+calculator/formulas	29d6423	3/19/2026 18:00	Mazterhan	made accuracy for customer item in calculator	2	34	1				
+main	29d6423	3/19/2026 18:00	Mazterhan	made accuracy for customer item in calculator	2	34	1				
+module/administration	29d6423	3/19/2026 18:00	Mazterhan	made accuracy for customer item in calculator	2	34	1				
+purchase/requisition	29d6423	3/19/2026 18:00	Mazterhan	made accuracy for customer item in calculator	2	34	1				
+calculator/formulas	4453359	3/19/2026 18:16	Mazterhan	add references between calculator and items in price	2	34	5				
+main	4453359	3/19/2026 18:16	Mazterhan	add references between calculator and items in price	2	34	5				
+module/administration	4453359	3/19/2026 18:16	Mazterhan	add references between calculator and items in price	2	34	5				
+purchase/requisition	4453359	3/19/2026 18:16	Mazterhan	add references between calculator and items in price	2	34	5				
+calculator/formulas	35eeaf4	3/19/2026 18:31	Mazterhan	reset fields values when 'Тип виробу #M' r	1	14	9				
+main	35eeaf4	3/19/2026 18:31	Mazterhan	reset fields values when 'Тип виробу #M' r	1	14	9				
+module/administration	35eeaf4	3/19/2026 18:31	Mazterhan	reset fields values when 'Тип виробу #M' r	1	14	9				
+purchase/requisition	35eeaf4	3/19/2026 18:31	Mazterhan	reset fields values when 'Тип виробу #M' r	1	14	9	8			
+calculator/formulas	5ff01b7	3/20/2026 16:29	Mazterhan	add 2 blockes to the 'PRIKATKA'	1	828	5				
+main	5ff01b7	3/20/2026 16:29	Mazterhan	add 2 blockes to the 'PRIKATKA'	1	828	5				
+module/administration	5ff01b7	3/20/2026 16:29	Mazterhan	add 2 blockes to the 'PRIKATKA'	1	828	5				
+purchase/requisition	5ff01b7	3/20/2026 16:29	Mazterhan	add 2 blockes to the 'PRIKATKA'	1	828	5				
+calculator/formulas	81b8e6d	3/20/2026 17:23	Mazterhan	add 2 blockes to the 'PRIKATKA' and add functionality for its	1	78	34				
+main	81b8e6d	3/20/2026 17:23	Mazterhan	add 2 blockes to the 'PRIKATKA' and add functionality for its	1	78	34				
+module/administration	81b8e6d	3/20/2026 17:23	Mazterhan	add 2 blockes to the 'PRIKATKA' and add functionality for its	1	78	34				
+purchase/requisition	81b8e6d	3/20/2026 17:23	Mazterhan	add 2 blockes to the 'PRIKATKA' and add functionality for its	1	78	34				
+calculator/formulas	1d4cb45	3/20/2026 18:01	Mazterhan	block 'PRIKATKA'. Add some functionality	1	38	3				
+main	1d4cb45	3/20/2026 18:01	Mazterhan	block 'PRIKATKA'. Add some functionality	1	38	3				
+module/administration	1d4cb45	3/20/2026 18:01	Mazterhan	block 'PRIKATKA'. Add some functionality	1	38	3				
+purchase/requisition	1d4cb45	3/20/2026 18:01	Mazterhan	block 'PRIKATKA'. Add some functionality	1	38	3				
+calculator/formulas	4a10735	3/20/2026 18:11	Mazterhan	corrected the markup	1	1	1				
+main	4a10735	3/20/2026 18:11	Mazterhan	corrected the markup	1	1	1				
+module/administration	4a10735	3/20/2026 18:11	Mazterhan	corrected the markup	1	1	1				
+purchase/requisition	4a10735	3/20/2026 18:11	Mazterhan	corrected the markup	1	1	1	9			
+calculator/formulas	7ee7be9	3/21/2026 21:45	Mazterhan	added formulas to the block 'Lamination'	2	54	2				
+main	7ee7be9	3/21/2026 21:45	Mazterhan	added formulas to the block 'Lamination'	2	54	2				
+module/administration	7ee7be9	3/21/2026 21:45	Mazterhan	added formulas to the block 'Lamination'	2	54	2				
+purchase/requisition	7ee7be9	3/21/2026 21:45	Mazterhan	added formulas to the block 'Lamination'	2	54	2				
+calculator/formulas	1115132	3/21/2026 21:57	Mazterhan	added fix in formulas to the block 'Lamination'	1	3	1				
+main	1115132	3/21/2026 21:57	Mazterhan	added fix in formulas to the block 'Lamination'	1	3	1				
+module/administration	1115132	3/21/2026 21:57	Mazterhan	added fix in formulas to the block 'Lamination'	1	3	1				
+purchase/requisition	1115132	3/21/2026 21:57	Mazterhan	added fix in formulas to the block 'Lamination'	1	3	1	2			
+calculator/formulas	e44bfe4	3/22/2026 21:07	Mazterhan	added formulas to the block 'Selection (complexity)'	1	31	1				
+main	e44bfe4	3/22/2026 21:07	Mazterhan	added formulas to the block 'Selection (complexity)'	1	31	1				
+module/administration	e44bfe4	3/22/2026 21:07	Mazterhan	added formulas to the block 'Selection (complexity)'	1	31	1				
+purchase/requisition	e44bfe4	3/22/2026 21:07	Mazterhan	added formulas to the block 'Selection (complexity)'	1	31	1				
+calculator/formulas	67ff67c	3/22/2026 22:10	Mazterhan	added formulas to the block 'Mounting'	2	28	1				
+main	67ff67c	3/22/2026 22:10	Mazterhan	added formulas to the block 'Mounting'	2	28	1				
+module/administration	67ff67c	3/22/2026 22:10	Mazterhan	added formulas to the block 'Mounting'	2	28	1				
+purchase/requisition	67ff67c	3/22/2026 22:10	Mazterhan	added formulas to the block 'Mounting'	2	28	1				
+calculator/formulas	cec7e54	3/22/2026 22:44	Mazterhan	added formulas to the block 'eyelets/soldering'	2	69	2				
+main	cec7e54	3/22/2026 22:44	Mazterhan	added formulas to the block 'eyelets/soldering'	2	69	2				
+module/administration	cec7e54	3/22/2026 22:44	Mazterhan	added formulas to the block 'eyelets/soldering'	2	69	2				
+purchase/requisition	cec7e54	3/22/2026 22:44	Mazterhan	added formulas to the block 'eyelets/soldering'	2	69	2				
+calculator/formulas	3edc372	3/22/2026 22:49	Mazterhan	added formulas to the block 'styling'	1	24	1				
+main	3edc372	3/22/2026 22:49	Mazterhan	added formulas to the block 'styling'	1	24	1				
+module/administration	3edc372	3/22/2026 22:49	Mazterhan	added formulas to the block 'styling'	1	24	1				
+purchase/requisition	3edc372	3/22/2026 22:49	Mazterhan	added formulas to the block 'styling'	1	24	1				
+calculator/formulas	2090211	3/22/2026 22:53	Mazterhan	added formulas to the block 'packing'	1	26	3				
+main	2090211	3/22/2026 22:53	Mazterhan	added formulas to the block 'packing'	1	26	3				
+module/administration	2090211	3/22/2026 22:53	Mazterhan	added formulas to the block 'packing'	1	26	3				
+purchase/requisition	2090211	3/22/2026 22:53	Mazterhan	added formulas to the block 'packing'	1	26	3				
+calculator/formulas	9999c86	3/22/2026 23:16	Mazterhan	added calculations formula for the 'clear material' in the top block	1	8	0				
+main	9999c86	3/22/2026 23:16	Mazterhan	added calculations formula for the 'clear material' in the top block	1	8	0				
+module/administration	9999c86	3/22/2026 23:16	Mazterhan	added calculations formula for the 'clear material' in the top block	1	8	0				
+purchase/requisition	9999c86	3/22/2026 23:16	Mazterhan	added calculations formula for the 'clear material' in the top block	1	8	0	3			
+calculator/formulas	925f308	3/23/2026 10:06	Mazterhan	added calculations formula for the 'solvPrint && 640+lamination/640+print(s)' in the top block	1	3	1				
+main	925f308	3/23/2026 10:06	Mazterhan	added calculations formula for the 'solvPrint && 640+lamination/640+print(s)' in the top block	1	3	1				
+module/administration	925f308	3/23/2026 10:06	Mazterhan	added calculations formula for the 'solvPrint && 640+lamination/640+print(s)' in the top block	1	3	1				
+purchase/requisition	925f308	3/23/2026 10:06	Mazterhan	added calculations formula for the 'solvPrint && 640+lamination/640+print(s)' in the top block	1	3	1				
+calculator/formulas	391df6f	3/23/2026 14:26	Mazterhan	added formulas to the block 'Rolling'	2	105	1				
+main	391df6f	3/23/2026 14:26	Mazterhan	added formulas to the block 'Rolling'	2	105	1				
+module/administration	391df6f	3/23/2026 14:26	Mazterhan	added formulas to the block 'Rolling'	2	105	1				
+purchase/requisition	391df6f	3/23/2026 14:26	Mazterhan	added formulas to the block 'Rolling'	2	105	1				
+calculator/formulas	6c6ea55	3/23/2026 15:27	Mazterhan	added formulas to the block 'Cutting'	2	174	17				
+main	6c6ea55	3/23/2026 15:27	Mazterhan	added formulas to the block 'Cutting'	2	174	17				
+module/administration	6c6ea55	3/23/2026 15:27	Mazterhan	added formulas to the block 'Cutting'	2	174	17				
+purchase/requisition	6c6ea55	3/23/2026 15:27	Mazterhan	added formulas to the block 'Cutting'	2	174	17				
+calculator/formulas	5ea23bd	3/23/2026 15:43	Mazterhan	adds some fixes	1	8	11				
+main	5ea23bd	3/23/2026 15:43	Mazterhan	adds some fixes	1	8	11				
+module/administration	5ea23bd	3/23/2026 15:43	Mazterhan	adds some fixes	1	8	11				
+purchase/requisition	5ea23bd	3/23/2026 15:43	Mazterhan	adds some fixes	1	8	11				
+calculator/formulas	798442f	3/23/2026 18:06	Mazterhan	adds some fixes to the page /order/calculation	2	201	39				
+main	798442f	3/23/2026 18:06	Mazterhan	adds some fixes to the page /order/calculation	2	201	39				
+module/administration	798442f	3/23/2026 18:06	Mazterhan	adds some fixes to the page /order/calculation	2	201	39				
+purchase/requisition	798442f	3/23/2026 18:06	Mazterhan	adds some fixes to the page /order/calculation	2	201	39				
+calculator/formulas	7e1a935	3/23/2026 18:09	Mazterhan	Merge branch 'calculator/formulas'	10	2191	295				
+main	7e1a935	3/23/2026 18:09	Mazterhan	Merge branch 'calculator/formulas'	10	2191	295				
+module/administration	7e1a935	3/23/2026 18:09	Mazterhan	Merge branch 'calculator/formulas'	10	2191	295				
+purchase/requisition	7e1a935	3/23/2026 18:09	Mazterhan	Merge branch 'calculator/formulas'	10	2191	295	8			
+calculator/formulas	cd7781f	3/24/2026 13:45	Mazterhan	adds some fixes to the page /order/calculation	1	8	2				
+main	cd7781f	3/24/2026 13:45	Mazterhan	adds some fixes to the page /order/calculation	1	8	2				
+module/administration	cd7781f	3/24/2026 13:45	Mazterhan	adds some fixes to the page /order/calculation	1	8	2				
+purchase/requisition	cd7781f	3/24/2026 13:45	Mazterhan	adds some fixes to the page /order/calculation	1	8	2				
+calculator/formulas	6b9b021	3/24/2026 14:03	Mazterhan	adds some fixes to the page /order/calculation	1	6	10				
+main	6b9b021	3/24/2026 14:03	Mazterhan	adds some fixes to the page /order/calculation	1	6	10				
+module/administration	6b9b021	3/24/2026 14:03	Mazterhan	adds some fixes to the page /order/calculation	1	6	10				
+purchase/requisition	6b9b021	3/24/2026 14:03	Mazterhan	adds some fixes to the page /order/calculation	1	6	10				
+calculator/formulas	0c17dbe	3/24/2026 16:28	Mazterhan	adds some fixes to the page /order/calculation	1	20	2				
+main	0c17dbe	3/24/2026 16:28	Mazterhan	adds some fixes to the page /order/calculation	1	20	2				
+module/administration	0c17dbe	3/24/2026 16:28	Mazterhan	adds some fixes to the page /order/calculation	1	20	2				
+purchase/requisition	0c17dbe	3/24/2026 16:28	Mazterhan	adds some fixes to the page /order/calculation	1	20	2				
+calculator/formulas	aab052a	3/24/2026 16:29	Mazterhan	Merge branch 'calculator/formulas'	1	26	6				
+main	aab052a	3/24/2026 16:29	Mazterhan	Merge branch 'calculator/formulas'	1	26	6				
+module/administration	aab052a	3/24/2026 16:29	Mazterhan	Merge branch 'calculator/formulas'	1	26	6				
+purchase/requisition	aab052a	3/24/2026 16:29	Mazterhan	Merge branch 'calculator/formulas'	1	26	6	5			
+calculator/formulas	9ece5f1	3/30/2026 11:05	Mazterhan	changed diapazones for Sampling (complexity) block	1	3	3				
+main	9ece5f1	3/30/2026 11:05	Mazterhan	changed diapazones for Sampling (complexity) block	1	3	3				
+module/administration	9ece5f1	3/30/2026 11:05	Mazterhan	changed diapazones for Sampling (complexity) block	1	3	3				
+purchase/requisition	9ece5f1	3/30/2026 11:05	Mazterhan	changed diapazones for Sampling (complexity) block	1	3	3				
+calculator/formulas	2314af4	3/30/2026 11:38	Mazterhan	add conditions for block 'Cutting'	1	87	1				
+main	2314af4	3/30/2026 11:38	Mazterhan	add conditions for block 'Cutting'	1	87	1				
+module/administration	2314af4	3/30/2026 11:38	Mazterhan	add conditions for block 'Cutting'	1	87	1				
+purchase/requisition	2314af4	3/30/2026 11:38	Mazterhan	add conditions for block 'Cutting'	1	87	1				
+calculator/formulas	0cac0f1	3/30/2026 13:06	Mazterhan	add conditions for 'matrix' /admin/editgroupsandcategories/product-types	1	19	13				
+main	0cac0f1	3/30/2026 13:06	Mazterhan	add conditions for 'matrix' /admin/editgroupsandcategories/product-types	1	19	13				
+module/administration	0cac0f1	3/30/2026 13:06	Mazterhan	add conditions for 'matrix' /admin/editgroupsandcategories/product-types	1	19	13				
+purchase/requisition	0cac0f1	3/30/2026 13:06	Mazterhan	add conditions for 'matrix' /admin/editgroupsandcategories/product-types	1	19	13				
+calculator/formulas	34a8e4f	3/30/2026 15:45	Mazterhan	add conditions for 'прикатка' in drop-down items in 'Прик�	2	95	26				
+main	34a8e4f	3/30/2026 15:45	Mazterhan	add conditions for 'прикатка' in drop-down items in 'Прик�	2	95	26				
+module/administration	34a8e4f	3/30/2026 15:45	Mazterhan	add conditions for 'прикатка' in drop-down items in 'Прик�	2	95	26				
+purchase/requisition	34a8e4f	3/30/2026 15:45	Mazterhan	add conditions for 'прикатка' in drop-down items in 'Прик�	2	95	26				
+calculator/formulas	1ba0558	3/30/2026 15:46	Mazterhan	Merge branch 'calculator/formulas'	2	204	43				
+main	1ba0558	3/30/2026 15:46	Mazterhan	Merge branch 'calculator/formulas'	2	204	43				
+module/administration	1ba0558	3/30/2026 15:46	Mazterhan	Merge branch 'calculator/formulas'	2	204	43				
+purchase/requisition	1ba0558	3/30/2026 15:46	Mazterhan	Merge branch 'calculator/formulas'	2	204	43	6			
+calculator/formulas	7b99bb2	4/1/2026 15:40	Mazterhan	add /orders/proposals page and /orders/proposals{id}pages with functionality	9	855	8				
+main	7b99bb2	4/1/2026 15:40	Mazterhan	add /orders/proposals page and /orders/proposals{id}pages with functionality	9	855	8				
+module/administration	7b99bb2	4/1/2026 15:40	Mazterhan	add /orders/proposals page and /orders/proposals{id}pages with functionality	9	855	8				
+purchase/requisition	7b99bb2	4/1/2026 15:40	Mazterhan	add /orders/proposals page and /orders/proposals{id}pages with functionality	9	855	8				
+calculator/formulas	b6c718d	4/1/2026 15:48	Mazterhan	add some functionality highlights to the table in /orders/proposals/{id} pages	1	48	20				
+main	b6c718d	4/1/2026 15:48	Mazterhan	add some functionality highlights to the table in /orders/proposals/{id} pages	1	48	20				
+module/administration	b6c718d	4/1/2026 15:48	Mazterhan	add some functionality highlights to the table in /orders/proposals/{id} pages	1	48	20				
+purchase/requisition	b6c718d	4/1/2026 15:48	Mazterhan	add some functionality highlights to the table in /orders/proposals/{id} pages	1	48	20	6			
+calculator/formulas	a576a6e	4/3/2026 14:31	Mazterhan	add rendering toa  /orders/proposals/{id} pages	1	98	24				
+main	a576a6e	4/3/2026 14:31	Mazterhan	add rendering toa  /orders/proposals/{id} pages	1	98	24				
+module/administration	a576a6e	4/3/2026 14:31	Mazterhan	add rendering toa  /orders/proposals/{id} pages	1	98	24				
+purchase/requisition	a576a6e	4/3/2026 14:31	Mazterhan	add rendering toa  /orders/proposals/{id} pages	1	98	24				
+calculator/formulas	321c133	4/3/2026 17:28	Mazterhan	add a lot of functionality	5	398	72				
+main	321c133	4/3/2026 17:28	Mazterhan	add a lot of functionality	5	398	72				
+module/administration	321c133	4/3/2026 17:28	Mazterhan	add a lot of functionality	5	398	72				
+purchase/requisition	321c133	4/3/2026 17:28	Mazterhan	add a lot of functionality	5	398	72				
+calculator/formulas	c163089	4/3/2026 17:54	Mazterhan	Merge branch 'purchase/requisition'	10	1294	19				
+main	c163089	4/3/2026 17:54	Mazterhan	Merge branch 'purchase/requisition'	10	1294	19				
+module/administration	c163089	4/3/2026 17:54	Mazterhan	Merge branch 'purchase/requisition'	10	1294	19	6			
+calculator/formulas	b79e1c4	4/5/2026 15:10	Mazterhan	add sesurity based on user-role levels	13	294	186				
+main	b79e1c4	4/5/2026 15:10	Mazterhan	add sesurity based on user-role levels	13	294	186				
+module/administration	b79e1c4	4/5/2026 15:10	Mazterhan	add sesurity based on user-role levels	13	294	186				
+calculator/formulas	87dd663	4/5/2026 15:11	Mazterhan	Merge branch 'module/administration'	13	294	186				
+main	87dd663	4/5/2026 15:11	Mazterhan	Merge branch 'module/administration'	13	294	186	5			
+calculator/formulas	9e1383c	4/9/2026 17:23	Mazterhan	bag fixing and fitching adding	5	144	19				
+main	9e1383c	4/9/2026 17:23	Mazterhan	bag fixing and fitching adding	5	144	19	4			
+calculator/formulas	0c73fe7	4/10/2026 15:51	Mazterhan	bag fixing and fitching adding	2	25	2				
+main	0c73fe7	4/10/2026 15:51	Mazterhan	bag fixing and fitching adding	2	25	2	2			
+calculator/formulas	213d5cd	4/13/2026 13:29	Mazterhan	add editing-checker for the proposal edditing	1	102	0				
+main	213d5cd	4/13/2026 13:29	Mazterhan	add editing-checker for the proposal edditing	1	102	0				
+calculator/formulas	968c37c	4/13/2026 15:12	Mazterhan	add minimal 100 UAH restrictions. Count = 1	1	20	0				
+main	968c37c	4/13/2026 15:12	Mazterhan	add minimal 100 UAH restrictions. Count = 1	1	20	0				
+calculator/formulas	4656c5e	4/13/2026 15:57	Mazterhan	add minimal 100 UAH text. Count > 1	1	15	0				
+main	4656c5e	4/13/2026 15:57	Mazterhan	add minimal 100 UAH text. Count > 1	1	15	0				
+calculator/formulas	97bc215	4/13/2026 15:59	Mazterhan	add some fixes	1	3	23				
+main	97bc215	4/13/2026 15:59	Mazterhan	add some fixes	1	3	23				
+calculator/formulas	d54d561	4/13/2026 16:36	Mazterhan	add minimal 100 UAH restrictions. Count > 1	2	153	3				
+main	d54d561	4/13/2026 16:36	Mazterhan	add minimal 100 UAH restrictions. Count > 1	2	153	3	5			
+calculator/formulas	a57372a	4/13/2026 23:54	Mazterhan	add minimal value for propose page and calculations	8	192	21				
+main	a57372a	4/13/2026 23:54	Mazterhan	add minimal value for propose page and calculations	8	192	21	4			
+calculator/formulas	e46a244	4/14/2026 12:12	Mazterhan	add fixes to the proposals views	3	23	2				
+main	e46a244	4/14/2026 12:12	Mazterhan	add fixes to the proposals views	3	23	2				
+calculator/formulas	c936537	4/14/2026 14:32	Mazterhan	add restriction to the formula for 'UF_print+CMIC&White'	1	3	0				
+main	c936537	4/14/2026 14:32	Mazterhan	add restriction to the formula for 'UF_print+CMIC&White'	1	3	0	5			
+calculator/formulas	7e291c0	4/16/2026 10:56	Mazterhan	developed new two cuting values into cutting bloc on calculation pages	2	44	7				
+main	7e291c0	4/16/2026 10:56	Mazterhan	developed new two cuting values into cutting bloc on calculation pages	2	44	7				
+calculator/formulas	e52b512	4/16/2026 11:30	Mazterhan	developed new two cuting values into cutting bloc on calculation pages. Notification	1	21	2				
+main	e52b512	4/16/2026 11:30	Mazterhan	developed new two cuting values into cutting bloc on calculation pages. Notification	1	21	2				
+calculator/formulas	abb8edd	4/16/2026 11:42	Mazterhan	add page markup fix: union blockes for the calculation page	1	1	1				
+main	abb8edd	4/16/2026 11:42	Mazterhan	add page markup fix: union blockes for the calculation page	1	1	1				
+main	4982746	4/16/2026 11:56	Mazterhan	Merge branch 'calculator/formulas'	2	66	10	3			
+								115	2875	4650	203856
