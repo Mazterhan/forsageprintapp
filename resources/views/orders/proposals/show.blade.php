@@ -34,7 +34,7 @@
         $requestedViewMode = request('view_mode');
         $viewMode = in_array($requestedViewMode, ['combined', 'grouped', 'combined_services'], true)
             ? $requestedViewMode
-            : 'combined';
+            : 'combined_services';
         if (!$hasMultipleProducts) {
             $viewMode = 'combined';
         }
