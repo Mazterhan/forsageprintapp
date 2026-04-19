@@ -1499,6 +1499,17 @@
                     return withoutServ003;
                 },
 
+                getRollingBaseMaterialType(product) {
+                    if (this.isCustomerMaterial(product?.material)) {
+                        return 'Листовий';
+                    }
+                    if (this.isCustomerRollMaterial(product?.material)) {
+                        return 'Рулонний';
+                    }
+
+                    return this.getMaterialType(product?.material);
+                },
+
                 getRollingP1Options(product) {
                     let options = this.getPriceMaterialOptions();
 
@@ -1509,7 +1520,7 @@
                         return !['фанера', 'банер', 'папір'].includes(category);
                     });
 
-                    const baseMaterialType = this.getMaterialType(product.material);
+                    const baseMaterialType = this.getRollingBaseMaterialType(product);
                     if (baseMaterialType === 'Листовий') {
                         options = options.filter((material) => {
                             const code = this.getMaterialCode(material);
@@ -1681,7 +1692,7 @@
                     }
 
                     return this.isProductType(product.productTypeId, 'УФ друк')
-                        && this.getMaterialType(product.material) === 'Листовий';
+                        && this.getRollingBaseMaterialType(product) === 'Листовий';
                 },
 
                 onRollingChanged(product) {
