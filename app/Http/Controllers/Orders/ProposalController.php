@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Orders;
 
 use App\Http\Controllers\Controller;
+use App\Models\Client;
 use App\Models\OrderProposal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ProposalController extends Controller
 {
@@ -72,6 +74,19 @@ class ProposalController extends Controller
         $state = (array) $request->input('state', []);
         $totalCost = (float) Arr::get($state, 'summary.order_total', 0);
         $clientName = trim((string) Arr::get($state, 'client_name', ''));
+        $clientId = Arr::get($state, 'client_id');
+        $clientId = is_numeric($clientId) ? (int) $clientId : null;
+        $resolvedClient = $this->resolveClientForProposal($clientId, $clientName, $request);
+
+        if ($resolvedClient) {
+            $state['client_id'] = (int) $resolvedClient->id;
+            $state['client_name'] = (string) $resolvedClient->name;
+            $clientName = (string) $resolvedClient->name;
+        } else {
+            $state['client_id'] = null;
+            $state['client_name'] = '';
+            $clientName = '';
+        }
 
         $proposal = null;
         if (!empty($data['proposal_id'])) {
@@ -141,6 +156,14 @@ class ProposalController extends Controller
         }
 
         $state = is_array($orderProposal->payload) ? $orderProposal->payload : [];
+        $stateClientId = Arr::get($state, 'client_id');
+        $stateClientId = is_numeric($stateClientId) ? (int) $stateClientId : null;
+        $linkedClient = $stateClientId ? Client::query()->find($stateClientId) : null;
+        $clientDisplayName = trim((string) ($linkedClient?->name ?? ''));
+        if ($clientDisplayName === '') {
+            $clientDisplayName = trim((string) (Arr::get($state, 'client_name', '') ?: ($orderProposal->client_name ?? '')));
+        }
+
         $products = Arr::get($state, 'products', []);
         $products = is_array($products) ? array_values($products) : [];
 
@@ -154,6 +177,7 @@ class ProposalController extends Controller
         return view('orders.proposals.show', [
             'proposal' => $orderProposal,
             'state' => $state,
+            'clientDisplayName' => $clientDisplayName,
             'products' => $products,
             'summary' => Arr::get($state, 'summary', []),
         ]);
@@ -190,5 +214,47 @@ class ProposalController extends Controller
         return redirect()
             ->route('orders.proposals')
             ->with('status', 'Обрані заявки деактивовано.');
+    }
+
+    private function resolveClientForProposal(?int $clientId, string $clientName, Request $request): ?Client
+    {
+        if ($clientId) {
+            $clientById = Client::query()->find($clientId);
+            if ($clientById) {
+                return $clientById;
+            }
+        }
+
+        $normalizedName = trim($clientName);
+        if ($normalizedName === '') {
+            return null;
+        }
+
+        $normalizedNameLower = mb_strtolower($normalizedName, 'UTF-8');
+        $existingClient = Client::query()
+            ->whereRaw('LOWER(TRIM(name)) = ?', [$normalizedNameLower])
+            ->first();
+
+        if ($existingClient) {
+            return $existingClient;
+        }
+
+        return DB::transaction(function () use ($normalizedName, $request): Client {
+            $tempCode = 'FP-TEMP-'.Str::upper(Str::random(8));
+            $userId = $request->user()?->id;
+
+            $client = Client::query()->create([
+                'code' => $tempCode,
+                'name' => $normalizedName,
+                'created_by' => $userId,
+                'updated_by' => $userId,
+            ]);
+
+            $client->update([
+                'code' => 'FP-'.str_pad((string) $client->id, 6, '0', STR_PAD_LEFT),
+            ]);
+
+            return $client;
+        });
     }
 }
