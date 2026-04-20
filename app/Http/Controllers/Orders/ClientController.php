@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Models\Client;
+use App\Models\OrderProposal;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -96,7 +98,7 @@ class ClientController extends Controller
             return $client;
         });
 
-        return redirect()->route('orders.clients.edit', $client)->with('status', 'Client created.');
+        return redirect()->route('orders.clients.edit', $client)->with('status', 'Замовника створено.');
     }
 
     public function edit(Client $client)
@@ -119,10 +121,12 @@ class ClientController extends Controller
         $data = $request->validated();
         $data['is_vip'] = $request->boolean('is_vip');
         $data['updated_by'] = Auth::id();
+        $previousName = trim((string) ($client->name ?? ''));
 
         $client->update($data);
+        $this->syncProposalClientName($client, $previousName);
 
-        return redirect()->route('orders.clients.edit', $client)->with('status', 'Client updated.');
+        return redirect()->route('orders.clients.edit', $client)->with('status', 'Дані замовника оновлено.');
     }
 
     public function deactivate(Client $client)
@@ -132,6 +136,44 @@ class ClientController extends Controller
             'updated_by' => Auth::id(),
         ]);
 
-        return redirect()->route('orders.clients.index')->with('status', 'Client deactivated.');
+        return redirect()->route('orders.clients.index')->with('status', 'Замовника деактивовано.');
+    }
+
+    private function syncProposalClientName(Client $client, string $previousName): void
+    {
+        $clientId = (int) $client->id;
+        $currentName = trim((string) ($client->name ?? ''));
+        $previousNameNormalized = mb_strtolower($previousName, 'UTF-8');
+
+        OrderProposal::query()
+            ->select(['id', 'client_name', 'payload'])
+            ->chunkById(200, function ($proposals) use ($clientId, $currentName, $previousNameNormalized): void {
+                foreach ($proposals as $proposal) {
+                    $payload = is_array($proposal->payload ?? null) ? $proposal->payload : [];
+                    $payloadClientId = Arr::get($payload, 'client_id');
+                    $payloadClientId = is_numeric($payloadClientId) ? (int) $payloadClientId : null;
+
+                    $payloadClientName = trim((string) Arr::get($payload, 'client_name', ''));
+                    $proposalClientName = trim((string) ($proposal->client_name ?? ''));
+                    $payloadClientNameNormalized = mb_strtolower($payloadClientName, 'UTF-8');
+                    $proposalClientNameNormalized = mb_strtolower($proposalClientName, 'UTF-8');
+
+                    $belongsById = $payloadClientId === $clientId;
+                    $belongsByName = $previousNameNormalized !== '' && (
+                        $payloadClientNameNormalized === $previousNameNormalized
+                        || $proposalClientNameNormalized === $previousNameNormalized
+                    );
+
+                    if (! $belongsById && ! $belongsByName) {
+                        continue;
+                    }
+
+                    $payload['client_id'] = $clientId;
+                    $payload['client_name'] = $currentName;
+                    $proposal->client_name = $currentName;
+                    $proposal->payload = $payload;
+                    $proposal->save();
+                }
+            });
     }
 }

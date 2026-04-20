@@ -33,7 +33,7 @@
         <div class="flex items-center gap-2">
             <input type="hidden" name="is_vip" value="0">
             <input id="is_vip" name="is_vip" type="checkbox" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm" @checked(old('is_vip', $client->is_vip ?? false))>
-            <label for="is_vip" class="text-sm text-gray-700">VIP</label>
+            <label for="is_vip" class="text-sm text-gray-700">ВІП</label>
         </div>
         <div>
             <label class="block font-medium text-sm text-gray-700" for="tags">Теги</label>
@@ -67,7 +67,7 @@
             <input id="phones" name="phones" type="text" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full" value="{{ old('phones', $client->phones ?? '') }}">
         </div>
         <div>
-            <label class="block font-medium text-sm text-gray-700" for="emails">Email(и)</label>
+            <label class="block font-medium text-sm text-gray-700" for="emails">Ел. пошта(и)</label>
             <input id="emails" name="emails" type="text" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full" value="{{ old('emails', $client->emails ?? '') }}">
         </div>
         <div>

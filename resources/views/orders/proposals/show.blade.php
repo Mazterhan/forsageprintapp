@@ -68,7 +68,7 @@
             <div class="bg-white shadow-sm sm:rounded-lg p-4 text-sm text-gray-800">
                 <div class="flex flex-row items-start justify-between gap-6 w-full">
                     <div class="space-y-2 flex-1 min-w-0">
-                        <div><span class="font-semibold">Замовник:</span> {{ ($state['client_name'] ?? $proposal->client_name) ?: '—' }}</div>
+                        <div><span class="font-semibold">Замовник:</span> {{ ($clientDisplayName ?? '') !== '' ? $clientDisplayName : '—' }}</div>
                         <div><span class="font-semibold">Коефіцієнт терміновості:</span> {{ $urgencyCoefficientDisplay }}</div>
                     </div>
                     <div class="space-y-2 text-left w-max shrink-0">
