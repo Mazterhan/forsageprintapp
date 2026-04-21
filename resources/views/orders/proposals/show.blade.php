@@ -2,11 +2,16 @@
     @section('title', __('Заявка :number', ['number' => $proposal->proposal_number]))
     @php
         $hasMultipleProducts = count($products ?? []) > 1;
+        $formatProposalMoney = static function ($value): string {
+            $formatted = number_format((float) $value, 2, '.', ' ');
+            return preg_replace('/\.0+$/', '', $formatted) ?? $formatted;
+        };
         $urgencyCoefficientDisplay = $state['urgency_coefficient']
             ?? $state['urgencyCoefficient']
             ?? data_get($state, 'summary.urgency_coefficient')
             ?? '1.00';
         $summaryOrderTotal = (float) ($summary['order_total'] ?? $proposal->total_cost ?? 0);
+        $summaryPurchaseCost = (float) ($summary['calculated_purchase_cost'] ?? 0);
         $productsTotalRaw = collect($products ?? [])->sum(function ($product) {
             if (array_key_exists('total_cost', $product) && $product['total_cost'] !== null && $product['total_cost'] !== '') {
                 return (float) $product['total_cost'];
@@ -132,7 +137,7 @@
                                         <td class="px-3 py-2 border">Н/Д</td>
                                         <td class="px-3 py-2 border">Н/Д</td>
                                         <td class="px-3 py-2 border text-right">Н/Д</td>
-                                        <td class="px-3 py-2 border text-right font-semibold">{{ number_format($productTotalCost, 2, '.', ' ') }}</td>
+                                        <td class="px-3 py-2 border text-right font-semibold">{{ $formatProposalMoney($productTotalCost) }}</td>
                                     </tr>
                                 @else
                                     @foreach($positions as $idx => $position)
@@ -174,7 +179,7 @@
                                             $qtyValue = ($position['qty'] ?? '') !== '' ? $position['qty'] : '—';
                                             $cmykValue = $isUv ? (((int)($position['cmyk'] ?? 0) > 0) ? ($position['cmyk'] ?? 0) : '—') : 'Н/Д';
                                             $whiteValue = $isUv ? (((int)($position['white'] ?? 0) > 0) ? ($position['white'] ?? 0) : '—') : 'Н/Д';
-                                            $costValue = $hasPositionCost ? number_format((float)$position['cost'], 2, '.', ' ') : 'Н/Д';
+                                            $costValue = $hasPositionCost ? $formatProposalMoney((float)$position['cost']) : 'Н/Д';
                                             $uvBothEmpty = $isUv && $cmykValue === '—' && $whiteValue === '—';
                                             $danger = 'background-color:#F01326;color:#fff;';
                                             $typeValue = ($product['productTypeName'] ?? '') !== '' ? $product['productTypeName'] : 'Н/Д';
@@ -204,7 +209,7 @@
                                             <td class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px; {{ $cellStyle($costValue) }}">{{ $costValue }}</td>
                                             @if($idx === 0)
                                                 <td class="px-3 py-2 border text-right align-top font-semibold" style="max-width: 100px; width: 100px;" rowspan="{{ max(count($positions), 1) }}">
-                                                    {{ number_format($productTotalCost, 2, '.', ' ') }}
+                                                    {{ $formatProposalMoney($productTotalCost) }}
                                                 </td>
                                             @endif
                                         </tr>
@@ -229,7 +234,7 @@
                     @endphp
                     <div class="px-4 py-3 border-t text-right text-sm">
                         <span class="font-semibold">Загальна вартість матеріалів:</span>
-                        <span class="font-bold">{{ number_format($combinedProductsSubtotal, 2, '.', ' ') }}</span>
+                        <span class="font-bold">{{ $formatProposalMoney($combinedProductsSubtotal) }}</span>
                     </div>
                 </div>
             @endif
@@ -319,10 +324,10 @@
                                                         <div class="whitespace-pre-line">{{ $row['description'] ?? '—' }}</div>
                                                     @endif
                                                 </td>
-                                                <td class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px;">{{ number_format((float)($row['cost'] ?? 0), 2, '.', ' ') }}</td>
+                                                <td class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px;">{{ $formatProposalMoney((float)($row['cost'] ?? 0)) }}</td>
                                                 @if($sIndex === 0)
                                                     <td class="px-3 py-2 border text-right align-top font-semibold" style="max-width: 140px; width: 140px;" rowspan="{{ $groupRows }}">
-                                                        {{ number_format((float)($product['services_cost'] ?? 0), 2, '.', ' ') }}
+                                                        {{ $formatProposalMoney((float)($product['services_cost'] ?? 0)) }}
                                                     </td>
                                                 @endif
                                             </tr>
@@ -333,7 +338,7 @@
                                             <td class="px-3 py-2 border" style="max-width: 150px; width: 150px;">—</td>
                                             <td class="px-3 py-2 border text-gray-500">Послуги не застосовані.</td>
                                             <td class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px;">0.00</td>
-                                            <td class="px-3 py-2 border text-right font-semibold" style="max-width: 140px; width: 140px;">{{ number_format((float)($product['services_cost'] ?? 0), 2, '.', ' ') }}</td>
+                                            <td class="px-3 py-2 border text-right font-semibold" style="max-width: 140px; width: 140px;">{{ $formatProposalMoney((float)($product['services_cost'] ?? 0)) }}</td>
                                         </tr>
                                     @endif
                                 @endif
@@ -357,7 +362,7 @@
                     @endphp
                     <div class="px-4 py-3 border-t text-right text-sm">
                         <span class="font-semibold">Загальна вартість послуг:</span>
-                        <span class="font-bold">{{ number_format($combinedServicesSubtotal, 2, '.', ' ') }}</span>
+                        <span class="font-bold">{{ $formatProposalMoney($combinedServicesSubtotal) }}</span>
                     </div>
                 </div>
             @endif
@@ -441,7 +446,7 @@
                                         $qtyValue = ($position['qty'] ?? '') !== '' ? $position['qty'] : '—';
                                         $cmykValue = ((int)($position['cmyk'] ?? 0) > 0) ? ($position['cmyk'] ?? 0) : '—';
                                         $whiteValue = ((int)($position['white'] ?? 0) > 0) ? ($position['white'] ?? 0) : '—';
-                                        $costValue = $hasPositionCost ? number_format((float)$position['cost'], 2, '.', ' ') : 'Н/Д';
+                                        $costValue = $hasPositionCost ? $formatProposalMoney((float)$position['cost']) : 'Н/Д';
                                         $uvBothEmpty = $isUv && $cmykValue === '—' && $whiteValue === '—';
                                         $danger = 'background-color:#F01326;color:#fff;';
                                         $typeValue = $product['productTypeName'] ?? '—';
@@ -540,7 +545,7 @@
                                                 <div class="whitespace-pre-line">{{ $row['description'] ?? '—' }}</div>
                                             @endif
                                         </td>
-                                        <td class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px;">{{ number_format((float)($row['cost'] ?? 0), 2, '.', ' ') }}</td>
+                                        <td class="px-3 py-2 border text-right" style="max-width: 100px; width: 100px;">{{ $formatProposalMoney((float)($row['cost'] ?? 0)) }}</td>
                                     </tr>
                                 @empty
                                     <tr><td class="px-3 py-2 border text-gray-500" colspan="4">Послуги не застосовані.</td></tr>
@@ -581,7 +586,7 @@
                     @endphp
                     <div class="px-4 py-3 border-t text-right text-sm">
                         <span class="font-semibold">{{ $footerLabel }}</span>
-                        <span class="font-bold">{{ number_format($footerValue, 2, '.', ' ') }}</span>
+                        <span class="font-bold">{{ $formatProposalMoney($footerValue) }}</span>
                     </div>
                 </div>
                 @endif
@@ -592,13 +597,16 @@
             <div class="bg-white shadow-sm sm:rounded-lg p-4">
                 <div class="flex items-center justify-between gap-4">
                     <div class="text-sm font-semibold text-gray-700">
+                        @if (auth()->user()?->hasRole('admin'))
+                            <div>Розрахункова собівартість: {{ $formatProposalMoney($summaryPurchaseCost) }}</div>
+                        @endif
                         @if ($minimumProductsApplied && $minimumProductsText !== '')
                             Врахована вартість мінімального замовлення — 100 грн для наступних виробів: {{ $minimumProductsText }}
                         @elseif ($minimumOrderApplied)
                             Врахована вартість мінімального замовлення —100грн.
                         @endif
                     </div>
-                    <span class="font-bold text-lg">Всього: {{ number_format($summaryOrderTotal, 2, '.', ' ') }}</span>
+                    <span class="font-bold text-lg">Всього: {{ $formatProposalMoney($summaryOrderTotal) }}</span>
                 </div>
             </div>
         </div>
