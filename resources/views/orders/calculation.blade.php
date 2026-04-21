@@ -839,7 +839,7 @@
                                 <div class="font-bold text-gray-800" x-text="products.length > 1 ? `Вартість виробу #${displayProductNumber(productIndex)}` : 'Вартість загальна (грн)'"></div>
                                 <input type="text" :value="getBottomTotalCostDisplay(product)" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                 <div class="ml-10 font-bold text-gray-800">Собівартість (грн)</div>
-                                <input type="text" value="0.00" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                <input type="text" value="0" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                 @if (auth()->user()?->role !== 'user')
                                 <button x-show="products.length === 1" type="button" @click="requestSaveProposal()" :disabled="isSaving" class="ml-auto inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
                                     <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
@@ -889,7 +889,7 @@
                             </div>
                             <div class="flex items-center gap-3">
                                 <div class="font-bold text-gray-800">Собівартість всього замовлення (грн)</div>
-                                <input type="text" value="0.00" disabled class="w-[160px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                <input type="text" value="0" disabled class="w-[160px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                             </div>
                         </div>
                         @if (auth()->user()?->role !== 'user')
@@ -2790,14 +2790,14 @@
                 },
 
                 normalizeMoney(value) {
-                    return Math.round((value + Number.EPSILON) * 100) / 100;
+                    return Math.round(value + Number.EPSILON);
                 },
 
                 formatMoney(value) {
                     if (!Number.isFinite(value)) {
                         return '';
                     }
-                    return this.normalizeMoney(value).toFixed(2);
+                    return String(this.normalizeMoney(value));
                 },
 
                 getUrgencyValue() {
@@ -2878,9 +2878,9 @@
                     try {
                         const value = this.getLaminationCost(product);
                         const formatted = this.formatMoney(value);
-                        return formatted === '' ? '0.00' : formatted;
+                        return formatted === '' ? '0' : formatted;
                     } catch (e) {
-                        return '0.00';
+                        return '0';
                     }
                 },
 
@@ -2974,9 +2974,9 @@
                     try {
                         const value = this.getWeedingCost(product);
                         const formatted = this.formatMoney(value);
-                        return formatted === '' ? '0.00' : formatted;
+                        return formatted === '' ? '0' : formatted;
                     } catch (e) {
-                        return '0.00';
+                        return '0';
                     }
                 },
 
@@ -3004,9 +3004,9 @@
                     try {
                         const value = this.getMontageCost(product);
                         const formatted = this.formatMoney(value);
-                        return formatted === '' ? '0.00' : formatted;
+                        return formatted === '' ? '0' : formatted;
                     } catch (e) {
-                        return '0.00';
+                        return '0';
                     }
                 },
 
@@ -3046,9 +3046,9 @@
                     try {
                         const value = this.getEyeletsCost(product);
                         const formatted = this.formatMoney(value);
-                        return formatted === '' ? '0.00' : formatted;
+                        return formatted === '' ? '0' : formatted;
                     } catch (e) {
-                        return '0.00';
+                        return '0';
                     }
                 },
 
@@ -3071,9 +3071,9 @@
                     try {
                         const value = this.getSolderingCost(product);
                         const formatted = this.formatMoney(value);
-                        return formatted === '' ? '0.00' : formatted;
+                        return formatted === '' ? '0' : formatted;
                     } catch (e) {
-                        return '0.00';
+                        return '0';
                     }
                 },
 
@@ -3094,9 +3094,9 @@
                     try {
                         const value = this.getDesignCost(product);
                         const formatted = this.formatMoney(value);
-                        return formatted === '' ? '0.00' : formatted;
+                        return formatted === '' ? '0' : formatted;
                     } catch (e) {
-                        return '0.00';
+                        return '0';
                     }
                 },
 
@@ -3117,9 +3117,9 @@
                     try {
                         const value = this.getPackagingCost(product);
                         const formatted = this.formatMoney(value);
-                        return formatted === '' ? '0.00' : formatted;
+                        return formatted === '' ? '0' : formatted;
                     } catch (e) {
-                        return '0.00';
+                        return '0';
                     }
                 },
 
@@ -3297,7 +3297,7 @@
                         }
                         const value = this.getCuttingCost(product);
                         const formatted = this.formatMoney(value);
-                        return formatted === '' ? '0.00' : formatted;
+                        return formatted === '' ? '0' : formatted;
                     } catch (e) {
                         return '';
                     }
@@ -3398,9 +3398,9 @@
                     try {
                         const value = this.getRollingCost(product);
                         const formatted = this.formatMoney(value);
-                        return formatted === '' ? '0.00' : formatted;
+                        return formatted === '' ? '0' : formatted;
                     } catch (e) {
-                        return '0.00';
+                        return '0';
                     }
                 },
 
@@ -3493,21 +3493,21 @@
                     }
 
                     const formatted = this.formatMoney(this.getProductTotalCostForSave(product));
-                    return formatted === '' ? '0.00' : formatted;
+                    return formatted === '' ? '0' : formatted;
                 },
 
                 getBottomTotalCostDisplay(product) {
                     if (Array.isArray(this.products) && this.products.length === 1) {
                         if (this.isSingleProductMinimumApplied()) {
                             const formattedMinimum = this.formatMoney(this.minimumOrderTotal);
-                            return formattedMinimum === '' ? '100.00' : formattedMinimum;
+                            return formattedMinimum === '' ? '100' : formattedMinimum;
                         }
 
                         if (this.hasAnyWarnings()) {
                             return '';
                         }
                         const formattedOrderTotal = this.formatMoney(this.getOrderTotalCostForSave());
-                        return formattedOrderTotal === '' ? '0.00' : formattedOrderTotal;
+                        return formattedOrderTotal === '' ? '0' : formattedOrderTotal;
                     }
 
                     return this.getProductTotalCostDisplay(product);
@@ -3551,7 +3551,7 @@
                     }
 
                     const formatted = this.formatMoney(this.getOrderTotalCostForSave());
-                    return formatted === '' ? '0.00' : formatted;
+                    return formatted === '' ? '0' : formatted;
                 },
 
                 shouldShowMinimumOrderHint() {
@@ -3970,3 +3970,4 @@
         }
     </script>
 </x-app-layout>
+

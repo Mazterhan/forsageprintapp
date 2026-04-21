@@ -21,10 +21,14 @@
     </x-slot>
 
     @php
+        $formatProposalListMoney = static function ($value): string {
+            $formatted = number_format((float) $value, 2, '.', ' ');
+            return preg_replace('/\.0+$/', '', $formatted) ?? $formatted;
+        };
         $nextDir = fn (string $column) => ($sort === $column && $direction === 'asc') ? 'desc' : 'asc';
         $sortLink = fn (string $column) => route('orders.proposals', array_merge(request()->query(), ['sort' => $column, 'direction' => $nextDir($column)]));
         $canManageProposals = in_array((string) (auth()->user()->role ?? ''), ['admin', 'manager'], true);
-        $proposalRowsForManage = $proposals->getCollection()->map(function ($proposal) {
+        $proposalRowsForManage = $proposals->getCollection()->map(function ($proposal) use ($formatProposalListMoney) {
             $date = ((int) ($proposal->corrections_count ?? 0)) > 0 ? $proposal->updated_at : $proposal->created_at;
 
             return [
@@ -32,7 +36,7 @@
                 'date' => optional($date)->format('d.m.Y H:i'),
                 'number' => (string) $proposal->proposal_number,
                 'client_name' => (string) ($proposal->client_name ?: '—'),
-                'total_cost_formatted' => number_format((float) $proposal->total_cost, 2, '.', ' '),
+                'total_cost_formatted' => $formatProposalListMoney((float) $proposal->total_cost),
             ];
         })->values()->all();
     @endphp
@@ -199,7 +203,7 @@
                                         </td>
                                         <td class="px-4 py-3 border-b">{{ $proposal->client_name ?: '—' }}</td>
                                         <td class="px-4 py-3 border-b">{{ $proposal->user?->name ?? '—' }}</td>
-                                        <td class="px-4 py-3 border-b text-right">{{ number_format((float)$proposal->total_cost, 2, '.', ' ') }}</td>
+                                        <td class="px-4 py-3 border-b text-right">{{ $formatProposalListMoney((float) $proposal->total_cost) }}</td>
                                     </tr>
                                 @empty
                                     <tr>
