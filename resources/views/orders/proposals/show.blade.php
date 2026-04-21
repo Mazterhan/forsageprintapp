@@ -11,6 +11,7 @@
             ?? data_get($state, 'summary.urgency_coefficient')
             ?? '1.00';
         $summaryOrderTotal = (float) ($summary['order_total'] ?? $proposal->total_cost ?? 0);
+        $summaryPurchaseCost = (float) ($summary['calculated_purchase_cost'] ?? 0);
         $productsTotalRaw = collect($products ?? [])->sum(function ($product) {
             if (array_key_exists('total_cost', $product) && $product['total_cost'] !== null && $product['total_cost'] !== '') {
                 return (float) $product['total_cost'];
@@ -596,6 +597,9 @@
             <div class="bg-white shadow-sm sm:rounded-lg p-4">
                 <div class="flex items-center justify-between gap-4">
                     <div class="text-sm font-semibold text-gray-700">
+                        @if (auth()->user()?->hasRole('admin'))
+                            <div>Розрахункова собівартість: {{ $formatProposalMoney($summaryPurchaseCost) }}</div>
+                        @endif
                         @if ($minimumProductsApplied && $minimumProductsText !== '')
                             Врахована вартість мінімального замовлення — 100 грн для наступних виробів: {{ $minimumProductsText }}
                         @elseif ($minimumOrderApplied)

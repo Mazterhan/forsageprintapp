@@ -13,8 +13,17 @@
             ->pluck('name')
             ->values()
             ->all();
+        $isAdmin = auth()->user()?->hasRole('admin');
+        $canOpenProposal = auth()->user()?->hasAnyRole(['admin', 'manager']);
+        $formatMoney = static fn ($value) => number_format((float) $value, 2, '.', ' ');
+        $formatPercent = static fn ($value) => number_format((float) $value, 2, '.', ' ').'%';
+        $materialsTableTitle = $isAdmin ? 'Топ матеріалів за прибутком' : 'Топ матеріалів';
+        $servicesTableTitle = $isAdmin ? 'Топ послуг за прибутком' : 'Топ послуг';
+        $clientsTableTitle = $isAdmin ? 'Топ замовників за прибутком' : 'Топ замовників';
+        $productTypesTableTitle = $isAdmin ? 'Топ типів виробу за прибутком' : 'Топ типів виробу';
+        $topProposalsTableTitle = $isAdmin ? 'Топ прибуткових заявок' : 'Топ заявок';
 
-        $kpiCards = [
+        $primaryKpiCards = [
             [
                 'label' => 'Кількість заявок',
                 'value' => number_format((int) ($kpi['proposal_count'] ?? 0), 0, '.', ' '),
@@ -22,17 +31,17 @@
             ],
             [
                 'label' => 'Загальна сума (грн)',
-                'value' => number_format((float) ($kpi['total_revenue'] ?? 0), 2, '.', ' '),
+                'value' => $formatMoney($kpi['total_revenue'] ?? 0),
                 'help' => 'Сумарна вартість усіх активних заявок, що потрапили у вибірку.',
             ],
             [
                 'label' => 'Середній чек (грн)',
-                'value' => number_format((float) ($kpi['average_check'] ?? 0), 2, '.', ' '),
+                'value' => $formatMoney($kpi['average_check'] ?? 0),
                 'help' => 'Середнє значення вартості однієї заявки у вибраному періоді.',
             ],
             [
                 'label' => 'Медіанний чек (грн)',
-                'value' => number_format((float) ($kpi['median_check'] ?? 0), 2, '.', ' '),
+                'value' => $formatMoney($kpi['median_check'] ?? 0),
                 'help' => 'Медіанна вартість заявки: половина заявок має суму нижче цього значення, половина вище.',
             ],
             [
@@ -45,17 +54,42 @@
                 'value' => number_format((int) ($kpi['with_minimum'] ?? 0), 0, '.', ' '),
                 'help' => 'Кількість заявок, у яких застосовано мінімальну вартість замовлення або виробу.',
             ],
+        ];
+
+        $adminOnlyKpiCards = [
             [
-                'label' => 'Вартість матеріалів (грн)',
-                'value' => number_format((float) ($kpi['products_revenue'] ?? 0), 2, '.', ' '),
-                'help' => 'Сумарна вартість матеріалів у складі заявок за поточними фільтрами.',
+                'label' => 'Загальна собівартість (грн)',
+                'value' => $formatMoney($kpi['total_purchase_cost'] ?? 0),
+                'help' => 'Сумарна розрахункова собівартість усіх заявок за поточними фільтрами.',
             ],
             [
-                'label' => 'Вартість послуг (грн)',
-                'value' => number_format((float) ($kpi['services_revenue'] ?? 0), 2, '.', ' '),
-                'help' => 'Сумарна вартість додаткових послуг у складі заявок за поточними фільтрами.',
+                'label' => 'Валовий прибуток (грн)',
+                'value' => $formatMoney($kpi['gross_profit'] ?? 0),
+                'help' => 'Різниця між загальною вартістю заявок та їх розрахунковою собівартістю.',
+            ],
+            [
+                'label' => 'Маржинальність (%)',
+                'value' => $formatPercent($kpi['margin_percent'] ?? 0),
+                'help' => 'Показує частку валового прибутку у загальній вартості заявок.',
+            ],
+            [
+                'label' => 'Середній прибуток (грн)',
+                'value' => $formatMoney($kpi['average_profit'] ?? 0),
+                'help' => 'Середній валовий прибуток на одну заявку у вибраному періоді.',
+            ],
+            [
+                'label' => 'Нульовий прибуток',
+                'value' => number_format((int) ($kpi['break_even_count'] ?? 0), 0, '.', ' '),
+                'help' => 'Кількість заявок, у яких прибуток дорівнює нулю.',
+            ],
+            [
+                'label' => 'Збиткові заявки',
+                'value' => number_format((int) ($kpi['loss_count'] ?? 0), 0, '.', ' '),
+                'help' => 'Кількість заявок, у яких розрахункова собівартість перевищує вартість заявки.',
             ],
         ];
+
+        $kpiCards = array_merge($primaryKpiCards, $isAdmin ? $adminOnlyKpiCards : []);
 
         $chartCards = [
             [
@@ -82,7 +116,37 @@
                 'unit' => 'грн',
                 'tooltip_unit' => 'грн',
             ],
+            [
+                'id' => 'purchase',
+                'canvas' => 'chartPurchase',
+                'title' => 'Динаміка: собівартість (грн)',
+                'help' => 'Показує зміну сумарної розрахункової собівартості заявок по датах.',
+                'unit' => 'грн',
+                'tooltip_unit' => 'грн',
+                'admin_only' => true,
+            ],
+            [
+                'id' => 'profit',
+                'canvas' => 'chartProfit',
+                'title' => 'Динаміка: валовий прибуток (грн)',
+                'help' => 'Показує, як змінювався валовий прибуток заявок у часі.',
+                'unit' => 'грн',
+                'tooltip_unit' => 'грн',
+                'admin_only' => true,
+            ],
+            [
+                'id' => 'margin',
+                'canvas' => 'chartMargin',
+                'title' => 'Динаміка: маржинальність (%)',
+                'help' => 'Показує, як змінювався відсоток маржинальності заявок у часі.',
+                'unit' => '%',
+                'tooltip_unit' => '%',
+                'admin_only' => true,
+            ],
         ];
+        $chartCards = array_values(array_filter($chartCards, static function ($chart) use ($isAdmin) {
+            return !($chart['admin_only'] ?? false) || $isAdmin;
+        }));
     @endphp
 
     <style>
@@ -120,7 +184,7 @@
 
         @media (min-width: 1280px) {
             .dashboard-content {
-                max-width: 1280px;
+                max-width: 1550px;
             }
         }
 
@@ -256,11 +320,17 @@
 
         @media (min-width: 1100px) {
             .dashboard-kpi-grid {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
+                grid-template-columns: repeat(3, minmax(0, 1fr));
             }
 
             .dashboard-chart-grid {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (min-width: 1450px) {
+            .dashboard-kpi-grid {
+                grid-template-columns: repeat(6, minmax(0, 1fr));
             }
         }
 
@@ -404,15 +474,20 @@
                     </div>
 
                     <div class="dashboard-two-grid">
-                        <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує матеріали, що найчастіше та на найбільшу суму потрапляли в заявки.">
-                            <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">Top 10 матеріалів</div>
+                        <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує матеріали, які дали найбільший прибуток у складі заявок за поточними фільтрами.">
+                            <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">{{ $materialsTableTitle }}</div>
                             <div class="overflow-x-auto">
                                 <table class="min-w-full text-sm">
                                     <thead style="background-color: #FCEEDF;">
                                         <tr>
                                             <th class="px-3 py-2 text-left border-b">Матеріал</th>
                                             <th class="px-3 py-2 text-right border-b">К-сть</th>
-                                            <th class="px-3 py-2 text-right border-b">Сума</th>
+                                            <th class="px-3 py-2 text-right border-b">Вартість</th>
+                                            @if($isAdmin)
+                                                <th class="px-3 py-2 text-right border-b">Собівартість</th>
+                                                <th class="px-3 py-2 text-right border-b">Прибуток</th>
+                                                <th class="px-3 py-2 text-right border-b">Маржа %</th>
+                                            @endif
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -420,10 +495,15 @@
                                             <tr>
                                                 <td class="px-3 py-2 border-b">{{ $row['name'] }}</td>
                                                 <td class="px-3 py-2 border-b text-right">{{ number_format((int) $row['count'], 0, '.', ' ') }}</td>
-                                                <td class="px-3 py-2 border-b text-right">{{ number_format((float) $row['sum'], 2, '.', ' ') }}</td>
+                                                <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['sum']) }}</td>
+                                                @if($isAdmin)
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_sum']) }}</td>
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['profit_sum']) }}</td>
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatPercent($row['margin_percent']) }}</td>
+                                                @endif
                                             </tr>
                                         @empty
-                                            <tr><td colspan="3" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
+                                            <tr><td colspan="{{ $isAdmin ? 6 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -431,16 +511,20 @@
                             <div class="dashboard-help-tooltip"></div>
                         </div>
 
-                        <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує послуги, які найчастіше додавалися до заявок та принесли найбільшу суму.">
-                            <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">Top 10 послуг</div>
+                        <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує послуги, які дали найбільший прибуток у поточній вибірці.">
+                            <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">{{ $servicesTableTitle }}</div>
                             <div class="overflow-x-auto">
                                 <table class="min-w-full text-sm">
                                     <thead style="background-color: #FCEEDF;">
                                         <tr>
                                             <th class="px-3 py-2 text-left border-b">Послуга</th>
                                             <th class="px-3 py-2 text-right border-b">К-сть</th>
-                                            <th class="px-3 py-2 text-right border-b">Сума</th>
-                                            <th class="px-3 py-2 text-right border-b">Сер. вартість</th>
+                                            <th class="px-3 py-2 text-right border-b">Вартість</th>
+                                            @if($isAdmin)
+                                                <th class="px-3 py-2 text-right border-b">Собівартість</th>
+                                                <th class="px-3 py-2 text-right border-b">Прибуток</th>
+                                                <th class="px-3 py-2 text-right border-b">Маржа %</th>
+                                            @endif
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -448,11 +532,15 @@
                                             <tr>
                                                 <td class="px-3 py-2 border-b">{{ $row['name'] }}</td>
                                                 <td class="px-3 py-2 border-b text-right">{{ number_format((int) $row['count'], 0, '.', ' ') }}</td>
-                                                <td class="px-3 py-2 border-b text-right">{{ number_format((float) $row['sum'], 2, '.', ' ') }}</td>
-                                                <td class="px-3 py-2 border-b text-right">{{ number_format((float) $row['avg'], 2, '.', ' ') }}</td>
+                                                <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['sum']) }}</td>
+                                                @if($isAdmin)
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_sum']) }}</td>
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['profit_sum']) }}</td>
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatPercent($row['margin_percent']) }}</td>
+                                                @endif
                                             </tr>
                                         @empty
-                                            <tr><td colspan="4" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
+                                            <tr><td colspan="{{ $isAdmin ? 6 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -462,16 +550,20 @@
                     </div>
 
                     <div class="dashboard-two-grid">
-                        <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує замовників з найбільшою сумою заявок у поточній вибірці.">
-                            <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">Top 10 замовників</div>
+                        <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує замовників, заявки яких дали найбільший валовий прибуток у поточній вибірці.">
+                            <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">{{ $clientsTableTitle }}</div>
                             <div class="overflow-x-auto">
                                 <table class="min-w-full text-sm">
                                     <thead style="background-color: #FCEEDF;">
                                         <tr>
                                             <th class="px-3 py-2 text-left border-b">Замовник</th>
                                             <th class="px-3 py-2 text-right border-b">К-сть</th>
-                                            <th class="px-3 py-2 text-right border-b">Сума</th>
-                                            <th class="px-3 py-2 text-right border-b">Кориг.</th>
+                                            <th class="px-3 py-2 text-right border-b">Вартість</th>
+                                            @if($isAdmin)
+                                                <th class="px-3 py-2 text-right border-b">Собівартість</th>
+                                                <th class="px-3 py-2 text-right border-b">Прибуток</th>
+                                                <th class="px-3 py-2 text-right border-b">Маржа %</th>
+                                            @endif
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -479,11 +571,15 @@
                                             <tr>
                                                 <td class="px-3 py-2 border-b">{{ $row['name'] ?: '—' }}</td>
                                                 <td class="px-3 py-2 border-b text-right">{{ number_format((int) $row['count'], 0, '.', ' ') }}</td>
-                                                <td class="px-3 py-2 border-b text-right">{{ number_format((float) $row['sum'], 2, '.', ' ') }}</td>
-                                                <td class="px-3 py-2 border-b text-right">{{ number_format((int) $row['corrections'], 0, '.', ' ') }}</td>
+                                                <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['sum']) }}</td>
+                                                @if($isAdmin)
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_sum']) }}</td>
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['profit_sum']) }}</td>
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatPercent($row['margin_percent']) }}</td>
+                                                @endif
                                             </tr>
                                         @empty
-                                            <tr><td colspan="4" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
+                                            <tr><td colspan="{{ $isAdmin ? 6 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -492,15 +588,20 @@
                         </div>
 
                         <div class="space-y-4">
-                            <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує типи виробів, які дали найбільшу суму заявок у поточній вибірці.">
-                                <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">Top 10 типів виробу</div>
+                            <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує типи виробів, які дали найбільший прибуток у поточній вибірці.">
+                                <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">{{ $productTypesTableTitle }}</div>
                                 <div class="overflow-x-auto">
                                     <table class="min-w-full text-sm">
                                         <thead style="background-color: #FCEEDF;">
                                             <tr>
                                                 <th class="px-3 py-2 text-left border-b">Тип виробу</th>
                                                 <th class="px-3 py-2 text-right border-b">К-сть</th>
-                                                <th class="px-3 py-2 text-right border-b">Сума</th>
+                                                <th class="px-3 py-2 text-right border-b">Вартість</th>
+                                                @if($isAdmin)
+                                                    <th class="px-3 py-2 text-right border-b">Собівартість</th>
+                                                    <th class="px-3 py-2 text-right border-b">Прибуток</th>
+                                                    <th class="px-3 py-2 text-right border-b">Маржа %</th>
+                                                @endif
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -508,10 +609,15 @@
                                                 <tr>
                                                     <td class="px-3 py-2 border-b">{{ $row['name'] }}</td>
                                                     <td class="px-3 py-2 border-b text-right">{{ number_format((int) $row['count'], 0, '.', ' ') }}</td>
-                                                    <td class="px-3 py-2 border-b text-right">{{ number_format((float) $row['sum'], 2, '.', ' ') }}</td>
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['sum']) }}</td>
+                                                    @if($isAdmin)
+                                                        <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_sum']) }}</td>
+                                                        <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['profit_sum']) }}</td>
+                                                        <td class="px-3 py-2 border-b text-right">{{ $formatPercent($row['margin_percent']) }}</td>
+                                                    @endif
                                                 </tr>
                                             @empty
-                                                <tr><td colspan="3" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
+                                                <tr><td colspan="{{ $isAdmin ? 6 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
                                             @endforelse
                                         </tbody>
                                     </table>
@@ -519,16 +625,18 @@
                                 <div class="dashboard-help-tooltip"></div>
                             </div>
 
-                            <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує менеджерів з найбільшим обсягом оформлених заявок за обраний період.">
-                                <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">Топ менеджерів</div>
+                            <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує менеджерів, чиї заявки дали найбільший валовий прибуток за обраний період.">
+                                <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">Топ менеджерів за прибутком</div>
                                 <div class="overflow-x-auto">
                                     <table class="min-w-full text-sm">
                                         <thead style="background-color: #FCEEDF;">
                                             <tr>
                                                 <th class="px-3 py-2 text-left border-b">Користувач</th>
                                                 <th class="px-3 py-2 text-right border-b">К-сть</th>
-                                                <th class="px-3 py-2 text-right border-b">Сума</th>
-                                                <th class="px-3 py-2 text-right border-b">Кориг.</th>
+                                                <th class="px-3 py-2 text-right border-b">Вартість</th>
+                                                <th class="px-3 py-2 text-right border-b">Собівартість</th>
+                                                <th class="px-3 py-2 text-right border-b">Прибуток</th>
+                                                <th class="px-3 py-2 text-right border-b">Маржа %</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -536,17 +644,103 @@
                                                 <tr>
                                                     <td class="px-3 py-2 border-b">{{ $row['name'] ?: '—' }}</td>
                                                     <td class="px-3 py-2 border-b text-right">{{ number_format((int) $row['count'], 0, '.', ' ') }}</td>
-                                                    <td class="px-3 py-2 border-b text-right">{{ number_format((float) $row['sum'], 2, '.', ' ') }}</td>
-                                                    <td class="px-3 py-2 border-b text-right">{{ number_format((int) $row['corrections'], 0, '.', ' ') }}</td>
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['sum']) }}</td>
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_sum']) }}</td>
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['profit_sum']) }}</td>
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatPercent($row['margin_percent']) }}</td>
                                                 </tr>
                                             @empty
-                                                <tr><td colspan="4" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
+                                                <tr><td colspan="6" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
                                             @endforelse
                                         </tbody>
                                     </table>
                                 </div>
                                 <div class="dashboard-help-tooltip"></div>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-two-grid">
+                        <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує заявки з найбільшим валовим прибутком у поточній вибірці.">
+                            <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">{{ $topProposalsTableTitle }}</div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full text-sm">
+                                    <thead style="background-color: #FCEEDF;">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left border-b">Заявка</th>
+                                            <th class="px-3 py-2 text-left border-b">Замовник</th>
+                                            <th class="px-3 py-2 text-right border-b">Вартість</th>
+                                            @if($isAdmin)
+                                                <th class="px-3 py-2 text-right border-b">Собівартість</th>
+                                                <th class="px-3 py-2 text-right border-b">Прибуток</th>
+                                            @endif
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($topProfitableProposals as $row)
+                                            <tr>
+                                                <td class="px-3 py-2 border-b">
+                                                    @if($canOpenProposal)
+                                                        <a href="{{ route('orders.proposals.show', $row['proposal_id']) }}" class="text-blue-700 hover:underline">
+                                                            {{ $row['proposal_number'] }}
+                                                        </a>
+                                                    @else
+                                                        {{ $row['proposal_number'] }}
+                                                    @endif
+                                                </td>
+                                                <td class="px-3 py-2 border-b">{{ $row['client_name'] }}</td>
+                                                <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['total_cost']) }}</td>
+                                                @if($isAdmin)
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_cost']) }}</td>
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['gross_profit']) }}</td>
+                                                @endif
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="{{ $isAdmin ? 5 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="dashboard-help-tooltip"></div>
+                        </div>
+
+                        <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує збиткові заявки, де собівартість перевищує вартість.">
+                            <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">Збиткові заявки</div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full text-sm">
+                                    <thead style="background-color: #FCEEDF;">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left border-b">Заявка</th>
+                                            <th class="px-3 py-2 text-left border-b">Замовник</th>
+                                            <th class="px-3 py-2 text-right border-b">Вартість</th>
+                                            <th class="px-3 py-2 text-right border-b">Собівартість</th>
+                                            <th class="px-3 py-2 text-right border-b">Прибуток</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($topLossProposals as $row)
+                                            <tr>
+                                                <td class="px-3 py-2 border-b">
+                                                    @if($canOpenProposal)
+                                                        <a href="{{ route('orders.proposals.show', $row['proposal_id']) }}" class="text-blue-700 hover:underline">
+                                                            {{ $row['proposal_number'] }}
+                                                        </a>
+                                                    @else
+                                                        {{ $row['proposal_number'] }}
+                                                    @endif
+                                                </td>
+                                                <td class="px-3 py-2 border-b">{{ $row['client_name'] }}</td>
+                                                <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['total_cost']) }}</td>
+                                                <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_cost']) }}</td>
+                                                <td class="px-3 py-2 border-b text-right text-red-600">{{ $formatMoney($row['gross_profit']) }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="5" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="dashboard-help-tooltip"></div>
                         </div>
                     </div>
                 </section>
@@ -588,6 +782,7 @@
             const clientCheckboxes = clientDropdown ? clientDropdown.querySelectorAll('input[type="checkbox"][name="client_id[]"]') : [];
             const chartConfigs = {
                 orders: {
+                    canvas: 'chartOrders',
                     title: 'Динаміка: кількість заявок',
                     unit: 'кількість',
                     tooltipUnit: 'заявок',
@@ -595,18 +790,44 @@
                     data: Array.isArray(series.orders) ? series.orders : [],
                 },
                 revenue: {
+                    canvas: 'chartRevenue',
                     title: 'Динаміка: сума заявок (грн)',
                     unit: 'грн',
                     tooltipUnit: 'грн',
                     color: '#059669',
                     data: Array.isArray(series.revenue) ? series.revenue : [],
                 },
+                purchase: {
+                    canvas: 'chartPurchase',
+                    title: 'Динаміка: собівартість (грн)',
+                    unit: 'грн',
+                    tooltipUnit: 'грн',
+                    color: '#EA580C',
+                    data: Array.isArray(series.purchase) ? series.purchase : [],
+                },
+                profit: {
+                    canvas: 'chartProfit',
+                    title: 'Динаміка: валовий прибуток (грн)',
+                    unit: 'грн',
+                    tooltipUnit: 'грн',
+                    color: '#DC2626',
+                    data: Array.isArray(series.profit) ? series.profit : [],
+                },
                 avg: {
+                    canvas: 'chartAvg',
                     title: 'Динаміка: середній чек (грн)',
                     unit: 'грн',
                     tooltipUnit: 'грн',
                     color: '#7C3AED',
                     data: Array.isArray(series.avg) ? series.avg : [],
+                },
+                margin: {
+                    canvas: 'chartMargin',
+                    title: 'Динаміка: маржинальність (%)',
+                    unit: '%',
+                    tooltipUnit: '%',
+                    color: '#0F766E',
+                    data: Array.isArray(series.margin) ? series.margin : [],
                 },
             };
             const labels = Array.isArray(series.labels) ? series.labels : [];
@@ -673,6 +894,9 @@
                 const numeric = Number(value || 0);
                 if (unit === 'грн') {
                     return `${numeric.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн`;
+                }
+                if (unit === '%') {
+                    return `${numeric.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %`;
                 }
                 return `${numeric.toLocaleString('uk-UA')} ${unit}`;
             }
@@ -805,9 +1029,9 @@
                 return { points, draw };
             }
 
-            drawLineChart('chartOrders', chartConfigs.orders.data, chartConfigs.orders.color);
-            drawLineChart('chartRevenue', chartConfigs.revenue.data, chartConfigs.revenue.color);
-            drawLineChart('chartAvg', chartConfigs.avg.data, chartConfigs.avg.color);
+            Object.values(chartConfigs).forEach((config) => {
+                drawLineChart(config.canvas, config.data, config.color);
+            });
 
             const helpTargets = document.querySelectorAll('.dashboard-help-target');
             helpTargets.forEach((target) => {

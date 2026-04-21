@@ -46,12 +46,12 @@ class OrderController extends Controller
             ->where('is_active', true)
             ->where('visible', true)
             ->where('model_type', 'Матеріал')
-            ->get(['internal_code', 'name', 'category', 'material_type', 'thickness_mm', 'service_price']);
+            ->get(['internal_code', 'name', 'category', 'material_type', 'thickness_mm', 'service_price', 'purchase_price']);
         $rollingServiceItem = PriceItem::query()
             ->where('is_active', true)
             ->where('visible', true)
             ->where('internal_code', 'SERV-003')
-            ->first(['internal_code', 'name', 'service_price']);
+            ->first(['internal_code', 'name', 'service_price', 'purchase_price']);
 
         $materials = $materialItems
             ->pluck('name')
@@ -168,6 +168,20 @@ class OrderController extends Controller
             ->filter(fn ($price, $material) => $material !== '')
             ->toArray();
 
+        $materialPurchasePriceByMaterial = $materialItems
+            ->groupBy(fn (PriceItem $item) => trim((string) $item->name))
+            ->map(function ($items) {
+                $price = $items
+                    ->pluck('purchase_price')
+                    ->filter(fn ($value) => $value !== null && $value !== '')
+                    ->map(fn ($value) => round((float) $value, 2))
+                    ->first();
+
+                return $price ?? 0.0;
+            })
+            ->filter(fn ($price, $material) => $material !== '')
+            ->toArray();
+
         $materialCodeByMaterial = $materialItems
             ->groupBy(fn (PriceItem $item) => trim((string) $item->name))
             ->map(function ($items) {
@@ -188,10 +202,11 @@ class OrderController extends Controller
                 }
                 $materialCodeByMaterial[$rollingServiceName] = 'SERV-003';
                 $materialPriceByMaterial[$rollingServiceName] = round((float) ($rollingServiceItem->service_price ?? 0), 2);
+                $materialPurchasePriceByMaterial[$rollingServiceName] = round((float) ($rollingServiceItem->purchase_price ?? 0), 2);
             }
         }
 
-        $servicePriceByCode = PriceItem::query()
+        $serviceItems = PriceItem::query()
             ->where('is_active', true)
             ->where('visible', true)
             ->whereIn('internal_code', [
@@ -216,7 +231,15 @@ class OrderController extends Controller
                 'SERV-019',
                 'SERV-014',
             ])
+            ->get(['internal_code', 'service_price', 'purchase_price']);
+
+        $servicePriceByCode = $serviceItems
             ->pluck('service_price', 'internal_code')
+            ->map(fn ($value) => round((float) ($value ?? 0), 2))
+            ->toArray();
+
+        $servicePurchasePriceByCode = $serviceItems
+            ->pluck('purchase_price', 'internal_code')
             ->map(fn ($value) => round((float) ($value ?? 0), 2))
             ->toArray();
 
@@ -241,8 +264,10 @@ class OrderController extends Controller
             'materialCategoryByMaterial' => $materialCategoryByMaterial,
             'materialCategoriesByMaterial' => $materialCategoriesByMaterial,
             'materialPriceByMaterial' => $materialPriceByMaterial,
+            'materialPurchasePriceByMaterial' => $materialPurchasePriceByMaterial,
             'materialCodeByMaterial' => $materialCodeByMaterial,
             'servicePriceByCode' => $servicePriceByCode,
+            'servicePurchasePriceByCode' => $servicePurchasePriceByCode,
             'typeCategoryMatrix' => $typeCategoryMatrix,
             'proposalId' => $proposal?->id,
             'initialState' => $proposal?->payload,

@@ -1,5 +1,8 @@
 <x-app-layout>
     @section('title', __('Прорахунок замовлення'))
+    @php
+        $showPurchaseFields = auth()->user()?->hasRole('admin');
+    @endphp
     <style>
         @keyframes minHintBlink {
             0%, 100% { opacity: 1; }
@@ -38,8 +41,10 @@
                     materialCategoryByMaterial: @js($materialCategoryByMaterial),
                     materialCategoriesByMaterial: @js($materialCategoriesByMaterial),
                     materialPriceByMaterial: @js($materialPriceByMaterial),
+                    materialPurchasePriceByMaterial: @js($materialPurchasePriceByMaterial),
                     materialCodeByMaterial: @js($materialCodeByMaterial),
                     servicePriceByCode: @js($servicePriceByCode),
+                    servicePurchasePriceByCode: @js($servicePurchasePriceByCode),
                     typeCategoryMatrix: @js($typeCategoryMatrix),
                     proposalId: @js($proposalId ?? null),
                     initialState: @js($initialState ?? null),
@@ -212,6 +217,11 @@
                                             <input :disabled="!product.material" x-model="position.qty" @focus="clearDefaultZero($event, 'integer')" @blur="restoreDefaultOnBlur(position, 'qty', '0', $event)" @input="sanitizeIntegerInObject(position, 'qty', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500" />
                                         </div>
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            @if($showPurchaseFields)
+                                                <span class="text-sm text-gray-700">Собівартість:</span>
+                                                <input type="text" :value="getPositionPurchaseCostDisplay(product, position)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700" title="Собівартість">
+                                                <span class="text-sm text-gray-700">Вартість:</span>
+                                            @endif
                                             <input type="text" :value="formatMoney(getPositionCost(product, position))" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
@@ -286,6 +296,11 @@
                                         <div class="text-sm text-gray-700">Кількість(шт)</div>
                                         <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            @if($showPurchaseFields)
+                                                <span class="text-sm text-gray-700">Собівартість:</span>
+                                                <input type="text" :value="getLaminationPurchaseCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700" title="Собівартість">
+                                                <span class="text-sm text-gray-700">Вартість:</span>
+                                            @endif
                                             <input type="text" :value="getLaminationCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
@@ -378,6 +393,11 @@
                                             >
                                                 Виставлена мінімальна ціна для порізки
                                             </span>
+                                            @if($showPurchaseFields)
+                                                <span class="text-sm text-gray-700">Собівартість:</span>
+                                                <input type="text" :value="getCuttingPurchaseCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700" title="Собівартість">
+                                                <span class="text-sm text-gray-700">Вартість:</span>
+                                            @endif
                                             <input type="text" :value="getCuttingCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
@@ -413,6 +433,11 @@
                                         <div class="text-sm text-gray-700">Кількість(шт)</div>
                                         <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            @if($showPurchaseFields)
+                                                <span class="text-sm text-gray-700">Собівартість:</span>
+                                                <input x-model="product.services.weedingPurchaseCost" @focus="clearDefaultZero($event, 'integer')" @blur="restoreDefaultOnBlur(product.services, 'weedingPurchaseCost', '0', $event)" @input="sanitizeIntegerInObject(product.services, 'weedingPurchaseCost', $event)" type="text" inputmode="numeric" class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-gray-700" title="Собівартість">
+                                                <span class="text-sm text-gray-700">Вартість:</span>
+                                            @endif
                                             <input type="text" :value="getWeedingCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
@@ -449,6 +474,11 @@
                                         <div class="text-sm text-gray-700">Кількість(шт)</div>
                                         <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            @if($showPurchaseFields)
+                                                <span class="text-sm text-gray-700">Собівартість:</span>
+                                                <input type="text" :value="getMontagePurchaseCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700" title="Собівартість">
+                                                <span class="text-sm text-gray-700">Вартість:</span>
+                                            @endif
                                             <input type="text" :value="getMontageCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
@@ -762,6 +792,11 @@
                                             <div class="text-sm text-gray-700">Кількість(шт)</div>
                                             <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                                @if($showPurchaseFields)
+                                                    <span class="text-sm text-gray-700">Собівартість:</span>
+                                                    <input type="text" :value="getRollingPurchaseCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700" title="Собівартість">
+                                                    <span class="text-sm text-gray-700">Вартість:</span>
+                                                @endif
                                                 <input type="text" :value="getRollingCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                                 <span class="text-sm text-gray-700">грн</span>
                                             </div>
@@ -785,6 +820,11 @@
                                         />
                                         <div class="text-sm text-gray-700" x-text="product.services.eyeletsMode === 'Штуки' ? '(штук)' : '(см)'"></div>
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            @if($showPurchaseFields)
+                                                <span class="text-sm text-gray-700">Собівартість:</span>
+                                                <input type="text" :value="getEyeletsPurchaseCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700" title="Собівартість">
+                                                <span class="text-sm text-gray-700">Вартість:</span>
+                                            @endif
                                             <input type="text" :value="getEyeletsCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
@@ -802,6 +842,11 @@
                                             class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
                                         />
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            @if($showPurchaseFields)
+                                                <span class="text-sm text-gray-700">Собівартість:</span>
+                                                <input type="text" :value="getSolderingPurchaseCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700" title="Собівартість">
+                                                <span class="text-sm text-gray-700">Вартість:</span>
+                                            @endif
                                             <input type="text" :value="getSolderingCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                             <span class="text-sm text-gray-700">грн</span>
                                         </div>
@@ -815,6 +860,11 @@
                                         <input x-model="product.services.designAmount" @focus="clearDefaultZero($event, 'integer')" @blur="normalizePositiveIntegerOnBlur(product.services, 'designAmount', $event)" @input="sanitizeIntegerInObject(product.services, 'designAmount', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
                                     </div>
                                     <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                        @if($showPurchaseFields)
+                                            <span class="text-sm text-gray-700">Собівартість:</span>
+                                            <input x-model="product.services.designPurchaseCost" @focus="clearDefaultZero($event, 'integer')" @blur="restoreDefaultOnBlur(product.services, 'designPurchaseCost', '0', $event)" @input="sanitizeIntegerInObject(product.services, 'designPurchaseCost', $event)" type="text" inputmode="numeric" class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-gray-700" title="Собівартість">
+                                            <span class="text-sm text-gray-700">Вартість:</span>
+                                        @endif
                                         <input type="text" :value="getDesignCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <span class="text-sm text-gray-700">грн</span>
                                     </div>
@@ -827,6 +877,11 @@
                                         <input x-model="product.services.packagingQty" @focus="clearDefaultZero($event, 'integer')" @blur="restoreDefaultOnBlur(product.services, 'packagingQty', '0', $event)" @input="sanitizeIntegerInObject(product.services, 'packagingQty', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full" />
                                     </div>
                                     <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                        @if($showPurchaseFields)
+                                            <span class="text-sm text-gray-700">Собівартість:</span>
+                                            <input x-model="product.services.packagingPurchaseCost" @focus="clearDefaultZero($event, 'integer')" @blur="restoreDefaultOnBlur(product.services, 'packagingPurchaseCost', '0', $event)" @input="sanitizeIntegerInObject(product.services, 'packagingPurchaseCost', $event)" type="text" inputmode="numeric" class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-gray-700" title="Собівартість">
+                                            <span class="text-sm text-gray-700">Вартість:</span>
+                                        @endif
                                         <input type="text" :value="getPackagingCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                         <span class="text-sm text-gray-700">грн</span>
                                     </div>
@@ -838,8 +893,10 @@
                             <div class="flex flex-wrap items-center gap-3">
                                 <div class="font-bold text-gray-800" x-text="products.length > 1 ? `Вартість виробу #${displayProductNumber(productIndex)}` : 'Вартість загальна (грн)'"></div>
                                 <input type="text" :value="getBottomTotalCostDisplay(product)" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
-                                <div class="ml-10 font-bold text-gray-800">Собівартість (грн)</div>
-                                <input type="text" value="0" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                @if($showPurchaseFields)
+                                    <div class="ml-10 font-bold text-gray-800">Собівартість (грн)</div>
+                                    <input type="text" :value="getBottomPurchaseCostDisplay(product)" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                @endif
                                 @if (auth()->user()?->role !== 'user')
                                 <button x-show="products.length === 1" type="button" @click="requestSaveProposal()" :disabled="isSaving" class="ml-auto inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
                                     <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
@@ -886,10 +943,10 @@
                             <div class="flex items-center gap-3">
                                 <div class="font-bold text-gray-800">Вартість всього замовлення (грн)</div>
                                 <input type="text" :value="getOrderTotalCostDisplay()" disabled class="w-[160px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <div class="font-bold text-gray-800">Собівартість всього замовлення (грн)</div>
-                                <input type="text" value="0" disabled class="w-[160px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                @if($showPurchaseFields)
+                                    <div class="font-bold text-gray-800">Собівартість всього замовлення (грн)</div>
+                                    <input type="text" :value="getOrderPurchaseCostDisplay()" disabled class="w-[160px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                @endif
                             </div>
                         </div>
                         @if (auth()->user()?->role !== 'user')
@@ -991,8 +1048,10 @@
                 materialCategoryByMaterial: config.materialCategoryByMaterial || {},
                 materialCategoriesByMaterial: config.materialCategoriesByMaterial || {},
                 materialPriceByMaterial: config.materialPriceByMaterial || {},
+                materialPurchasePriceByMaterial: config.materialPurchasePriceByMaterial || {},
                 materialCodeByMaterial: config.materialCodeByMaterial || {},
                 servicePriceByCode: config.servicePriceByCode || {},
+                servicePurchasePriceByCode: config.servicePurchasePriceByCode || {},
                 typeCategoryMatrix: config.typeCategoryMatrix || {},
                 proposalId: config.proposalId || null,
                 initialState: config.initialState || null,
@@ -1052,6 +1111,7 @@
                             cutting: 'Без порізки',
                             cuttingLength: '0',
                             weedingPrice: '0',
+                            weedingPurchaseCost: '0',
                             weedingPriceTouched: false,
                             montage: '0',
                             rolling: '0',
@@ -1076,7 +1136,9 @@
                             eyeletsValue: '0',
                             solderingLength: '0',
                             designAmount: '0',
+                            designPurchaseCost: '0',
                             packagingQty: '0',
+                            packagingPurchaseCost: '0',
                         },
                     };
                 },
@@ -1149,6 +1211,7 @@
                             eyeletsMode: String(item?.services?.eyeletsMode ?? baseProduct.services.eyeletsMode).trim() || baseProduct.services.eyeletsMode,
                             cuttingLength: String(item?.services?.cuttingLength ?? baseProduct.services.cuttingLength),
                             weedingPrice: String(item?.services?.weedingPrice ?? baseProduct.services.weedingPrice),
+                            weedingPurchaseCost: String(item?.services?.weedingPurchaseCost ?? baseProduct.services.weedingPurchaseCost),
                             rollingIp1Width: String(item?.services?.rollingIp1Width ?? baseProduct.services.rollingIp1Width),
                             rollingIp1Height: String(item?.services?.rollingIp1Height ?? baseProduct.services.rollingIp1Height),
                             rollingIp2Width: String(item?.services?.rollingIp2Width ?? baseProduct.services.rollingIp2Width),
@@ -1156,7 +1219,9 @@
                             eyeletsValue: String(item?.services?.eyeletsValue ?? baseProduct.services.eyeletsValue),
                             solderingLength: String(item?.services?.solderingLength ?? baseProduct.services.solderingLength),
                             designAmount: String(item?.services?.designAmount ?? baseProduct.services.designAmount),
+                            designPurchaseCost: String(item?.services?.designPurchaseCost ?? baseProduct.services.designPurchaseCost),
                             packagingQty: String(item?.services?.packagingQty ?? baseProduct.services.packagingQty),
+                            packagingPurchaseCost: String(item?.services?.packagingPurchaseCost ?? baseProduct.services.packagingPurchaseCost),
                             showRollingP1Dropdown: false,
                             showRollingP2Dropdown: false,
                             showRollingIP1Dropdown: false,
@@ -1220,6 +1285,7 @@
                                 cutting: String(product?.services?.cutting ?? ''),
                                 cuttingLength: String(product?.services?.cuttingLength ?? '0'),
                                 weedingPrice: String(product?.services?.weedingPrice ?? '0'),
+                                weedingPurchaseCost: String(product?.services?.weedingPurchaseCost ?? '0'),
                                 montage: String(product?.services?.montage ?? '0'),
                                 rolling: String(product?.services?.rolling ?? '0'),
                                 rollingIndividual: Boolean(product?.services?.rollingIndividual),
@@ -1235,7 +1301,9 @@
                                 eyeletsValue: String(product?.services?.eyeletsValue ?? '0'),
                                 solderingLength: String(product?.services?.solderingLength ?? '0'),
                                 designAmount: String(product?.services?.designAmount ?? '0'),
+                                designPurchaseCost: String(product?.services?.designPurchaseCost ?? '0'),
                                 packagingQty: String(product?.services?.packagingQty ?? '0'),
+                                packagingPurchaseCost: String(product?.services?.packagingPurchaseCost ?? '0'),
                             },
                         })),
                     };
@@ -2805,6 +2873,15 @@
                     return Number.isFinite(value) && value > 0 ? value : NaN;
                 },
 
+                getUrgencyValueByMode(pricingMode = 'retail') {
+                    if (pricingMode === 'purchase') {
+                        return 1;
+                    }
+
+                    const value = this.getUrgencyValue();
+                    return Number.isFinite(value) ? value : 1;
+                },
+
                 getMaterialPrice(material) {
                     if (!material) {
                         return NaN;
@@ -2819,10 +2896,38 @@
                     return Number.isFinite(parsed) ? parsed : NaN;
                 },
 
+                getMaterialPurchasePrice(material) {
+                    if (!material) {
+                        return 0;
+                    }
+
+                    const price = this.materialPurchasePriceByMaterial[material];
+                    const parsed = this.toNumber(price);
+                    return Number.isFinite(parsed) ? parsed : 0;
+                },
+
                 getServicePriceByCode(code) {
                     const price = this.servicePriceByCode?.[code];
                     const parsed = this.toNumber(price);
                     return Number.isFinite(parsed) ? parsed : 0;
+                },
+
+                getServicePurchasePriceByCode(code) {
+                    const price = this.servicePurchasePriceByCode?.[code];
+                    const parsed = this.toNumber(price);
+                    return Number.isFinite(parsed) ? parsed : 0;
+                },
+
+                getMaterialPriceByMode(material, pricingMode = 'retail') {
+                    return pricingMode === 'purchase'
+                        ? this.getMaterialPurchasePrice(material)
+                        : this.getMaterialPrice(material);
+                },
+
+                getServicePriceByCodeByMode(code, pricingMode = 'retail') {
+                    return pricingMode === 'purchase'
+                        ? this.getServicePurchasePriceByCode(code)
+                        : this.getServicePriceByCode(code);
                 },
 
                 getPositionAreaQty(position) {
@@ -2837,7 +2942,7 @@
                     return width * height * qty;
                 },
 
-                getLaminationCost(product) {
+                getLaminationCost(product, pricingMode = 'retail') {
                     if (!product?.services) {
                         return 0;
                     }
@@ -2866,10 +2971,9 @@
                         return 0;
                     }
 
-                    const servicePrice = this.getServicePriceByCode(serviceCode);
+                    const servicePrice = this.getServicePriceByCodeByMode(serviceCode, pricingMode);
                     const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
-                    const urgency = this.getUrgencyValue();
-                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+                    const safeUrgency = this.getUrgencyValueByMode(pricingMode);
 
                     return this.normalizeMoney(areaQty * safeServicePrice * safeUrgency);
                 },
@@ -2884,9 +2988,25 @@
                     }
                 },
 
-                getWeedingCost(product) {
+                getLaminationPurchaseCostDisplay(product) {
+                    try {
+                        const value = this.getLaminationCost(product, 'purchase');
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0' : formatted;
+                    } catch (e) {
+                        return '0';
+                    }
+                },
+
+                getWeedingCost(product, pricingMode = 'retail') {
                     if (!product?.services) {
                         return 0;
+                    }
+
+                    if (pricingMode === 'purchase') {
+                        const purchaseCost = this.toNumber(product.services.weedingPurchaseCost);
+                        const safePurchaseCost = Number.isFinite(purchaseCost) ? purchaseCost : 0;
+                        return this.normalizeMoney(safePurchaseCost);
                     }
 
                     const weedingPrice = this.toNumber(product.services.weedingPrice);
@@ -2901,8 +3021,7 @@
                     const safeHeight = Number.isFinite(height) ? height : 0;
                     const safeQty = Number.isFinite(qty) ? qty : 0;
                     const areaQty = safeWidth * safeHeight * safeQty;
-                    const urgency = this.getUrgencyValue();
-                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+                    const safeUrgency = this.getUrgencyValueByMode(pricingMode);
 
                     return this.normalizeMoney(safeWeedingPrice * areaQty * safeUrgency);
                 },
@@ -2980,7 +3099,17 @@
                     }
                 },
 
-                getMontageCost(product) {
+                getWeedingPurchaseCostDisplay(product) {
+                    try {
+                        const value = this.getWeedingCost(product, 'purchase');
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0' : formatted;
+                    } catch (e) {
+                        return '0';
+                    }
+                },
+
+                getMontageCost(product, pricingMode = 'retail') {
                     if (!product?.services || String(product.services.montage || '0') !== '1') {
                         return 0;
                     }
@@ -2992,10 +3121,9 @@
                     const safeHeight = Number.isFinite(height) ? height : 0;
                     const safeQty = Number.isFinite(qty) ? qty : 0;
                     const areaQty = safeWidth * safeHeight * safeQty;
-                    const servicePrice = this.getServicePriceByCode('SERV-005');
+                    const servicePrice = this.getServicePriceByCodeByMode('SERV-005', pricingMode);
                     const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
-                    const urgency = this.getUrgencyValue();
-                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+                    const safeUrgency = this.getUrgencyValueByMode(pricingMode);
 
                     return this.normalizeMoney(areaQty * safeServicePrice * safeUrgency);
                 },
@@ -3010,7 +3138,17 @@
                     }
                 },
 
-                getEyeletsCost(product) {
+                getMontagePurchaseCostDisplay(product) {
+                    try {
+                        const value = this.getMontageCost(product, 'purchase');
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0' : formatted;
+                    } catch (e) {
+                        return '0';
+                    }
+                },
+
+                getEyeletsCost(product, pricingMode = 'retail') {
                     if (!product?.services) {
                         return 0;
                     }
@@ -3018,9 +3156,8 @@
                     const mode = String(product.services.eyeletsMode || '').trim();
                     const inputValue = this.toNumber(product.services.eyeletsValue);
                     const safeInputValue = Number.isFinite(inputValue) ? inputValue : 0;
-                    const urgency = this.getUrgencyValue();
-                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
-                    const servicePrice = this.getServicePriceByCode('SERV-006');
+                    const safeUrgency = this.getUrgencyValueByMode(pricingMode);
+                    const servicePrice = this.getServicePriceByCodeByMode('SERV-006', pricingMode);
                     const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
                     const qty = this.toNumber(this.getFirstPositionValue(product, 'qty', '0'));
                     const safeQty = Number.isFinite(qty) ? qty : 0;
@@ -3052,17 +3189,26 @@
                     }
                 },
 
-                getSolderingCost(product) {
+                getEyeletsPurchaseCostDisplay(product) {
+                    try {
+                        const value = this.getEyeletsCost(product, 'purchase');
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0' : formatted;
+                    } catch (e) {
+                        return '0';
+                    }
+                },
+
+                getSolderingCost(product, pricingMode = 'retail') {
                     if (!product?.services) {
                         return 0;
                     }
 
                     const solderingLength = this.toNumber(product.services.solderingLength);
                     const safeSolderingLength = Number.isFinite(solderingLength) ? solderingLength : 0;
-                    const servicePrice = this.getServicePriceByCode('SERV-014');
+                    const servicePrice = this.getServicePriceByCodeByMode('SERV-014', pricingMode);
                     const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
-                    const urgency = this.getUrgencyValue();
-                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+                    const safeUrgency = this.getUrgencyValueByMode(pricingMode);
 
                     return this.normalizeMoney(safeSolderingLength * safeServicePrice * safeUrgency);
                 },
@@ -3077,15 +3223,30 @@
                     }
                 },
 
-                getDesignCost(product) {
+                getSolderingPurchaseCostDisplay(product) {
+                    try {
+                        const value = this.getSolderingCost(product, 'purchase');
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0' : formatted;
+                    } catch (e) {
+                        return '0';
+                    }
+                },
+
+                getDesignCost(product, pricingMode = 'retail') {
                     if (!product?.services) {
                         return 0;
                     }
 
+                    if (pricingMode === 'purchase') {
+                        const purchaseCost = this.toNumber(product.services.designPurchaseCost);
+                        const safePurchaseCost = Number.isFinite(purchaseCost) ? purchaseCost : 0;
+                        return this.normalizeMoney(safePurchaseCost);
+                    }
+
                     const designAmount = this.toNumber(product.services.designAmount);
                     const safeDesignAmount = Number.isFinite(designAmount) ? designAmount : 0;
-                    const urgency = this.getUrgencyValue();
-                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+                    const safeUrgency = this.getUrgencyValueByMode(pricingMode);
 
                     return this.normalizeMoney(safeDesignAmount * safeUrgency);
                 },
@@ -3100,15 +3261,30 @@
                     }
                 },
 
-                getPackagingCost(product) {
+                getDesignPurchaseCostDisplay(product) {
+                    try {
+                        const value = this.getDesignCost(product, 'purchase');
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0' : formatted;
+                    } catch (e) {
+                        return '0';
+                    }
+                },
+
+                getPackagingCost(product, pricingMode = 'retail') {
                     if (!product?.services) {
                         return 0;
                     }
 
+                    if (pricingMode === 'purchase') {
+                        const purchaseCost = this.toNumber(product.services.packagingPurchaseCost);
+                        const safePurchaseCost = Number.isFinite(purchaseCost) ? purchaseCost : 0;
+                        return this.normalizeMoney(safePurchaseCost);
+                    }
+
                     const packagingAmount = this.toNumber(product.services.packagingQty);
                     const safePackagingAmount = Number.isFinite(packagingAmount) ? packagingAmount : 0;
-                    const urgency = this.getUrgencyValue();
-                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+                    const safeUrgency = this.getUrgencyValueByMode(pricingMode);
 
                     return this.normalizeMoney(safePackagingAmount * safeUrgency);
                 },
@@ -3116,6 +3292,16 @@
                 getPackagingCostDisplay(product) {
                     try {
                         const value = this.getPackagingCost(product);
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0' : formatted;
+                    } catch (e) {
+                        return '0';
+                    }
+                },
+
+                getPackagingPurchaseCostDisplay(product) {
+                    try {
+                        const value = this.getPackagingCost(product, 'purchase');
                         const formatted = this.formatMoney(value);
                         return formatted === '' ? '0' : formatted;
                     } catch (e) {
@@ -3176,7 +3362,7 @@
                     return '';
                 },
 
-                getCuttingCost(product) {
+                getCuttingCost(product, pricingMode = 'retail') {
                     if (!product?.services) {
                         return 0;
                     }
@@ -3191,10 +3377,9 @@
                     if (safeLength <= 0) {
                         return 0;
                     }
-                    const urgency = this.getUrgencyValue();
-                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+                    const safeUrgency = this.getUrgencyValueByMode(pricingMode);
                     const serviceCode = this.resolveCuttingServiceCode(product);
-                    const servicePrice = this.getServicePriceByCode(serviceCode);
+                    const servicePrice = this.getServicePriceByCodeByMode(serviceCode, pricingMode);
                     const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
                     let rawCost = 0;
 
@@ -3228,7 +3413,7 @@
                     return 0;
                 },
 
-                getRawCuttingCost(product) {
+                getRawCuttingCost(product, pricingMode = 'retail') {
                     if (!product?.services) {
                         return 0;
                     }
@@ -3243,10 +3428,9 @@
                     if (safeLength <= 0) {
                         return 0;
                     }
-                    const urgency = this.getUrgencyValue();
-                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
+                    const safeUrgency = this.getUrgencyValueByMode(pricingMode);
                     const serviceCode = this.resolveCuttingServiceCode(product);
-                    const servicePrice = this.getServicePriceByCode(serviceCode);
+                    const servicePrice = this.getServicePriceByCodeByMode(serviceCode, pricingMode);
                     const safeServicePrice = Number.isFinite(servicePrice) ? servicePrice : 0;
 
                     if (
@@ -3303,6 +3487,21 @@
                     }
                 },
 
+                getCuttingPurchaseCostDisplay(product) {
+                    try {
+                        const cuttingLength = this.toNumber(product?.services?.cuttingLength);
+                        const safeLength = Number.isFinite(cuttingLength) ? cuttingLength : 0;
+                        if (safeLength <= 0) {
+                            return '';
+                        }
+                        const value = this.getCuttingCost(product, 'purchase');
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0' : formatted;
+                    } catch (e) {
+                        return '';
+                    }
+                },
+
                 isRollingIpDimensionInvalid(product, row, field) {
                     if (!product?.services || String(product.services.rolling || '0') !== '1' || !product.services.rollingIndividual) {
                         return false;
@@ -3328,14 +3527,13 @@
                         || this.isRollingIpDimensionInvalid(product, row, 'height');
                 },
 
-                getRollingCost(product) {
+                getRollingCost(product, pricingMode = 'retail') {
                     if (!product?.services || String(product.services.rolling || '0') !== '1') {
                         return 0;
                     }
 
-                    const urgency = this.getUrgencyValue();
-                    const safeUrgency = Number.isFinite(urgency) ? urgency : 1;
-                    const serv003 = this.getServicePriceByCode('SERV-003');
+                    const safeUrgency = this.getUrgencyValueByMode(pricingMode);
+                    const serv003 = this.getServicePriceByCodeByMode('SERV-003', pricingMode);
                     const safeServ003 = Number.isFinite(serv003) ? serv003 : 0;
                     const qty = this.toNumber(this.getFirstPositionValue(product, 'qty', '0'));
                     const safeQty = Number.isFinite(qty) ? qty : 0;
@@ -3348,14 +3546,14 @@
                         const factor = safeWidth * safeHeight * safeQty;
 
                         const hasP1 = Boolean(product.services.rollingMaterialP1);
-                        const p1Price = this.getMaterialPrice(product.services.rollingMaterialP1);
+                        const p1Price = this.getMaterialPriceByMode(product.services.rollingMaterialP1, pricingMode);
                         const safeP1Price = Number.isFinite(p1Price) ? p1Price : 0;
                         const p1Code = String(this.getMaterialCode(product.services.rollingMaterialP1) || '').trim().toUpperCase();
                         const p1UnitPrice = p1Code === 'SERV-003' ? safeServ003 : (safeP1Price + safeServ003);
                         const part1 = hasP1 ? (p1UnitPrice * factor * safeUrgency) : 0;
 
                         const hasP2 = Boolean(product.services.rollingMaterialP2);
-                        const p2Price = this.getMaterialPrice(product.services.rollingMaterialP2);
+                        const p2Price = this.getMaterialPriceByMode(product.services.rollingMaterialP2, pricingMode);
                         const safeP2Price = Number.isFinite(p2Price) ? p2Price : 0;
                         const p2Code = String(this.getMaterialCode(product.services.rollingMaterialP2) || '').trim().toUpperCase();
                         const p2UnitPrice = p2Code === 'SERV-003' ? safeServ003 : (safeP2Price + safeServ003);
@@ -3370,7 +3568,7 @@
                     const safeIp1Height = Number.isFinite(ip1Height) ? ip1Height : 0;
                     const factorIp1 = safeIp1Width * safeIp1Height * safeQty;
                     const hasIp1 = Boolean(product.services.rollingMaterialIP1);
-                    const ip1Price = this.getMaterialPrice(product.services.rollingMaterialIP1);
+                    const ip1Price = this.getMaterialPriceByMode(product.services.rollingMaterialIP1, pricingMode);
                     const safeIp1Price = Number.isFinite(ip1Price) ? ip1Price : 0;
                     const ip1Code = String(this.getMaterialCode(product.services.rollingMaterialIP1) || '').trim().toUpperCase();
                     const ip1UnitPrice = ip1Code === 'SERV-003' ? safeServ003 : (safeIp1Price + safeServ003);
@@ -3384,7 +3582,7 @@
                         const safeIp2Width = Number.isFinite(ip2Width) ? ip2Width : 0;
                         const safeIp2Height = Number.isFinite(ip2Height) ? ip2Height : 0;
                         const factorIp2 = safeIp2Width * safeIp2Height * safeQty;
-                        const ip2Price = this.getMaterialPrice(product.services.rollingMaterialIP2);
+                        const ip2Price = this.getMaterialPriceByMode(product.services.rollingMaterialIP2, pricingMode);
                         const safeIp2Price = Number.isFinite(ip2Price) ? ip2Price : 0;
                         const ip2Code = String(this.getMaterialCode(product.services.rollingMaterialIP2) || '').trim().toUpperCase();
                         const ip2UnitPrice = ip2Code === 'SERV-003' ? safeServ003 : (safeIp2Price + safeServ003);
@@ -3404,17 +3602,27 @@
                     }
                 },
 
-                getProductPositionsCost(product) {
+                getRollingPurchaseCostDisplay(product) {
+                    try {
+                        const value = this.getRollingCost(product, 'purchase');
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '0' : formatted;
+                    } catch (e) {
+                        return '0';
+                    }
+                },
+
+                getProductPositionsCost(product, pricingMode = 'retail') {
                     const positions = Array.isArray(product?.positions) ? product.positions : [];
                     const total = positions.reduce((sum, position) => {
-                        const value = this.getPositionCost(product, position);
+                        const value = this.getPositionCost(product, position, pricingMode);
                         return sum + (Number.isFinite(value) ? value : 0);
                     }, 0);
 
                     return this.normalizeMoney(total);
                 },
 
-                getProductServicesCost(product) {
+                getProductServicesCost(product, pricingMode = 'retail') {
                     if (!product?.services || String(product.servicesEnabledRaw || '0') !== '1' || !product.material) {
                         return 0;
                     }
@@ -3422,39 +3630,39 @@
                     let total = 0;
 
                     if (this.isServiceBlockVisible(product, 'lamination') && String(product.services.lamination || '') !== 'Без') {
-                        total += this.getLaminationCost(product);
+                        total += this.getLaminationCost(product, pricingMode);
                     }
 
                     if (this.isServiceBlockVisible(product, 'cutting') && String(product.services.cutting || '') !== 'Без порізки') {
-                        total += this.getCuttingCost(product);
+                        total += this.getCuttingCost(product, pricingMode);
                     }
 
                     if (this.isServiceBlockVisible(product, 'weeding')) {
-                        total += this.getWeedingCost(product);
+                        total += this.getWeedingCost(product, pricingMode);
                     }
 
                     if (this.isServiceBlockVisible(product, 'montage') && String(product.services.montage || '0') === '1') {
-                        total += this.getMontageCost(product);
+                        total += this.getMontageCost(product, pricingMode);
                     }
 
                     if (this.isServiceBlockVisible(product, 'rolling') && String(product.services.rolling || '0') === '1') {
-                        total += this.getRollingCost(product);
+                        total += this.getRollingCost(product, pricingMode);
                     }
 
                     if (this.isServiceBlockVisible(product, 'eyelets_soldering')) {
-                        total += this.getEyeletsCost(product);
-                        total += this.getSolderingCost(product);
+                        total += this.getEyeletsCost(product, pricingMode);
+                        total += this.getSolderingCost(product, pricingMode);
                     }
 
-                    total += this.getDesignCost(product);
-                    total += this.getPackagingCost(product);
+                    total += this.getDesignCost(product, pricingMode);
+                    total += this.getPackagingCost(product, pricingMode);
 
                     return this.normalizeMoney(total);
                 },
 
-                getProductTotalCost(product) {
-                    const positionsCost = this.getProductPositionsCost(product);
-                    const servicesCost = this.getProductServicesCost(product);
+                getProductTotalCost(product, pricingMode = 'retail') {
+                    const positionsCost = this.getProductPositionsCost(product, pricingMode);
+                    const servicesCost = this.getProductServicesCost(product, pricingMode);
                     return this.normalizeMoney(positionsCost + servicesCost);
                 },
 
@@ -3513,9 +3721,9 @@
                     return this.getProductTotalCostDisplay(product);
                 },
 
-                getOrderTotalCost() {
+                getOrderTotalCost(pricingMode = 'retail') {
                     const products = Array.isArray(this.products) ? this.products : [];
-                    const total = products.reduce((sum, product) => sum + this.getProductTotalCost(product), 0);
+                    const total = products.reduce((sum, product) => sum + this.getProductTotalCost(product, pricingMode), 0);
                     return this.normalizeMoney(total);
                 },
 
@@ -3551,6 +3759,40 @@
                     }
 
                     const formatted = this.formatMoney(this.getOrderTotalCostForSave());
+                    return formatted === '' ? '0' : formatted;
+                },
+
+                getProductPurchaseCost(product) {
+                    return this.getProductTotalCost(product, 'purchase');
+                },
+
+                getProductPurchaseCostDisplay(product) {
+                    if (Array.isArray(this.products) && this.products.length === 1 && this.hasAnyWarnings()) {
+                        return '';
+                    }
+
+                    const formatted = this.formatMoney(this.getProductPurchaseCost(product));
+                    return formatted === '' ? '0' : formatted;
+                },
+
+                getBottomPurchaseCostDisplay(product) {
+                    if (Array.isArray(this.products) && this.products.length === 1) {
+                        return this.getOrderPurchaseCostDisplay();
+                    }
+
+                    return this.getProductPurchaseCostDisplay(product);
+                },
+
+                getOrderPurchaseCost() {
+                    return this.getOrderTotalCost('purchase');
+                },
+
+                getOrderPurchaseCostDisplay() {
+                    if (Array.isArray(this.products) && this.products.length === 1 && this.hasAnyWarnings()) {
+                        return '';
+                    }
+
+                    const formatted = this.formatMoney(this.getOrderPurchaseCost());
                     return formatted === '' ? '0' : formatted;
                 },
 
@@ -3682,6 +3924,7 @@
                             name: 'Ламінування',
                             description: `Режим: ${product.services.lamination}; Ширина(м): ${this.getFirstPositionValue(product, 'width', '0')}; Висота(м): ${this.getFirstPositionValue(product, 'height', '0')}; Кількість(шт): ${this.getFirstPositionValue(product, 'qty', '0')}`,
                             cost: this.getLaminationCost(product),
+                            purchase_cost: this.getLaminationCost(product, 'purchase'),
                         });
                     }
 
@@ -3691,6 +3934,7 @@
                             name: 'Порізка',
                             description: `Режим: ${product.services.cutting}; Довжина порізки(м.п.): ${product.services.cuttingLength}; Товщина: ${this.getCuttingThicknessValue(product)}`,
                             cost: this.getCuttingCost(product),
+                            purchase_cost: this.getCuttingCost(product, 'purchase'),
                         });
                     }
 
@@ -3700,6 +3944,7 @@
                             name: 'Вибірка (складність)',
                             description: `Ціна (грн/м.кв.): ${product.services.weedingPrice}; Ширина(м): ${this.getFirstPositionValue(product, 'width', '0')}; Висота(м): ${this.getFirstPositionValue(product, 'height', '0')}; Кількість(шт): ${this.getFirstPositionValue(product, 'qty', '0')}`,
                             cost: this.getWeedingCost(product),
+                            purchase_cost: this.getWeedingCost(product, 'purchase'),
                         });
                     }
 
@@ -3709,6 +3954,7 @@
                             name: 'Монтажка',
                             description: `Ширина(м): ${this.getFirstPositionValue(product, 'width', '0')}; Висота(м): ${this.getFirstPositionValue(product, 'height', '0')}; Кількість(шт): ${this.getFirstPositionValue(product, 'qty', '0')}`,
                             cost: this.getMontageCost(product),
+                            purchase_cost: this.getMontageCost(product, 'purchase'),
                         });
                     }
 
@@ -3745,6 +3991,7 @@
                             rolling_meta: meta,
                             description,
                             cost: this.getRollingCost(product),
+                            purchase_cost: this.getRollingCost(product, 'purchase'),
                         });
                     }
 
@@ -3754,12 +4001,14 @@
                             name: 'Люверси',
                             description: `Режим: ${product.services.eyeletsMode}; Значення: ${product.services.eyeletsValue}`,
                             cost: this.getEyeletsCost(product),
+                            purchase_cost: this.getEyeletsCost(product, 'purchase'),
                         });
                         rows.push({
                             key: 'soldering',
                             name: 'Пропайка',
                             description: `Довжина порізки (м.п.): ${product.services.solderingLength}`,
                             cost: this.getSolderingCost(product),
+                            purchase_cost: this.getSolderingCost(product, 'purchase'),
                         });
                     }
 
@@ -3770,6 +4019,7 @@
                             name: 'Дизайн',
                             description: `Сума (грн): ${product.services.designAmount}`,
                             cost: designCost,
+                            purchase_cost: this.getDesignCost(product, 'purchase'),
                         });
                     }
 
@@ -3780,6 +4030,7 @@
                             name: 'Пакування',
                             description: `Сума (грн): ${product.services.packagingQty}`,
                             cost: packagingCost,
+                            purchase_cost: this.getPackagingCost(product, 'purchase'),
                         });
                     }
 
@@ -3795,16 +4046,17 @@
                         && this.products.length === 1
                         && this.isProductTypeSelected(this.products[0])
                         && this.isMinimumOrderTotalRequired();
-                    const products = (Array.isArray(this.products) ? this.products : []).map((product, index) => {
-                        const positions = (Array.isArray(product.positions) ? product.positions : []).map((position, posIndex) => ({
-                            index: posIndex + 1,
-                            width: String(position.width ?? '0'),
-                            height: String(position.height ?? '0'),
-                            qty: String(position.qty ?? '0'),
-                            cmyk: String(position.cmyk ?? '0'),
-                            white: String(position.white ?? '0'),
-                            cost: this.getPositionCost(product, position),
-                        }));
+                        const products = (Array.isArray(this.products) ? this.products : []).map((product, index) => {
+                            const positions = (Array.isArray(product.positions) ? product.positions : []).map((position, posIndex) => ({
+                                index: posIndex + 1,
+                                width: String(position.width ?? '0'),
+                                height: String(position.height ?? '0'),
+                                qty: String(position.qty ?? '0'),
+                                cmyk: String(position.cmyk ?? '0'),
+                                white: String(position.white ?? '0'),
+                                cost: this.getPositionCost(product, position),
+                                purchase_cost: this.getPositionCost(product, position, 'purchase'),
+                            }));
 
                         return {
                             index: this.displayProductNumber(index),
@@ -3822,8 +4074,11 @@
                             services: { ...(product.services || {}) },
                             service_rows: this.serializeServiceRows(product),
                             positions_cost: this.getProductPositionsCost(product),
+                            positions_purchase_cost: this.getProductPositionsCost(product, 'purchase'),
                             services_cost: this.getProductServicesCost(product),
+                            services_purchase_cost: this.getProductServicesCost(product, 'purchase'),
                             total_cost: this.getProductTotalCostForSave(product),
+                            calculated_purchase_cost: this.getProductPurchaseCost(product),
                         };
                     });
 
@@ -3838,6 +4093,8 @@
                             order_total: this.getOrderTotalCostForSave(),
                             order_total_display: this.getOrderTotalCostDisplay(),
                             order_total_before_minimum: this.getOrderTotalCost(),
+                            calculated_purchase_cost: this.getOrderPurchaseCost(),
+                            calculated_purchase_cost_display: this.getOrderPurchaseCostDisplay(),
                             minimum_order_applied: minimumOrderApplied,
                             minimum_products_applied: minimumProductsApplied,
                             minimum_products_numbers: minimumProductNumbers,
@@ -3898,13 +4155,21 @@
                     return this.getMaterialPrice(product.material);
                 },
 
-                getPositionCost(product, position) {
+                resolveMaterialPriceForProductByMode(product, pricingMode = 'retail') {
+                    if (this.isCustomerMaterial(product.material) || this.isCustomerRollMaterial(product.material)) {
+                        return 0;
+                    }
+
+                    return this.getMaterialPriceByMode(product.material, pricingMode);
+                },
+
+                getPositionCost(product, position, pricingMode = 'retail') {
                     if (!product?.productTypeId || !product?.material) {
                         return NaN;
                     }
 
                     const areaQty = this.getPositionAreaQty(position);
-                    const urgency = this.getUrgencyValue();
+                    const urgency = this.getUrgencyValueByMode(pricingMode);
                     if (!Number.isFinite(areaQty) || !Number.isFinite(urgency)) {
                         return NaN;
                     }
@@ -3926,16 +4191,16 @@
                             return NaN;
                         }
 
-                        const uvPrintLayerPrice = this.getServicePriceByCode('SERV-011');
-                        const materialPrice = this.resolveMaterialPriceForProduct(product);
+                        const uvPrintLayerPrice = this.getServicePriceByCodeByMode('SERV-011', pricingMode);
+                        const materialPrice = this.resolveMaterialPriceForProductByMode(product, pricingMode);
                         if (!Number.isFinite(materialPrice)) {
                             return NaN;
                         }
 
                         baseUnitPrice = ((cmyk + white) * uvPrintLayerPrice) + materialPrice;
                     } else if (isSolvent) {
-                        const solventServicePrice = this.getServicePriceByCode('SERV-012');
-                        let materialPrice = this.getMaterialPrice(product.material);
+                        const solventServicePrice = this.getServicePriceByCodeByMode('SERV-012', pricingMode);
+                        let materialPrice = this.getMaterialPriceByMode(product.material, pricingMode);
                         if (this.isCustomerRollMaterial(product.material)) {
                             materialPrice = 0;
                         }
@@ -3947,14 +4212,14 @@
                         const isFilmWithIncludedSolvent = materialCode === 'MAT-FLM-010' || materialCode === 'MAT-FLM-011';
                         baseUnitPrice = isFilmWithIncludedSolvent ? materialPrice : (solventServicePrice + materialPrice);
                     } else if (isCutOnly) {
-                        const materialPrice = this.resolveMaterialPriceForProduct(product);
+                        const materialPrice = this.resolveMaterialPriceForProductByMode(product, pricingMode);
                         if (!Number.isFinite(materialPrice)) {
                             return NaN;
                         }
 
                         baseUnitPrice = materialPrice;
                     } else if (isPureMaterial) {
-                        const materialPrice = this.getMaterialPrice(product.material);
+                        const materialPrice = this.getMaterialPriceByMode(product.material, pricingMode);
                         if (!Number.isFinite(materialPrice)) {
                             return NaN;
                         }
@@ -3966,8 +4231,17 @@
 
                     return this.normalizeMoney(baseUnitPrice * areaQty * urgency);
                 },
+
+                getPositionPurchaseCostDisplay(product, position) {
+                    try {
+                        const value = this.getPositionCost(product, position, 'purchase');
+                        const formatted = this.formatMoney(value);
+                        return formatted === '' ? '' : formatted;
+                    } catch (e) {
+                        return '';
+                    }
+                },
             };
         }
     </script>
 </x-app-layout>
-
