@@ -3396,6 +3396,10 @@
                         rawCost = this.normalizeMoney(safeLength * safeServicePrice * safeUrgency);
                     }
 
+                    if (pricingMode === 'purchase') {
+                        return this.normalizeMoney(rawCost);
+                    }
+
                     const minimumCost = this.getCuttingMinimumByMode(cuttingMode);
                     return this.normalizeMoney(Math.max(rawCost, minimumCost));
                 },
