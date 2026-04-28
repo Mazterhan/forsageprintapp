@@ -1,6 +1,12 @@
 <x-app-layout>
     @section('title', __('Збережені заявки'))
     <x-slot name="header">
+        @php
+            $perPageHeaderSelectedRaw = strtolower((string) request()->query('per_page', '20'));
+            $perPageHeaderSelected = in_array($perPageHeaderSelectedRaw, ['20', '50', '100', 'all'], true)
+                ? $perPageHeaderSelectedRaw
+                : '20';
+        @endphp
         <div x-data="{}" class="flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ __('Збережені заявки') }}</h2>
@@ -13,6 +19,19 @@
                 >
                     Керування списком заявок
                 </button>
+                <div class="flex items-center gap-2">
+                    <label for="proposals-per-page" class="text-sm text-gray-700 whitespace-nowrap">Кількість заявок на сторінці</label>
+                    <select
+                        id="proposals-per-page"
+                        class="border-gray-300 rounded-md text-sm shadow-sm"
+                        onchange="window.refreshProposalsPerPage && window.refreshProposalsPerPage(this.value)"
+                    >
+                        <option value="20" @selected($perPageHeaderSelected === '20')>20</option>
+                        <option value="50" @selected($perPageHeaderSelected === '50')>50</option>
+                        <option value="100" @selected($perPageHeaderSelected === '100')>100</option>
+                        <option value="all" @selected($perPageHeaderSelected === 'all')>Всі</option>
+                    </select>
+                </div>
             </div>
             <a href="{{ route('orders.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
                 {{ __('Повернутись до замовлень') }}
@@ -180,7 +199,7 @@
                                     <th class="px-4 py-3 border-b text-right text-[14px]">Вартість</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="proposals-table-body">
                                 @forelse($proposals as $proposal)
                                     <tr class="proposal-row {{ $loop->odd ? 'row-alt' : 'row-base' }}" tabindex="0">
                                         @if($canManageProposals)
@@ -214,7 +233,7 @@
                         </table>
                     </div>
 
-                    <div class="mt-4">{{ $proposals->links() }}</div>
+                    <div id="proposals-pagination" class="mt-4">{{ $proposals->links() }}</div>
                 </div>
             </div>
         </div>
@@ -293,9 +312,11 @@
         </div>
     @endif
 
+    <script id="proposal-rows-json" type="application/json">@json($proposalRowsForManage, JSON_UNESCAPED_UNICODE)</script>
     <script>
         document.addEventListener('alpine:init', () => {
-            const proposals = @json($proposalRowsForManage, JSON_UNESCAPED_UNICODE);
+            const proposalRowsElement = document.getElementById('proposal-rows-json');
+            const proposals = proposalRowsElement ? JSON.parse(proposalRowsElement.textContent || '[]') : [];
             const canManage = @json($canManageProposals);
 
             Alpine.store('proposalManage', {
@@ -373,7 +394,7 @@
             });
         });
 
-        (function () {
+        function bindProposalRowSelection() {
             const rows = Array.from(document.querySelectorAll('.proposal-row'));
             rows.forEach((row) => {
                 row.addEventListener('click', () => {
@@ -381,6 +402,80 @@
                     row.classList.add('is-active');
                 });
             });
-        })();
+        }
+
+        bindProposalRowSelection();
+
+        window.refreshProposalsPerPage = async function refreshProposalsPerPage(value) {
+            const select = document.getElementById('proposals-per-page');
+            if (!select) {
+                return;
+            }
+
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', value);
+            url.searchParams.delete('page');
+
+            select.disabled = true;
+
+            try {
+                const response = await fetch(url.toString(), {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+                if (!response.ok) {
+                    window.location.href = url.toString();
+                    return;
+                }
+
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                const nextBody = doc.getElementById('proposals-table-body');
+                const nextPagination = doc.getElementById('proposals-pagination');
+                const nextProposalRowsJson = doc.getElementById('proposal-rows-json');
+                const currentBody = document.getElementById('proposals-table-body');
+                const currentPagination = document.getElementById('proposals-pagination');
+
+                if (!nextBody || !currentBody || !nextPagination || !currentPagination) {
+                    window.location.href = url.toString();
+                    return;
+                }
+
+                currentBody.innerHTML = nextBody.innerHTML;
+                currentPagination.innerHTML = nextPagination.innerHTML;
+
+                if (nextProposalRowsJson && window.Alpine && Alpine.store('proposalManage')) {
+                    const nextRows = JSON.parse(nextProposalRowsJson.textContent || '[]');
+                    const proposalManage = Alpine.store('proposalManage');
+                    proposalManage.proposals = Array.isArray(nextRows) ? nextRows : [];
+
+                    const availableIds = new Set(proposalManage.proposals.map((row) => Number(row.id)));
+                    const nextSelected = {};
+                    for (const id of proposalManage.selectedIds) {
+                        if (availableIds.has(Number(id))) {
+                            nextSelected[Number(id)] = true;
+                        }
+                    }
+                    proposalManage.selected = nextSelected;
+                }
+
+                if (window.Alpine && typeof Alpine.initTree === 'function') {
+                    Alpine.initTree(currentBody);
+                    Alpine.initTree(currentPagination);
+                }
+
+                bindProposalRowSelection();
+                history.replaceState({}, '', url.toString());
+            } catch (error) {
+                window.location.href = url.toString();
+            } finally {
+                select.disabled = false;
+            }
+        };
     </script>
 </x-app-layout>

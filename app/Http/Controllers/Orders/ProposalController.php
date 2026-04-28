@@ -18,6 +18,9 @@ class ProposalController extends Controller
     {
         $sort = (string) $request->query('sort', 'date');
         $direction = strtolower((string) $request->query('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $perPageRaw = strtolower((string) $request->query('per_page', '20'));
+        $allowedPerPage = ['20', '50', '100', 'all'];
+        $perPageRaw = in_array($perPageRaw, $allowedPerPage, true) ? $perPageRaw : '20';
 
         $sortMap = [
             'number' => 'proposal_number',
@@ -40,14 +43,20 @@ class ProposalController extends Controller
             $query->orderByRaw('CASE WHEN order_proposals.corrections_count > 0 THEN order_proposals.updated_at ELSE order_proposals.created_at END DESC');
         }
 
-        $proposals = $query
-            ->paginate(30)
-            ->withQueryString();
+        $perPage = match ($perPageRaw) {
+            '50' => 50,
+            '100' => 100,
+            'all' => max(1, (clone $query)->count()),
+            default => 20,
+        };
+
+        $proposals = $query->paginate($perPage)->withQueryString();
 
         return view('orders.proposals.index', [
             'proposals' => $proposals,
             'sort' => $sort,
             'direction' => $direction,
+            'perPageRaw' => $perPageRaw,
         ]);
     }
 
