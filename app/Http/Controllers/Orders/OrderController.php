@@ -9,16 +9,23 @@ use App\Models\PriceItem;
 use App\Models\ProductCategory;
 use App\Models\ProductTypeCategoryRule;
 use App\Models\ProductType;
+use App\Services\PermissionService;
 use Illuminate\Http\Request;
 
 class OrderController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, PermissionService $permissions)
     {
-        return view('orders.index');
+        return view('orders.index', [
+            'ordersPermissions' => [
+                'calculation' => $permissions->can($request->user(), 'orders_calculation'),
+                'proposals' => $permissions->can($request->user(), 'orders_proposals'),
+                'clients' => $permissions->can($request->user(), 'orders_clients_manage'),
+            ],
+        ]);
     }
 
-    public function calculation(Request $request)
+    public function calculation(Request $request, PermissionService $permissions)
     {
         $proposalId = $request->query('proposal');
         $proposal = null;
@@ -29,6 +36,14 @@ class OrderController extends Controller
 
             if (!$proposal) {
                 abort(404);
+            }
+
+            if (!$permissions->can($request->user(), 'orders_edit')) {
+                abort(403);
+            }
+
+            if ($permissions->ordersListScope($request->user()) === 'own' && (int) $proposal->user_id !== (int) $request->user()?->id) {
+                abort(403);
             }
         }
 
@@ -271,6 +286,8 @@ class OrderController extends Controller
             'typeCategoryMatrix' => $typeCategoryMatrix,
             'proposalId' => $proposal?->id,
             'initialState' => $proposal?->payload,
+            'canSaveProposal' => $permissions->can($request->user(), 'orders_calc_save'),
+            'showPurchaseFields' => $permissions->can($request->user(), 'orders_calc_purchase_visible'),
         ]);
     }
 

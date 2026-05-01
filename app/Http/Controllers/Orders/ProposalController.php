@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Orders;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\OrderProposal;
+use App\Services\PermissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ use Illuminate\Support\Str;
 
 class ProposalController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, PermissionService $permissions)
     {
         $sort = (string) $request->query('sort', 'date');
         $direction = strtolower((string) $request->query('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
@@ -34,6 +35,10 @@ class ProposalController extends Controller
             ->select('order_proposals.*')
             ->with('user:id,name')
             ->whereNull('order_proposals.deleted_date');
+
+        if ($permissions->ordersListScope($request->user()) === 'own') {
+            $query->where('order_proposals.user_id', $request->user()?->id);
+        }
 
         if ($sort === 'date') {
             $query->orderByRaw("CASE WHEN order_proposals.corrections_count > 0 THEN order_proposals.updated_at ELSE order_proposals.created_at END {$direction}");
@@ -57,12 +62,13 @@ class ProposalController extends Controller
             'sort' => $sort,
             'direction' => $direction,
             'perPageRaw' => $perPageRaw,
+            'canManageProposals' => $permissions->can($request->user(), 'orders_list_edit'),
         ]);
     }
 
-    public function store(Request $request): JsonResponse|RedirectResponse
+    public function store(Request $request, PermissionService $permissions): JsonResponse|RedirectResponse
     {
-        if ($request->user()?->role === 'user') {
+        if (!$permissions->can($request->user(), 'orders_calc_save')) {
             abort(403);
         }
 
@@ -102,6 +108,14 @@ class ProposalController extends Controller
             $proposal = OrderProposal::query()
                 ->whereNull('deleted_date')
                 ->find($data['proposal_id']);
+
+            if ($proposal && $permissions->ordersListScope($request->user()) === 'own' && (int) $proposal->user_id !== (int) $request->user()?->id) {
+                abort(403);
+            }
+
+            if ($proposal && !$permissions->can($request->user(), 'orders_edit')) {
+                abort(403);
+            }
         }
 
         if (!$proposal) {
@@ -144,7 +158,9 @@ class ProposalController extends Controller
             $proposal->save();
         }
 
-        $redirectUrl = route('orders.proposals');
+        $redirectUrl = $permissions->can($request->user(), 'orders_proposals')
+            ? route('orders.proposals')
+            : route('orders.index');
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -158,10 +174,14 @@ class ProposalController extends Controller
         return redirect($redirectUrl)->with('status', 'Заявку збережено.');
     }
 
-    public function show(OrderProposal $orderProposal)
+    public function show(Request $request, OrderProposal $orderProposal, PermissionService $permissions)
     {
         if ($orderProposal->deleted_date !== null) {
             abort(404);
+        }
+
+        if ($permissions->ordersListScope($request->user()) === 'own' && (int) $orderProposal->user_id !== (int) $request->user()?->id) {
+            abort(403);
         }
 
         $state = is_array($orderProposal->payload) ? $orderProposal->payload : [];
@@ -189,11 +209,17 @@ class ProposalController extends Controller
             'clientDisplayName' => $clientDisplayName,
             'products' => $products,
             'summary' => Arr::get($state, 'summary', []),
+            'canEditProposal' => $permissions->can($request->user(), 'orders_edit'),
+            'canViewProposalPurchaseCost' => $permissions->can($request->user(), 'orders_list_purchase_visible'),
         ]);
     }
 
-    public function deactivate(Request $request): RedirectResponse
+    public function deactivate(Request $request, PermissionService $permissions): RedirectResponse
     {
+        if (!$permissions->can($request->user(), 'orders_list_edit')) {
+            abort(403);
+        }
+
         $validated = $request->validate([
             'proposal_ids' => ['required', 'array', 'min:1'],
             'proposal_ids.*' => ['integer', 'distinct', 'exists:order_proposals,id'],
@@ -210,11 +236,16 @@ class ProposalController extends Controller
                 ->withErrors(['proposal_ids' => 'Не обрано заявки для видалення.']);
         }
 
-        DB::transaction(function () use ($ids, $request): void {
-            OrderProposal::query()
+        DB::transaction(function () use ($ids, $request, $permissions): void {
+            $query = OrderProposal::query()
                 ->whereIn('id', $ids->all())
-                ->whereNull('deleted_date')
-                ->update([
+                ->whereNull('deleted_date');
+
+            if ($permissions->ordersListScope($request->user()) === 'own') {
+                $query->where('user_id', $request->user()?->id);
+            }
+
+            $query->update([
                     'deleted_by' => $request->user()?->id,
                     'deleted_date' => now(),
                 ]);

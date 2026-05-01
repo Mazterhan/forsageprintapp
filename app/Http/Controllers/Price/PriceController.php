@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PriceItem;
 use App\Models\PriceItemHistory;
 use App\Models\ProductCategory;
+use App\Services\PermissionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,7 @@ use Illuminate\View\View;
 
 class PriceController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, PermissionService $permissions): View
     {
         $sort = (string) $request->query('sort', '');
         $direction = strtolower((string) $request->query('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
@@ -114,6 +115,13 @@ class PriceController extends Controller
             'modelType' => $modelType,
             'categoryOptions' => $categoryOptions,
             'modelTypeOptions' => $modelTypeOptions,
+            'pricePermissions' => [
+                'can_create' => $permissions->can($request->user(), 'price_create_item'),
+                'can_edit' => $permissions->can($request->user(), 'price_card_edit'),
+                'can_deactivate' => $permissions->can($request->user(), 'price_deactivate_item'),
+                'can_view_purchase' => $permissions->can($request->user(), 'price_purchase_access'),
+                'can_open_card' => $permissions->can($request->user(), 'price_card_access'),
+            ],
         ]);
     }
 
@@ -244,14 +252,24 @@ class PriceController extends Controller
             ->with('status', __('Позицію додано.'));
     }
 
-    public function show(PriceItem $priceItem): View
+    public function show(Request $request, PriceItem $priceItem, PermissionService $permissions): View
     {
-        $priceItem->load(['histories.user']);
+        $canUseHistory = $permissions->can($request->user(), 'price_card_history');
+        if ($canUseHistory) {
+            $priceItem->load(['histories.user']);
+        }
 
         return view('price.show', [
             'item' => $priceItem,
             'title' => $priceItem->name ?: __('Позиція'),
-            'history' => $priceItem->histories,
+            'history' => $canUseHistory ? $priceItem->histories : collect(),
+            'pricePermissions' => [
+                'can_edit' => $permissions->can($request->user(), 'price_card_edit'),
+                'can_deactivate' => $permissions->can($request->user(), 'price_deactivate_item'),
+                'can_delete' => $permissions->can($request->user(), 'price_delete_item'),
+                'can_view_purchase' => $permissions->can($request->user(), 'price_purchase_access'),
+                'can_history' => $canUseHistory,
+            ],
         ]);
     }
 

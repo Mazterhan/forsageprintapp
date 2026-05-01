@@ -1,3 +1,7 @@
+@php
+    $permissionService = app(\App\Services\PermissionService::class);
+    $navUser = Auth::user();
+@endphp
 <nav x-data="{ open: false }" class="bg-white border-b border-gray-100">
     <!-- Primary Navigation Menu -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -12,13 +16,17 @@
 
                 <!-- Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                    <x-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
-                        {{ __('Замовлення') }}
-                    </x-nav-link>
-                    <x-nav-link :href="route('price.index')" :active="request()->routeIs('price.*')">
-                        {{ __('Прайс') }}
-                    </x-nav-link>
-                    @if (Auth::user()->role === 'admin')
+                    @if ($permissionService->can($navUser, 'orders'))
+                        <x-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
+                            {{ __('Замовлення') }}
+                        </x-nav-link>
+                    @endif
+                    @if ($permissionService->can($navUser, 'price'))
+                        <x-nav-link :href="route('price.index')" :active="request()->routeIs('price.*')">
+                            {{ __('Прайс') }}
+                        </x-nav-link>
+                    @endif
+                    @if ($permissionService->can($navUser, 'admin'))
                         <x-nav-link :href="route('admin.index')" :active="request()->routeIs('admin.index')">
                             {{ __('Адміністрування') }}
                         </x-nav-link>
@@ -78,13 +86,17 @@
     <!-- Responsive Navigation Menu -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
-            <x-responsive-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
-                {{ __('Замовлення') }}
-            </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('price.index')" :active="request()->routeIs('price.*')">
-                {{ __('Прайс') }}
-            </x-responsive-nav-link>
-            @if (Auth::user()->role === 'admin')
+            @if ($permissionService->can($navUser, 'orders'))
+                <x-responsive-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
+                    {{ __('Замовлення') }}
+                </x-responsive-nav-link>
+            @endif
+            @if ($permissionService->can($navUser, 'price'))
+                <x-responsive-nav-link :href="route('price.index')" :active="request()->routeIs('price.*')">
+                    {{ __('Прайс') }}
+                </x-responsive-nav-link>
+            @endif
+            @if ($permissionService->can($navUser, 'admin'))
                 <x-responsive-nav-link :href="route('admin.index')" :active="request()->routeIs('admin.index')">
                     {{ __('Адміністрування') }}
                 </x-responsive-nav-link>

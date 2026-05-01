@@ -29,8 +29,9 @@
                             <x-input-label for="role" :value="__('Роль користувача')" />
                             <select id="role" name="role" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                                 <option value="admin" @selected(old('role') === 'admin')>admin</option>
-                                <option value="manager" @selected(old('role') === 'manager')>manager</option>
-                                <option value="user" @selected(old('role') === 'user')>user</option>
+                                @foreach($roles as $role)
+                                    <option value="{{ $role->slug }}" @selected(old('role') === $role->slug)>{{ $role->name }}</option>
+                                @endforeach
                             </select>
                             <x-input-error class="mt-2" :messages="$errors->get('role')" />
                         </div>

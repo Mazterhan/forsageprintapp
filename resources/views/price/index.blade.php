@@ -1,7 +1,12 @@
 <x-app-layout>
     @section('title', $title)
     @php
-        $canManagePrice = in_array(auth()->user()?->role, ['admin', 'manager'], true);
+        $pricePermissions = $pricePermissions ?? [];
+        $canCreatePrice = (bool) ($pricePermissions['can_create'] ?? false);
+        $canEditPrice = (bool) ($pricePermissions['can_edit'] ?? false);
+        $canDeactivatePrice = (bool) ($pricePermissions['can_deactivate'] ?? false);
+        $canViewPurchasePrice = (bool) ($pricePermissions['can_view_purchase'] ?? false);
+        $canOpenPriceCard = (bool) ($pricePermissions['can_open_card'] ?? false);
     @endphp
     <style>
         .price-table thead tr {
@@ -53,7 +58,7 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $title }}</h2>
-            @if ($canManagePrice)
+            @if ($canCreatePrice)
                 <a href="{{ route('price.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
                     {{ __('додати позицію') }}
                 </a>
@@ -186,7 +191,7 @@
                                             @endif
                                         </a>
                                     </th>
-                                    @if ($canManagePrice)
+                                    @if ($canViewPurchasePrice)
                                         <th class="px-4 py-3 border-b text-left text-[14px]">
                                             @php
                                                 $next = $sort === 'purchase_price' && $direction === 'asc' ? 'desc' : 'asc';
@@ -215,7 +220,7 @@
                                             @endif
                                         </a>
                                     </th>
-                                    @if ($canManagePrice)
+                                    @if ($canDeactivatePrice)
                                         <th class="px-4 py-3 border-b text-center text-[14px]">Дія</th>
                                     @endif
                                 </tr>
@@ -223,7 +228,7 @@
                             <tbody class="divide-y divide-gray-200">
                                 @if ($items->isEmpty())
                                     <tr>
-                                        <td colspan="{{ $canManagePrice ? 7 : 4 }}" class="px-4 py-6 text-center text-sm text-gray-500">
+                                        <td colspan="{{ ($canViewPurchasePrice ? 2 : 0) + ($canDeactivatePrice ? 1 : 0) + 4 }}" class="px-4 py-6 text-center text-sm text-gray-500">
                                             {{ __('Записів не знайдено.') }}
                                         </td>
                                     </tr>
@@ -232,12 +237,16 @@
                                     <tr class="price-row {{ $loop->odd ? 'row-alt' : 'row-base' }}" tabindex="0">
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $item->internal_code }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-700">
-                                            <a href="{{ route('price.show', $item) }}" class="text-indigo-600 hover:text-indigo-900">
+                                            @if ($canOpenPriceCard)
+                                                <a href="{{ route('price.show', $item) }}" class="text-indigo-600 hover:text-indigo-900">
+                                                    {{ $item->name }}
+                                                </a>
+                                            @else
                                                 {{ $item->name }}
-                                            </a>
+                                            @endif
                                         </td>
                                         <td class="px-4 py-2 text-sm text-gray-700">{{ $item->category ?: ($item->model_type === 'Послуга' ? 'Послуга' : '') }}</td>
-                                        @if ($canManagePrice)
+                                        @if ($canViewPurchasePrice)
                                             <td class="px-4 py-2 text-sm text-gray-700">
                                                 <input
                                                     form="price-bulk-update-form"
@@ -247,6 +256,7 @@
                                                     class="price-edit-field price-purchase w-28 border-gray-300 rounded-md shadow-sm text-sm"
                                                     data-original="{{ $formatCellNumber($item->purchase_price) }}"
                                                     data-row-id="{{ $item->id }}"
+                                                    @disabled(! $canEditPrice)
                                                 />
                                             </td>
                                             <td class="px-4 py-2 text-sm text-gray-700 text-center">
@@ -262,11 +272,12 @@
                                                     class="price-edit-field price-markup w-24 border-gray-300 rounded-md shadow-sm text-sm text-center"
                                                     data-original="{{ $rowMarkup }}"
                                                     data-row-id="{{ $item->id }}"
+                                                    @disabled(! $canEditPrice)
                                                 />
                                             </td>
                                         @endif
                                         <td class="px-4 py-2 text-sm text-gray-700 text-center">
-                                            @if ($canManagePrice)
+                                            @if ($canEditPrice)
                                                 <input
                                                     form="price-bulk-update-form"
                                                     type="text"
@@ -280,7 +291,7 @@
                                                 {{ $formatCellNumber($item->service_price) }}
                                             @endif
                                         </td>
-                                        @if ($canManagePrice)
+                                        @if ($canDeactivatePrice)
                                             <td class="px-4 py-2 text-sm text-gray-700 text-center">
                                                 <form method="POST" action="{{ route('price.toggle', $item) }}">
                                                     @csrf
@@ -297,7 +308,7 @@
                         </table>
                     </div>
 
-                    @if ($canManagePrice)
+                    @if ($canEditPrice)
                         <div class="mt-4">
                             <button type="submit" form="price-bulk-update-form" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">
                                 {{ __('Зберегти зміни') }}

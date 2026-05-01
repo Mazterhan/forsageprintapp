@@ -32,11 +32,12 @@
                         </div>
 
                         <div>
-                            <x-input-label for="role" :value="__('Role')" />
+                            <x-input-label for="role" :value="__('Роль користувача')" />
                             <select id="role" name="role" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                                 <option value="admin" @selected(old('role', $user->role) === 'admin')>admin</option>
-                                <option value="manager" @selected(old('role', $user->role) === 'manager')>manager</option>
-                                <option value="user" @selected(old('role', $user->role) === 'user')>user</option>
+                                @foreach($roles as $role)
+                                    <option value="{{ $role->slug }}" @selected(old('role', $user->role) === $role->slug)>{{ $role->name }}</option>
+                                @endforeach
                             </select>
                             <x-input-error class="mt-2" :messages="$errors->get('role')" />
                         </div>
@@ -124,6 +125,17 @@
                         @method('PATCH')
 
                         <div>
+                            <x-input-label for="reset_reason" :value="__('Причина скидання паролю')" />
+                            <textarea
+                                id="reset_reason"
+                                name="reset_reason"
+                                rows="3"
+                                class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm resize-y"
+                            >{{ old('reset_reason') }}</textarea>
+                            <x-input-error class="mt-2" :messages="$errors->resetUserPassword->get('reset_reason')" />
+                        </div>
+
+                        <div>
                             <x-input-label for="password" :value="__('Новий пароль')" />
                             <x-text-input id="password" name="password" type="password" class="mt-1 block w-full" autocomplete="new-password" />
                             <x-input-error class="mt-2" :messages="$errors->resetUserPassword->get('password')" />
@@ -139,6 +151,40 @@
                             <x-primary-button>{{ __('Скинути пароль') }}</x-primary-button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 text-gray-900">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Історія скидання пароля') }}</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead style="background-color: #FCEEDF;">
+                                <tr>
+                                    <th class="px-4 py-2 text-left font-semibold text-gray-700">№</th>
+                                    <th class="px-4 py-2 text-left font-semibold text-gray-700">Дата</th>
+                                    <th class="px-4 py-2 text-left font-semibold text-gray-700">Ким скинуто пароль</th>
+                                    <th class="px-4 py-2 text-left font-semibold text-gray-700">Причина</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                @forelse(($passwordResetLogs ?? collect()) as $index => $log)
+                                    <tr>
+                                        <td class="px-4 py-2 text-gray-700">{{ $index + 1 }}</td>
+                                        <td class="px-4 py-2 text-gray-700">{{ optional($log->created_at)->timezone('Europe/Kiev')->format('Y-m-d H:i') }}</td>
+                                        <td class="px-4 py-2 text-gray-700">{{ $log->resetBy?->name ?? '—' }}</td>
+                                        <td class="px-4 py-2 text-gray-700">{{ $log->reason }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" class="px-4 py-6 text-center text-gray-500">
+                                            {{ __('Історія скидання пароля порожня.') }}
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

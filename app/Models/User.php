@@ -24,6 +24,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'force_password_change',
         'role',
         'department_id',
         'department_category_id',
@@ -52,6 +53,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'force_password_change' => 'boolean',
         ];
     }
 
@@ -78,5 +80,10 @@ class User extends Authenticatable
     public function departmentCategory()
     {
         return $this->belongsTo(DepartmentCategory::class, 'department_category_id');
+    }
+
+    public function passwordResetLogs()
+    {
+        return $this->hasMany(UserPasswordResetLog::class);
     }
 }

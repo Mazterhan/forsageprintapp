@@ -4,16 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use App\Models\OrderProposal;
+use App\Services\PermissionService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, PermissionService $permissions)
     {
-        if ($request->user()?->role === 'user') {
+        $user = $request->user();
+        if (!$permissions->can($user, 'analytics')) {
             return response()->view('errors.403', [
                 'message' => 'У вас немає доступу до сторінки аналітики. Зверніться до адміністратора для отримання відповідного рівня доступу.',
             ], 403);
@@ -75,9 +78,49 @@ class DashboardController extends Controller
             ->values()
             ->all();
 
-        $clients = Client::query()
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $clientQuery = Client::query()->orderBy('name');
+        if ($permissions->ordersListScope($user) === 'own') {
+            $availableClientIds = [];
+            $availableClientNames = [];
+
+            OrderProposal::query()
+                ->whereNull('deleted_date')
+                ->where('user_id', $user?->id)
+                ->get(['client_name', 'payload'])
+                ->each(function (OrderProposal $proposal) use (&$availableClientIds, &$availableClientNames) {
+                    $payload = is_array($proposal->payload ?? null) ? $proposal->payload : [];
+
+                    $clientId = Arr::get($payload, 'client_id');
+                    if (is_numeric($clientId)) {
+                        $availableClientIds[] = (int) $clientId;
+                    }
+
+                    $clientName = trim((string) (Arr::get($payload, 'client_name', '') ?: ($proposal->client_name ?? '')));
+                    if ($clientName !== '') {
+                        $availableClientNames[mb_strtolower($clientName, 'UTF-8')] = true;
+                    }
+                });
+
+            $availableClientIds = array_values(array_unique($availableClientIds));
+            $availableClientNames = array_keys($availableClientNames);
+
+            if (empty($availableClientIds) && empty($availableClientNames)) {
+                $clientQuery->whereRaw('1 = 0');
+            } else {
+                $clientQuery->where(function ($query) use ($availableClientIds, $availableClientNames) {
+                    if (!empty($availableClientIds)) {
+                        $query->whereIn('id', $availableClientIds);
+                    }
+
+                    if (!empty($availableClientNames)) {
+                        $method = empty($availableClientIds) ? 'whereIn' : 'orWhereIn';
+                        $query->{$method}(DB::raw('LOWER(TRIM(name))'), $availableClientNames);
+                    }
+                });
+            }
+        }
+
+        $clients = $clientQuery->get(['id', 'name']);
 
         $clientsById = $clients->keyBy('id');
         $clientIdByName = [];
@@ -91,6 +134,10 @@ class DashboardController extends Controller
         $query = OrderProposal::query()
             ->with('user:id,name')
             ->whereNull('deleted_date');
+
+        if ($permissions->ordersListScope($user) === 'own') {
+            $query->where('user_id', $user?->id);
+        }
 
         if ($from && $to) {
             $fromUtc = $from->copy()->utc();
@@ -540,6 +587,13 @@ class DashboardController extends Controller
             'topServices' => $topServices,
             'topProfitableProposals' => $topProfitableProposals,
             'topLossProposals' => $topLossProposals,
+            'dashboardPermissions' => [
+                'show_kpi' => $permissions->can($user, 'analytics_show_kpi'),
+                'show_charts' => $permissions->can($user, 'analytics_show_charts'),
+                'show_tables' => $permissions->can($user, 'analytics_show_tables'),
+                'show_finance' => $permissions->can($user, 'analytics_finance_access'),
+                'can_open_proposal' => $permissions->can($user, 'orders_proposals'),
+            ],
         ]);
     }
 

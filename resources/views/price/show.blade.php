@@ -1,7 +1,12 @@
 <x-app-layout>
     @section('title', $title)
     @php
-        $canManagePrice = in_array(auth()->user()?->role, ['admin', 'manager'], true);
+        $pricePermissions = $pricePermissions ?? [];
+        $canEditPrice = (bool) ($pricePermissions['can_edit'] ?? false);
+        $canDeactivatePrice = (bool) ($pricePermissions['can_deactivate'] ?? false);
+        $canDeletePrice = (bool) ($pricePermissions['can_delete'] ?? false);
+        $canViewPurchasePrice = (bool) ($pricePermissions['can_view_purchase'] ?? false);
+        $canUsePriceHistory = (bool) ($pricePermissions['can_history'] ?? false);
     @endphp
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
@@ -79,11 +84,11 @@
                                     type="text"
                                     class="mt-1 block w-full"
                                     :value="old('service_price', $formatCellNumber($item->service_price))"
-                                    :disabled="!$canManagePrice"
+                                    :disabled="!$canEditPrice"
                                 />
                                 <x-input-error class="mt-2" :messages="$errors->get('service_price')" />
                             </div>
-                            @if ($canManagePrice)
+                            @if ($canViewPurchasePrice)
                                 <div class="md:col-span-4">
                                     <x-input-label for="purchase_price" :value="__('Закупівельна вартість')" />
                                     <x-text-input
@@ -131,13 +136,13 @@
                             form="price-item-update-form"
                             rows="3"
                             class="mt-1 block w-full min-w-0 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm resize-y"
-                            @disabled(! $canManagePrice)
+                            @disabled(! $canEditPrice)
                         >{{ old('comment', $item->comment) }}</textarea>
                         <x-input-error class="mt-2" :messages="$errors->get('comment')" />
                     </div>
 
                     <div class="flex items-center gap-4">
-                        @if ($canManagePrice)
+                        @if ($canEditPrice)
                             <button form="price-item-update-form" type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">
                                 {{ __('Зберегти') }}
                             </button>
@@ -145,7 +150,7 @@
                         <a href="{{ route('price.index') }}" class="inline-flex items-center px-4 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-200">
                             {{ __('Повернутись') }}
                         </a>
-                        @if ($canManagePrice)
+                        @if ($canDeactivatePrice)
                             <form method="POST" action="{{ route('price.toggle', $item) }}">
                                 @csrf
                                 @method('PATCH')
@@ -153,7 +158,7 @@
                                     {{ $item->is_active ? __('Деактивувати') : __('Активувати') }}
                                 </button>
                             </form>
-                            @if (! $item->is_active && $item->visible)
+                            @if ($canDeletePrice && ! $item->is_active && $item->visible)
                                 <form method="POST" action="{{ route('price.hide', $item) }}">
                                     @csrf
                                     @method('PATCH')
@@ -167,36 +172,34 @@
                 </div>
             </div>
 
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Історія зміни ціни') }}</h3>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead>
-                                <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дата</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Роздрібна ціна</th>
-                                    @if ($canManagePrice)
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Закупівельна вартість</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка %</th>
-                                    @endif
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Користувач</th>
-                                    @if ($canManagePrice)
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дія</th>
-                                    @endif
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-200">
-                                @forelse ($history as $row)
+            @if ($canUsePriceHistory)
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                    <div class="p-6 text-gray-900">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Історія зміни ціни') }}</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead>
                                     <tr>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ optional($row->created_at)->format('Y-m-d H:i') }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ number_format((float) $row->service_price, 2, '.', '') }}</td>
-                                        @if ($canManagePrice)
-                                            <td class="px-4 py-2 text-sm text-gray-700">{{ number_format((float) $row->purchase_price, 2, '.', '') }}</td>
-                                            <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_percent !== null ? number_format((float) $row->markup_percent, 2, '.', '') : '' }}</td>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дата</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Роздрібна ціна</th>
+                                        @if ($canViewPurchasePrice)
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Закупівельна вартість</th>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Націнка %</th>
                                         @endif
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->user?->name }}</td>
-                                        @if ($canManagePrice)
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Користувач</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дія</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    @forelse ($history as $row)
+                                        <tr>
+                                            <td class="px-4 py-2 text-sm text-gray-700">{{ optional($row->created_at)->format('Y-m-d H:i') }}</td>
+                                            <td class="px-4 py-2 text-sm text-gray-700">{{ number_format((float) $row->service_price, 2, '.', '') }}</td>
+                                            @if ($canViewPurchasePrice)
+                                                <td class="px-4 py-2 text-sm text-gray-700">{{ number_format((float) $row->purchase_price, 2, '.', '') }}</td>
+                                                <td class="px-4 py-2 text-sm text-gray-700">{{ $row->markup_percent !== null ? number_format((float) $row->markup_percent, 2, '.', '') : '' }}</td>
+                                            @endif
+                                            <td class="px-4 py-2 text-sm text-gray-700">{{ $row->user?->name }}</td>
                                             <td class="px-4 py-2 text-sm text-gray-700">
                                                 <form method="POST" action="{{ route('price.history.revert', [$item, $row]) }}">
                                                     @csrf
@@ -209,20 +212,20 @@
                                                     </button>
                                                 </form>
                                             </td>
-                                        @endif
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="{{ $canManagePrice ? 6 : 3 }}" class="px-4 py-6 text-center text-sm text-gray-500">
-                                            {{ __('Історія порожня.') }}
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="{{ ($canViewPurchasePrice ? 2 : 0) + 4 }}" class="px-4 py-6 text-center text-sm text-gray-500">
+                                                {{ __('Історія порожня.') }}
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-            </div>
+            @endif
         </div>
     </div>
 
@@ -248,6 +251,7 @@
             };
 
             const syncMarkup = () => {
+                if (!purchasePriceInput || !markupPercentInput) return;
                 if (isSyncing) return;
                 const purchase = parseNumber(purchasePriceInput?.value);
                 const service = parseNumber(servicePriceInput?.value);
@@ -259,6 +263,7 @@
             };
 
             const syncServicePrice = () => {
+                if (!purchasePriceInput || !markupPercentInput || !servicePriceInput) return;
                 if (isSyncing) return;
                 const purchase = parseNumber(purchasePriceInput?.value);
                 const markup = parseNumber(markupPercentInput?.value);

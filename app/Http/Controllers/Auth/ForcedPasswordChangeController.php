@@ -7,16 +7,18 @@ use App\Rules\StrongUserPassword;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\View\View;
 
-class PasswordController extends Controller
+class ForcedPasswordChangeController extends Controller
 {
-    /**
-     * Update the user's password.
-     */
+    public function edit(): View
+    {
+        return view('auth.force-password-change');
+    }
+
     public function update(Request $request): RedirectResponse
     {
-        $validated = $request->validateWithBag('updatePassword', [
-            'current_password' => ['required', 'current_password'],
+        $validated = $request->validateWithBag('forcePasswordChange', [
             'password' => ['required', 'string', 'confirmed', new StrongUserPassword($request->user())],
         ]);
 
@@ -25,6 +27,7 @@ class PasswordController extends Controller
             'force_password_change' => false,
         ]);
 
-        return back()->with('status', 'password-updated');
+        return redirect()->intended(route('dashboard', absolute: false))
+            ->with('status', __('Пароль оновлено.'));
     }
 }

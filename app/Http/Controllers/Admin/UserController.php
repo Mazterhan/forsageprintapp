@@ -6,10 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Models\Department;
+use App\Models\Role;
 use App\Models\User;
+use App\Models\UserPasswordResetLog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 class UserController extends Controller
@@ -22,6 +23,7 @@ class UserController extends Controller
 
         return view('admin.users.index', [
             'users' => $users,
+            'roles' => Role::query()->orderBy('name')->get(),
         ]);
     }
 
@@ -34,6 +36,7 @@ class UserController extends Controller
 
         return view('admin.users.create', [
             'departments' => $departments,
+            'roles' => Role::query()->orderBy('name')->get(['name', 'slug']),
         ]);
     }
 
@@ -47,6 +50,11 @@ class UserController extends Controller
         return view('admin.users.edit', [
             'user' => $user,
             'departments' => $departments,
+            'roles' => Role::query()->orderBy('name')->get(['name', 'slug']),
+            'passwordResetLogs' => $user->passwordResetLogs()
+                ->with('resetBy:id,name')
+                ->latest()
+                ->get(),
         ]);
     }
 
@@ -63,6 +71,7 @@ class UserController extends Controller
             'department_category_id' => $data['department_category_id'] ?? null,
             'department_position_id' => $data['department_position_id'] ?? null,
             'is_active' => true,
+            'force_password_change' => true,
         ]);
 
         return redirect()
@@ -115,11 +124,19 @@ class UserController extends Controller
     public function resetPassword(Request $request, User $user): RedirectResponse
     {
         $data = $request->validateWithBag('resetUserPassword', [
-            'password' => ['required', 'string', 'confirmed', Password::defaults()],
+            'reset_reason' => ['required', 'string', 'max:2000'],
+            'password' => ['required', 'string', 'confirmed'],
         ]);
 
         $user->update([
             'password' => $data['password'],
+            'force_password_change' => true,
+        ]);
+
+        UserPasswordResetLog::create([
+            'user_id' => $user->id,
+            'reset_by_user_id' => $request->user()?->id,
+            'reason' => trim((string) $data['reset_reason']),
         ]);
 
         return redirect()

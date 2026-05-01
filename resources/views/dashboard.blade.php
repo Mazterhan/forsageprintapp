@@ -13,15 +13,19 @@
             ->pluck('name')
             ->values()
             ->all();
-        $isAdmin = auth()->user()?->hasRole('admin');
-        $canOpenProposal = auth()->user()?->hasAnyRole(['admin', 'manager']);
+        $dashboardPermissions = $dashboardPermissions ?? [];
+        $showKpi = (bool) ($dashboardPermissions['show_kpi'] ?? false);
+        $showCharts = (bool) ($dashboardPermissions['show_charts'] ?? false);
+        $showTables = (bool) ($dashboardPermissions['show_tables'] ?? false);
+        $showFinance = (bool) ($dashboardPermissions['show_finance'] ?? false);
+        $canOpenProposal = (bool) ($dashboardPermissions['can_open_proposal'] ?? false);
         $formatMoney = static fn ($value) => number_format((float) $value, 2, '.', ' ');
         $formatPercent = static fn ($value) => number_format((float) $value, 2, '.', ' ').'%';
-        $materialsTableTitle = $isAdmin ? 'Топ матеріалів за прибутком' : 'Топ матеріалів';
-        $servicesTableTitle = $isAdmin ? 'Топ послуг за прибутком' : 'Топ послуг';
-        $clientsTableTitle = $isAdmin ? 'Топ замовників за прибутком' : 'Топ замовників';
-        $productTypesTableTitle = $isAdmin ? 'Топ типів виробу за прибутком' : 'Топ типів виробу';
-        $topProposalsTableTitle = $isAdmin ? 'Топ прибуткових заявок' : 'Топ заявок';
+        $materialsTableTitle = $showFinance ? 'Топ матеріалів за прибутком' : 'Топ матеріалів';
+        $servicesTableTitle = $showFinance ? 'Топ послуг за прибутком' : 'Топ послуг';
+        $clientsTableTitle = $showFinance ? 'Топ замовників за прибутком' : 'Топ замовників';
+        $productTypesTableTitle = $showFinance ? 'Топ типів виробу за прибутком' : 'Топ типів виробу';
+        $topProposalsTableTitle = $showFinance ? 'Топ прибуткових заявок' : 'Топ заявок';
 
         $primaryKpiCards = [
             [
@@ -89,7 +93,7 @@
             ],
         ];
 
-        $kpiCards = array_merge($primaryKpiCards, $isAdmin ? $adminOnlyKpiCards : []);
+        $kpiCards = array_merge($showKpi ? $primaryKpiCards : [], $showFinance ? $adminOnlyKpiCards : []);
 
         $chartCards = [
             [
@@ -144,8 +148,8 @@
                 'admin_only' => true,
             ],
         ];
-        $chartCards = array_values(array_filter($chartCards, static function ($chart) use ($isAdmin) {
-            return !($chart['admin_only'] ?? false) || $isAdmin;
+        $chartCards = array_values(array_filter($chartCards, static function ($chart) use ($showCharts, $showFinance) {
+            return ($chart['admin_only'] ?? false) ? $showFinance : $showCharts;
         }));
     @endphp
 
@@ -473,6 +477,7 @@
                         @endforeach
                     </div>
 
+                    @if($showTables)
                     <div class="dashboard-two-grid">
                         <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує матеріали, які дали найбільший прибуток у складі заявок за поточними фільтрами.">
                             <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">{{ $materialsTableTitle }}</div>
@@ -483,7 +488,7 @@
                                             <th class="px-3 py-2 text-left border-b">Матеріал</th>
                                             <th class="px-3 py-2 text-right border-b">К-сть</th>
                                             <th class="px-3 py-2 text-right border-b">Вартість</th>
-                                            @if($isAdmin)
+                                            @if($showFinance)
                                                 <th class="px-3 py-2 text-right border-b">Собівартість</th>
                                                 <th class="px-3 py-2 text-right border-b">Прибуток</th>
                                                 <th class="px-3 py-2 text-right border-b">Маржа %</th>
@@ -496,14 +501,14 @@
                                                 <td class="px-3 py-2 border-b">{{ $row['name'] }}</td>
                                                 <td class="px-3 py-2 border-b text-right">{{ number_format((int) $row['count'], 0, '.', ' ') }}</td>
                                                 <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['sum']) }}</td>
-                                                @if($isAdmin)
+                                                @if($showFinance)
                                                     <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_sum']) }}</td>
                                                     <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['profit_sum']) }}</td>
                                                     <td class="px-3 py-2 border-b text-right">{{ $formatPercent($row['margin_percent']) }}</td>
                                                 @endif
                                             </tr>
                                         @empty
-                                            <tr><td colspan="{{ $isAdmin ? 6 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
+                                            <tr><td colspan="{{ $showFinance ? 6 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -520,7 +525,7 @@
                                             <th class="px-3 py-2 text-left border-b">Послуга</th>
                                             <th class="px-3 py-2 text-right border-b">К-сть</th>
                                             <th class="px-3 py-2 text-right border-b">Вартість</th>
-                                            @if($isAdmin)
+                                            @if($showFinance)
                                                 <th class="px-3 py-2 text-right border-b">Собівартість</th>
                                                 <th class="px-3 py-2 text-right border-b">Прибуток</th>
                                                 <th class="px-3 py-2 text-right border-b">Маржа %</th>
@@ -533,14 +538,14 @@
                                                 <td class="px-3 py-2 border-b">{{ $row['name'] }}</td>
                                                 <td class="px-3 py-2 border-b text-right">{{ number_format((int) $row['count'], 0, '.', ' ') }}</td>
                                                 <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['sum']) }}</td>
-                                                @if($isAdmin)
+                                                @if($showFinance)
                                                     <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_sum']) }}</td>
                                                     <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['profit_sum']) }}</td>
                                                     <td class="px-3 py-2 border-b text-right">{{ $formatPercent($row['margin_percent']) }}</td>
                                                 @endif
                                             </tr>
                                         @empty
-                                            <tr><td colspan="{{ $isAdmin ? 6 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
+                                            <tr><td colspan="{{ $showFinance ? 6 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -559,7 +564,7 @@
                                             <th class="px-3 py-2 text-left border-b">Замовник</th>
                                             <th class="px-3 py-2 text-right border-b">К-сть</th>
                                             <th class="px-3 py-2 text-right border-b">Вартість</th>
-                                            @if($isAdmin)
+                                            @if($showFinance)
                                                 <th class="px-3 py-2 text-right border-b">Собівартість</th>
                                                 <th class="px-3 py-2 text-right border-b">Прибуток</th>
                                                 <th class="px-3 py-2 text-right border-b">Маржа %</th>
@@ -572,14 +577,14 @@
                                                 <td class="px-3 py-2 border-b">{{ $row['name'] ?: '—' }}</td>
                                                 <td class="px-3 py-2 border-b text-right">{{ number_format((int) $row['count'], 0, '.', ' ') }}</td>
                                                 <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['sum']) }}</td>
-                                                @if($isAdmin)
+                                                @if($showFinance)
                                                     <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_sum']) }}</td>
                                                     <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['profit_sum']) }}</td>
                                                     <td class="px-3 py-2 border-b text-right">{{ $formatPercent($row['margin_percent']) }}</td>
                                                 @endif
                                             </tr>
                                         @empty
-                                            <tr><td colspan="{{ $isAdmin ? 6 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
+                                            <tr><td colspan="{{ $showFinance ? 6 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -597,7 +602,7 @@
                                                 <th class="px-3 py-2 text-left border-b">Тип виробу</th>
                                                 <th class="px-3 py-2 text-right border-b">К-сть</th>
                                                 <th class="px-3 py-2 text-right border-b">Вартість</th>
-                                                @if($isAdmin)
+                                                @if($showFinance)
                                                     <th class="px-3 py-2 text-right border-b">Собівартість</th>
                                                     <th class="px-3 py-2 text-right border-b">Прибуток</th>
                                                     <th class="px-3 py-2 text-right border-b">Маржа %</th>
@@ -610,14 +615,14 @@
                                                     <td class="px-3 py-2 border-b">{{ $row['name'] }}</td>
                                                     <td class="px-3 py-2 border-b text-right">{{ number_format((int) $row['count'], 0, '.', ' ') }}</td>
                                                     <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['sum']) }}</td>
-                                                    @if($isAdmin)
+                                                    @if($showFinance)
                                                         <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_sum']) }}</td>
                                                         <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['profit_sum']) }}</td>
                                                         <td class="px-3 py-2 border-b text-right">{{ $formatPercent($row['margin_percent']) }}</td>
                                                     @endif
                                                 </tr>
                                             @empty
-                                                <tr><td colspan="{{ $isAdmin ? 6 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
+                                                <tr><td colspan="{{ $showFinance ? 6 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
                                             @endforelse
                                         </tbody>
                                     </table>
@@ -625,6 +630,7 @@
                                 <div class="dashboard-help-tooltip"></div>
                             </div>
 
+                            @if($showFinance)
                             <div class="dashboard-help-target dashboard-panel dashboard-table-panel bg-white border border-gray-200 rounded-lg shadow-sm" data-help="Показує менеджерів, чиї заявки дали найбільший валовий прибуток за обраний період.">
                                 <div class="px-4 py-3 dashboard-panel-title border-b font-semibold text-gray-800">Топ менеджерів за прибутком</div>
                                 <div class="overflow-x-auto">
@@ -657,6 +663,7 @@
                                 </div>
                                 <div class="dashboard-help-tooltip"></div>
                             </div>
+                            @endif
                         </div>
                     </div>
 
@@ -670,7 +677,7 @@
                                             <th class="px-3 py-2 text-left border-b">Заявка</th>
                                             <th class="px-3 py-2 text-left border-b">Замовник</th>
                                             <th class="px-3 py-2 text-right border-b">Вартість</th>
-                                            @if($isAdmin)
+                                            @if($showFinance)
                                                 <th class="px-3 py-2 text-right border-b">Собівартість</th>
                                                 <th class="px-3 py-2 text-right border-b">Прибуток</th>
                                             @endif
@@ -690,13 +697,13 @@
                                                 </td>
                                                 <td class="px-3 py-2 border-b">{{ $row['client_name'] }}</td>
                                                 <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['total_cost']) }}</td>
-                                                @if($isAdmin)
+                                                @if($showFinance)
                                                     <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_cost']) }}</td>
                                                     <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['gross_profit']) }}</td>
                                                 @endif
                                             </tr>
                                         @empty
-                                            <tr><td colspan="{{ $isAdmin ? 5 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
+                                            <tr><td colspan="{{ $showFinance ? 5 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -713,8 +720,10 @@
                                             <th class="px-3 py-2 text-left border-b">Заявка</th>
                                             <th class="px-3 py-2 text-left border-b">Замовник</th>
                                             <th class="px-3 py-2 text-right border-b">Вартість</th>
-                                            <th class="px-3 py-2 text-right border-b">Собівартість</th>
-                                            <th class="px-3 py-2 text-right border-b">Прибуток</th>
+                                            @if($showFinance)
+                                                <th class="px-3 py-2 text-right border-b">Собівартість</th>
+                                                <th class="px-3 py-2 text-right border-b">Прибуток</th>
+                                            @endif
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -731,11 +740,13 @@
                                                 </td>
                                                 <td class="px-3 py-2 border-b">{{ $row['client_name'] }}</td>
                                                 <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['total_cost']) }}</td>
-                                                <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_cost']) }}</td>
-                                                <td class="px-3 py-2 border-b text-right text-red-600">{{ $formatMoney($row['gross_profit']) }}</td>
+                                                @if($showFinance)
+                                                    <td class="px-3 py-2 border-b text-right">{{ $formatMoney($row['purchase_cost']) }}</td>
+                                                    <td class="px-3 py-2 border-b text-right text-red-600">{{ $formatMoney($row['gross_profit']) }}</td>
+                                                @endif
                                             </tr>
                                         @empty
-                                            <tr><td colspan="5" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
+                                            <tr><td colspan="{{ $showFinance ? 5 : 3 }}" class="px-3 py-6 text-center text-gray-500">Немає даних</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -743,6 +754,7 @@
                             <div class="dashboard-help-tooltip"></div>
                         </div>
                     </div>
+                    @endif
                 </section>
             </div>
         </div>

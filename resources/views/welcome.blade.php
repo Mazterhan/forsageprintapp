@@ -20,16 +20,40 @@
         @endif
     </head>
     <body class="antialiased bg-white">
+        @php
+            $permissionService = app(\App\Services\PermissionService::class);
+            $homeUser = auth()->user();
+            $homeLinks = [];
+
+            if ($homeUser) {
+                if ($permissionService->can($homeUser, 'analytics')) {
+                    $homeLinks[] = ['label' => 'Дашборд', 'url' => route('dashboard')];
+                }
+                if ($permissionService->can($homeUser, 'orders')) {
+                    $homeLinks[] = ['label' => 'Замовлення', 'url' => route('orders.index')];
+                }
+                if ($permissionService->can($homeUser, 'price')) {
+                    $homeLinks[] = ['label' => 'Прайс', 'url' => route('price.index')];
+                }
+                if ($permissionService->can($homeUser, 'admin')) {
+                    $homeLinks[] = ['label' => 'Адміністрування', 'url' => route('admin.index')];
+                }
+            }
+
+            $primaryHomeUrl = $homeLinks[0]['url'] ?? route('profile.edit');
+            $primaryHomeLabel = $homeLinks[0]['label'] ?? 'Профіль';
+        @endphp
+
         <div class="min-h-screen flex items-center justify-center px-6">
-            <div class="relative w-full max-w-6xl">
+            <div class="relative w-full" style="max-width: 980px;">
                 <img src="{{ asset('images/Logo_V4.webp') }}" alt="Banner" class="w-full h-auto rounded-lg shadow-lg" />
-                <div class="absolute inset-0 flex items-center justify-center z-10 translate-y-12">
+                <div class="absolute inset-0 flex items-center justify-center z-10" style="transform: translateY(calc(4.5rem + 120px));">
                     @auth
-                        <a href="{{ route('dashboard') }}" class="inline-flex items-center justify-center px-16 py-6 text-xl font-semibold text-white uppercase tracking-widest bg-gray-900 rounded-full shadow-xl transition duration-200 ease-in-out hover:scale-110 hover:bg-gradient-to-r hover:from-pink-500 hover:via-orange-400 hover:to-yellow-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2">
-                            Dashboard
+                        <a href="{{ $primaryHomeUrl }}" class="inline-flex items-center justify-center px-16 py-6 text-xl font-semibold text-gray-900 uppercase tracking-widest rounded-full shadow-xl transition duration-200 ease-in-out hover:scale-110 hover:bg-gradient-to-r hover:from-pink-500 hover:via-orange-400 hover:to-yellow-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2" style="background-color: #FCEEDF;">
+                            {{ $primaryHomeLabel }}
                         </a>
                     @else
-                        <a href="{{ route('login') }}" class="inline-flex items-center justify-center px-16 py-6 text-xl font-semibold text-white uppercase tracking-widest bg-gray-900 rounded-full shadow-xl transition duration-200 ease-in-out hover:scale-110 hover:bg-gradient-to-r hover:from-pink-500 hover:via-orange-400 hover:to-yellow-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2">
+                        <a href="{{ route('login') }}" class="inline-flex items-center justify-center px-16 py-6 text-xl font-semibold text-gray-900 uppercase tracking-widest rounded-full shadow-xl transition duration-200 ease-in-out hover:scale-110 hover:bg-gradient-to-r hover:from-pink-500 hover:via-orange-400 hover:to-yellow-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2" style="background-color: #FCEEDF;">
                             Log in
                         </a>
                         {{-- Register disabled --}}

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Role;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,11 +20,22 @@ class UpdateUserRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($userId)],
-            'role' => ['required', 'in:admin,manager,user'],
+            'role' => ['required', 'string', $this->roleRule()],
             'is_active' => ['required', 'boolean'],
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
             'department_category_id' => ['nullable', 'integer', 'exists:department_categories,id'],
             'department_position_id' => ['nullable', 'integer', 'exists:department_positions,id'],
         ];
+    }
+
+    private function roleRule(): \Closure
+    {
+        return static function (string $attribute, mixed $value, \Closure $fail): void {
+            if ($value === 'admin' || Role::query()->where('slug', (string) $value)->exists()) {
+                return;
+            }
+
+            $fail('Оберіть коректну роль користувача.');
+        };
     }
 }

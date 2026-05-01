@@ -63,7 +63,9 @@
             </div>
             <div class="flex items-center gap-2">
                 <a href="{{ route('orders.proposals') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">Повернутись до заявок</a>
-                <a href="{{ route('orders.calculation', ['proposal' => $proposal->id]) }}" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">Редагувати</a>
+                @if($canEditProposal ?? false)
+                    <a href="{{ route('orders.calculation', ['proposal' => $proposal->id]) }}" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">Редагувати</a>
+                @endif
             </div>
         </div>
     </x-slot>
@@ -597,7 +599,7 @@
             <div class="bg-white shadow-sm sm:rounded-lg p-4">
                 <div class="flex items-center justify-between gap-4">
                     <div class="text-sm font-semibold text-gray-700">
-                        @if (auth()->user()?->hasRole('admin'))
+                        @if ($canViewProposalPurchaseCost ?? false)
                             <div>Розрахункова собівартість: {{ $formatProposalMoney($summaryPurchaseCost) }}</div>
                         @endif
                         @if ($minimumProductsApplied && $minimumProductsText !== '')

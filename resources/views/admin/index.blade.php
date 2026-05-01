@@ -1,13 +1,16 @@
 <x-app-layout>
     @section('title', __('Сторінка Адміністратора'))
+    @php
+        $adminPermissions = app(\App\Services\PermissionService::class);
+        $adminUser = auth()->user();
+        $canManageUsersOrg = $adminPermissions->can($adminUser, 'admin_users_org_manage');
+        $canManageReferences = $adminPermissions->can($adminUser, 'admin_reference_manage');
+    @endphp
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('Сторінка Адміністратора') }}
             </h2>
-            <a href="{{ route('admin.users.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                {{ __('Створити користувача') }}
-            </a>
         </div>
     </x-slot>
 
@@ -16,16 +19,22 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     <div class="flex flex-col gap-3">
-                        <div>{{ __('Зона адміністратора та менеджера.') }}</div>
-                        <a href="{{ route('admin.users.index') }}" class="text-indigo-600 hover:text-indigo-900">
-                            {{ __('Керування користувачами') }}
-                        </a>
-                        <a href="{{ route('admin.departments.index') }}" class="text-indigo-600 hover:text-indigo-900">
-                            {{ __('Керування підрозділами') }}
-                        </a>
-                        <a href="{{ route('admin.editgroupsandcategories') }}" class="text-indigo-600 hover:text-indigo-900">
-                            {{ __('Довідники, групи та категорії') }}
-                        </a>
+                        <div class="px-4 py-2 font-semibold" style="background-color: #FCEEDF;">
+                            {{ __('Зона адміністратора та менеджера.') }}
+                        </div>
+                        @if($canManageUsersOrg)
+                            <a href="{{ route('admin.users.index') }}" class="text-indigo-600 hover:text-indigo-900">
+                                {{ __('Керування користувачами та доступами') }}
+                            </a>
+                            <a href="{{ route('admin.departments.index') }}" class="text-indigo-600 hover:text-indigo-900">
+                                {{ __('Керування підрозділами') }}
+                            </a>
+                        @endif
+                        @if($canManageReferences)
+                            <a href="{{ route('admin.editgroupsandcategories') }}" class="text-indigo-600 hover:text-indigo-900">
+                                {{ __('Довідники, групи та категорії') }}
+                            </a>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -34,6 +43,7 @@
                 $currentSort = request('sort');
                 $currentDirection = request('direction', 'asc');
             @endphp
+            @if($canManageUsersOrg)
             <div class="mt-6 bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Користувачі та підрозділи') }}</h3>
@@ -129,6 +139,7 @@
                     </div>
                 </div>
             </div>
+            @endif
         </div>
     </div>
 </x-app-layout>

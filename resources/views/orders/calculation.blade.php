@@ -1,7 +1,8 @@
 <x-app-layout>
     @section('title', __('Прорахунок замовлення'))
     @php
-        $showPurchaseFields = auth()->user()?->hasRole('admin');
+        $showPurchaseFields = (bool) ($showPurchaseFields ?? false);
+        $canSaveProposal = (bool) ($canSaveProposal ?? false);
     @endphp
     <style>
         @keyframes minHintBlink {
@@ -897,7 +898,7 @@
                                     <div class="ml-10 font-bold text-gray-800">Собівартість (грн)</div>
                                     <input type="text" :value="getBottomPurchaseCostDisplay(product)" disabled class="w-[140px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                 @endif
-                                @if (auth()->user()?->role !== 'user')
+                                @if ($canSaveProposal)
                                 <button x-show="products.length === 1" type="button" @click="requestSaveProposal()" :disabled="isSaving" class="ml-auto inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
                                     <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
                                 </button>
@@ -949,7 +950,7 @@
                                 @endif
                             </div>
                         </div>
-                        @if (auth()->user()?->role !== 'user')
+                        @if ($canSaveProposal)
                             <button type="button" @click="requestSaveProposal()" :disabled="isSaving" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white h-fit disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #698DE3;">
                                 <span x-text="isSaving ? 'Збереження...' : 'Зберегти заявку'"></span>
                             </button>

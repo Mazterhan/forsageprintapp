@@ -1,22 +1,31 @@
 <x-app-layout>
     @section('title', __('Замовлення'))
+    @php
+        $ordersPermissions = $ordersPermissions ?? [];
+    @endphp
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                     {{ __('Замовлення') }}
                 </h2>
-                <a href="{{ route('orders.calculation') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                    {{ __('Прорахунок замовлення') }}
-                </a>
-                <a href="{{ route('orders.proposals') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                    {{ __('Збережені заявки') }}
-                </a>
+                @if($ordersPermissions['calculation'] ?? false)
+                    <a href="{{ route('orders.calculation') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                        {{ __('Прорахунок замовлення') }}
+                    </a>
+                @endif
+                @if($ordersPermissions['proposals'] ?? false)
+                    <a href="{{ route('orders.proposals') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                        {{ __('Збережені заявки') }}
+                    </a>
+                @endif
             </div>
             <div class="flex items-center gap-2">
-                <a href="{{ route('orders.clients.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                    {{ __('Замовники') }}
-                </a>
+                @if($ordersPermissions['clients'] ?? false)
+                    <a href="{{ route('orders.clients.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                        {{ __('Замовники') }}
+                    </a>
+                @endif
             </div>
         </div>
     </x-slot>

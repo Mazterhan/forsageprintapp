@@ -10,15 +10,17 @@
         <div x-data="{}" class="flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ __('Збережені заявки') }}</h2>
-                <button
-                    x-show="!($store.proposalManage && $store.proposalManage.mode)"
-                    x-cloak
-                    type="button"
-                    @click="$store.proposalManage && $store.proposalManage.enterManageMode()"
-                    class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
-                >
-                    Керування списком заявок
-                </button>
+                @if($canManageProposals ?? false)
+                    <button
+                        x-show="!($store.proposalManage && $store.proposalManage.mode)"
+                        x-cloak
+                        type="button"
+                        @click="$store.proposalManage && $store.proposalManage.enterManageMode()"
+                        class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                        Керування списком заявок
+                    </button>
+                @endif
                 <div class="flex items-center gap-2">
                     <label for="proposals-per-page" class="text-sm text-gray-700 whitespace-nowrap">Кількість заявок на сторінці</label>
                     <select
@@ -46,7 +48,7 @@
         };
         $nextDir = fn (string $column) => ($sort === $column && $direction === 'asc') ? 'desc' : 'asc';
         $sortLink = fn (string $column) => route('orders.proposals', array_merge(request()->query(), ['sort' => $column, 'direction' => $nextDir($column)]));
-        $canManageProposals = in_array((string) (auth()->user()->role ?? ''), ['admin', 'manager'], true);
+        $canManageProposals = (bool) ($canManageProposals ?? false);
         $proposalRowsForManage = $proposals->getCollection()->map(function ($proposal) use ($formatProposalListMoney) {
             $date = ((int) ($proposal->corrections_count ?? 0)) > 0 ? $proposal->updated_at : $proposal->created_at;
 

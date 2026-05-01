@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\EditGroupsAndCategoriesController;
+use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Orders\ClientController;
@@ -17,10 +18,10 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', 'permission:analytics'])
     ->name('dashboard');
 
-Route::middleware(['auth', 'role:admin'])->group(function () {
+Route::middleware(['auth', 'permission:admin'])->group(function () {
     Route::get('/admin', function () {
         $sort = (string) request()->query('sort', '');
         $direction = strtolower((string) request()->query('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
@@ -53,24 +54,48 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     })->name('admin.index');
 });
 
-Route::middleware('auth')
+Route::middleware(['auth', 'permission:orders'])
     ->prefix('orders')
     ->name('orders.')
     ->group(function () {
         Route::get('/', [OrderController::class, 'index'])->name('index');
-        Route::get('/calculation', [OrderController::class, 'calculation'])->name('calculation');
     });
 
-Route::middleware(['auth', 'role:admin|manager'])
+Route::middleware(['auth', 'permission:orders|orders_calculation'])
+    ->prefix('orders')
+    ->name('orders.')
+    ->group(function () {
+        Route::get('/calculation', [OrderController::class, 'calculation'])->name('calculation');
+        Route::post('/proposals', [ProposalController::class, 'store'])->name('proposals.store');
+    });
+
+Route::middleware(['auth', 'permission:orders|orders_proposals'])
     ->prefix('orders')
     ->name('orders.')
     ->group(function () {
         Route::get('/proposals', [ProposalController::class, 'index'])->name('proposals');
-        Route::post('/proposals', [ProposalController::class, 'store'])->name('proposals.store');
-        Route::post('/proposals/deactivate', [ProposalController::class, 'deactivate'])->name('proposals.deactivate');
         Route::get('/proposals/{orderProposal}', [ProposalController::class, 'show'])->name('proposals.show');
+    });
+
+Route::middleware(['auth', 'permission:orders|orders_proposals|orders_list_edit'])
+    ->prefix('orders')
+    ->name('orders.')
+    ->group(function () {
+        Route::post('/proposals/deactivate', [ProposalController::class, 'deactivate'])->name('proposals.deactivate');
+    });
+
+Route::middleware(['auth', 'permission:admin|admin_reference_manage'])
+    ->prefix('orders')
+    ->name('orders.')
+    ->group(function () {
         Route::get('/product-types', fn () => redirect()->route('admin.product-types.index'))->name('product-types.index');
         Route::post('/product-types', fn () => redirect()->route('admin.product-types.index'))->name('product-types.store');
+    });
+
+Route::middleware(['auth', 'permission:orders|orders_clients_manage'])
+    ->prefix('orders')
+    ->name('orders.')
+    ->group(function () {
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
         Route::get('/clients/create', [ClientController::class, 'create'])->name('clients.create');
         Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
@@ -79,37 +104,66 @@ Route::middleware(['auth', 'role:admin|manager'])
         Route::patch('/clients/{client}/deactivate', [ClientController::class, 'deactivate'])->name('clients.deactivate');
     });
 
-Route::middleware('auth')
+Route::middleware(['auth', 'permission:price'])
     ->prefix('price')
     ->name('price.')
     ->group(function () {
         Route::get('/', [PriceController::class, 'index'])->name('index');
+    });
+
+Route::middleware(['auth', 'permission:price|price_card_access'])
+    ->prefix('price')
+    ->name('price.')
+    ->group(function () {
         Route::get('/{priceItem}', [PriceController::class, 'show'])->name('show');
     });
 
-Route::middleware(['auth', 'role:admin|manager'])
+Route::middleware(['auth', 'permission:price|price_card_edit'])
     ->prefix('price')
     ->name('price.')
     ->group(function () {
         Route::patch('/bulk-update', [PriceController::class, 'bulkUpdate'])->name('bulk-update');
         Route::patch('/{priceItem}', [PriceController::class, 'update'])->name('update');
+    });
+
+Route::middleware(['auth', 'permission:price|price_card_history'])
+    ->prefix('price')
+    ->name('price.')
+    ->group(function () {
         Route::post('/{priceItem}/history/{history}/revert', [PriceController::class, 'revertHistory'])->name('history.revert');
+    });
+
+Route::middleware(['auth', 'permission:price|price_deactivate_item'])
+    ->prefix('price')
+    ->name('price.')
+    ->group(function () {
         Route::patch('/{priceItem}/toggle', [PriceController::class, 'toggle'])->name('toggle');
+    });
+
+Route::middleware(['auth', 'permission:price|price_delete_item'])
+    ->prefix('price')
+    ->name('price.')
+    ->group(function () {
         Route::patch('/{priceItem}/hide', [PriceController::class, 'hide'])->name('hide');
     });
 
-Route::middleware(['auth', 'role:admin|manager'])->group(function () {
+Route::middleware(['auth', 'permission:price|price_create_item'])->group(function () {
     Route::get('/new_item', [PriceController::class, 'create'])->name('price.create');
     Route::post('/new_item', [PriceController::class, 'store'])->name('price.store');
 });
 
-Route::middleware(['auth', 'role:admin'])
+Route::middleware(['auth', 'permission:admin'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
+        Route::middleware('permission:admin_users_org_manage')->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
+        Route::get('/roles/create', [RoleController::class, 'create'])->name('roles.create');
+        Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
+        Route::get('/roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
+        Route::patch('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
         Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
         Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::patch('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
@@ -120,11 +174,15 @@ Route::middleware(['auth', 'role:admin'])
         Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
         Route::get('/departments/{department}/edit', [DepartmentController::class, 'edit'])->name('departments.edit');
         Route::patch('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
+        });
+
+        Route::middleware('permission:admin_reference_manage')->group(function () {
         Route::view('/editgroupsandcategories', 'admin.editgroupsandcategories')->name('editgroupsandcategories');
         Route::get('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'productCategories'])->name('product-categories.index');
         Route::post('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'storeProductCategories'])->name('product-categories.store');
         Route::get('/editgroupsandcategories/product-types', [ProductTypeController::class, 'index'])->name('product-types.index');
         Route::post('/editgroupsandcategories/product-types', [ProductTypeController::class, 'store'])->name('product-types.store');
+        });
     });
 
 Route::middleware('auth')->group(function () {

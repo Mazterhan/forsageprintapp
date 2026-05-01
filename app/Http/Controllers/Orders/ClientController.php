@@ -51,7 +51,7 @@ class ClientController extends Controller
             ->pluck('category');
 
         $managers = User::query()
-            ->where('role', 'manager')
+            ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
@@ -71,7 +71,7 @@ class ClientController extends Controller
     public function create()
     {
         $managers = User::query()
-            ->where('role', 'manager')
+            ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
@@ -106,7 +106,7 @@ class ClientController extends Controller
         $client->load(['manager', 'createdBy', 'updatedBy']);
 
         $managers = User::query()
-            ->where('role', 'manager')
+            ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
