@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
         <title>ForsagePrint</title>
+        <link rel="icon" type="image/webp" href="{{ asset('images/favicon.webp') }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -44,13 +45,13 @@
             $primaryHomeLabel = $homeLinks[0]['label'] ?? 'Профіль';
         @endphp
 
-        <div class="min-h-screen flex items-center justify-center px-6">
-            <div class="relative w-full" style="max-width: 980px;">
-                <img src="{{ asset('images/Logo_V4.webp') }}" alt="Banner" class="w-full h-auto rounded-lg shadow-lg" />
+        <div class="min-h-screen flex items-center justify-center relative overflow-hidden">
+            <div class="relative">
+                <img src="{{ asset('images/startp_v2.webp') }}" alt="Banner" />
                 <div class="absolute inset-0 flex items-center justify-center z-10" style="transform: translateY(calc(4.5rem + 120px));">
                     @auth
                         <a href="{{ $primaryHomeUrl }}" class="inline-flex items-center justify-center px-16 py-6 text-xl font-semibold text-gray-900 uppercase tracking-widest rounded-full shadow-xl transition duration-200 ease-in-out hover:scale-110 hover:bg-gradient-to-r hover:from-pink-500 hover:via-orange-400 hover:to-yellow-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2" style="background-color: #FCEEDF;">
-                            {{ $primaryHomeLabel }}
+                            УВІЙТИ
                         </a>
                     @else
                         <a href="{{ route('login') }}" class="inline-flex items-center justify-center px-16 py-6 text-xl font-semibold text-gray-900 uppercase tracking-widest rounded-full shadow-xl transition duration-200 ease-in-out hover:scale-110 hover:bg-gradient-to-r hover:from-pink-500 hover:via-orange-400 hover:to-yellow-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2" style="background-color: #FCEEDF;">
