@@ -46,15 +46,18 @@
             $formatted = number_format((float) $value, 2, '.', ' ');
             return preg_replace('/\.0+$/', '', $formatted) ?? $formatted;
         };
+        $formatProposalDate = static function ($date): string {
+            return $date ? $date->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i') : '';
+        };
         $nextDir = fn (string $column) => ($sort === $column && $direction === 'asc') ? 'desc' : 'asc';
         $sortLink = fn (string $column) => route('orders.proposals', array_merge(request()->query(), ['sort' => $column, 'direction' => $nextDir($column)]));
         $canManageProposals = (bool) ($canManageProposals ?? false);
-        $proposalRowsForManage = $proposals->getCollection()->map(function ($proposal) use ($formatProposalListMoney) {
+        $proposalRowsForManage = $proposals->getCollection()->map(function ($proposal) use ($formatProposalListMoney, $formatProposalDate) {
             $date = ((int) ($proposal->corrections_count ?? 0)) > 0 ? $proposal->updated_at : $proposal->created_at;
 
             return [
                 'id' => (int) $proposal->id,
-                'date' => optional($date)->format('d.m.Y H:i'),
+                'date' => $formatProposalDate($date),
                 'number' => (string) $proposal->proposal_number,
                 'client_name' => (string) ($proposal->client_name ?: '—'),
                 'total_cost_formatted' => $formatProposalListMoney((float) $proposal->total_cost),
@@ -215,7 +218,7 @@
                                             </td>
                                         @endif
                                         <td class="px-4 py-3 border-b">
-                                            {{ optional(((int) ($proposal->corrections_count ?? 0)) > 0 ? $proposal->updated_at : $proposal->created_at)->format('d.m.Y H:i') }}
+                                            {{ $formatProposalDate(((int) ($proposal->corrections_count ?? 0)) > 0 ? $proposal->updated_at : $proposal->created_at) }}
                                         </td>
                                         <td class="px-4 py-3 border-b">
                                             <a href="{{ route('orders.proposals.show', $proposal) }}" class="text-indigo-600 hover:text-indigo-900">

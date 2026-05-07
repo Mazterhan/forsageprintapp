@@ -6,6 +6,9 @@
             $formatted = number_format((float) $value, 2, '.', ' ');
             return preg_replace('/\.0+$/', '', $formatted) ?? $formatted;
         };
+        $formatProposalDate = static function ($date): string {
+            return $date ? $date->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i') : '';
+        };
         $urgencyCoefficientDisplay = $state['urgency_coefficient']
             ?? $state['urgencyCoefficient']
             ?? data_get($state, 'summary.urgency_coefficient')
@@ -79,9 +82,9 @@
                         <div><span class="font-semibold">Коефіцієнт терміновості:</span> {{ $urgencyCoefficientDisplay }}</div>
                     </div>
                     <div class="space-y-2 text-left w-max shrink-0">
-                        <div><span class="font-semibold">Дата створення:</span> {{ optional($proposal->created_at)->format('d.m.Y H:i') }}</div>
+                        <div><span class="font-semibold">Дата створення:</span> {{ $formatProposalDate($proposal->created_at) }}</div>
                         @if(((int) ($proposal->corrections_count ?? 0)) >= 1)
-                            <div><span class="font-semibold">Останнє коригування:</span> {{ optional($proposal->updated_at)->format('d.m.Y H:i') }}</div>
+                            <div><span class="font-semibold">Останнє коригування:</span> {{ $formatProposalDate($proposal->updated_at) }}</div>
                             <div><span class="font-semibold">Кількість коригувань:</span> {{ (int) ($proposal->corrections_count ?? 0) }}</div>
                         @endif
                         <div><span class="font-semibold">Користувач:</span> {{ $proposal->user?->name ?? '—' }}</div>
