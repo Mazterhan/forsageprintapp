@@ -84,8 +84,9 @@ class EditGroupsAndCategoriesController extends Controller
         $categories = ProductCategory::query()
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->get(['name', 'material_type', 'code'])
+            ->get(['id', 'name', 'material_type', 'code'])
             ->map(fn (ProductCategory $category) => [
+                'id' => $category->id,
                 'name' => $category->name,
                 'material_type' => $category->material_type,
                 'code' => $category->code,
@@ -107,6 +108,8 @@ class EditGroupsAndCategoriesController extends Controller
         $materialTypeOptions = ['Листовий', 'Рулонний', 'Без типу матеріалу'];
 
         $validator = Validator::make($request->all(), [
+            'category_ids' => ['nullable', 'array'],
+            'category_ids.*' => ['nullable', 'integer', 'exists:product_categories,id'],
             'categories' => ['nullable', 'array'],
             'categories.*' => ['nullable', 'string', 'max:255'],
             'material_types' => ['nullable', 'array'],
@@ -144,6 +147,7 @@ class EditGroupsAndCategoriesController extends Controller
         $rawRows = collect($data['categories'] ?? [])
             ->map(function ($name, $index) use ($data) {
                 return [
+                    'id' => (int) ($data['category_ids'][$index] ?? 0),
                     'name' => trim((string) $name),
                     'material_type' => trim((string) (($data['material_types'][$index] ?? ''))),
                     'code' => strtoupper(trim((string) (($data['category_codes'][$index] ?? '')))),
@@ -157,41 +161,81 @@ class EditGroupsAndCategoriesController extends Controller
             : strtolower($value);
 
         $seen = [];
+        $seenCodes = [];
         $hasDuplicates = false;
-        $uniqueRows = $rawRows->filter(function (array $row) use (&$seen, &$hasDuplicates, $normalize): bool {
+        $hasDuplicateCodes = false;
+        $uniqueRows = $rawRows->filter(function (array $row) use (&$seen, &$seenCodes, &$hasDuplicates, &$hasDuplicateCodes, $normalize): bool {
             $key = $normalize($row['name']);
             if (isset($seen[$key])) {
                 $hasDuplicates = true;
                 return false;
             }
             $seen[$key] = true;
+
+            $codeKey = strtoupper($row['code']);
+            if (isset($seenCodes[$codeKey])) {
+                $hasDuplicateCodes = true;
+                return false;
+            }
+            $seenCodes[$codeKey] = true;
+
             return true;
         })->values();
 
-        if ($hasDuplicates) {
+        if ($hasDuplicates || $hasDuplicateCodes) {
             return redirect()
                 ->route('admin.product-categories.index')
                 ->withInput([
+                    'category_ids' => $uniqueRows->pluck('id')->map(fn ($id) => $id > 0 ? $id : null)->all(),
                     'categories' => $uniqueRows->pluck('name')->all(),
                     'material_types' => $uniqueRows->pluck('material_type')->all(),
                     'category_codes' => $uniqueRows->pluck('code')->all(),
                 ])
-                ->withErrors(['categories' => __('Знайдено дублікати. Кожна категорія товарів має бути унікальною.')]);
+                ->withErrors(['categories' => $hasDuplicates
+                    ? __('Знайдено дублікати. Кожна категорія товарів має бути унікальною.')
+                    : __('Знайдено дублікати кодів. Кожен код категорії має бути унікальним.')
+                ]);
         }
 
         $categories = $uniqueRows;
 
-        DB::transaction(function () use ($categories): void {
-            ProductCategory::query()->delete();
+        DB::transaction(function () use ($categories, $normalize): void {
+            $existing = ProductCategory::query()
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get();
+
+            $existingById = $existing->keyBy('id');
+            $existingByName = $existing->keyBy(fn (ProductCategory $category) => $normalize((string) $category->name));
+            $existingByCode = $existing->keyBy(fn (ProductCategory $category) => strtoupper((string) $category->code));
+            $keptIds = [];
 
             foreach ($categories as $index => $row) {
-                ProductCategory::create([
+                $category = null;
+
+                if (($row['id'] ?? 0) > 0 && $existingById->has($row['id'])) {
+                    $category = $existingById->get($row['id']);
+                }
+
+                if (!$category) {
+                    $category = $existingByName->get($normalize($row['name']))
+                        ?? $existingByCode->get(strtoupper($row['code']))
+                        ?? new ProductCategory();
+                }
+
+                $category->fill([
                     'name' => $row['name'],
                     'material_type' => $row['material_type'],
                     'code' => $row['code'],
                     'sort_order' => $index + 1,
                 ]);
+                $category->save();
+                $keptIds[] = $category->id;
             }
+
+            ProductCategory::query()
+                ->whereNotIn('id', $keptIds)
+                ->delete();
         });
 
         return redirect()
