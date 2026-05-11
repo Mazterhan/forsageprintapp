@@ -229,6 +229,12 @@
             cursor: pointer;
         }
 
+        .dashboard-chart-card canvas {
+            display: block;
+            width: 100%;
+            height: 130px;
+        }
+
         .dashboard-chart-card:hover,
         .dashboard-kpi-card:hover,
         .dashboard-panel:hover {
