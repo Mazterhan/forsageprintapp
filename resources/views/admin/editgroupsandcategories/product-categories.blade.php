@@ -33,11 +33,13 @@
                         <div id="category-fields" class="space-y-3">
                             @php
                                 $oldCategories = old('categories');
+                                $oldCategoryIds = old('category_ids');
                                 $oldMaterialTypes = old('material_types');
                                 $oldCategoryCodes = old('category_codes');
                                 $initialRows = is_array($oldCategories)
-                                    ? collect($oldCategories)->map(function ($name, $index) use ($oldMaterialTypes, $oldCategoryCodes) {
+                                    ? collect($oldCategories)->map(function ($name, $index) use ($oldCategoryIds, $oldMaterialTypes, $oldCategoryCodes) {
                                         return [
+                                            'id' => is_array($oldCategoryIds) ? ($oldCategoryIds[$index] ?? '') : '',
                                             'name' => $name,
                                             'material_type' => is_array($oldMaterialTypes) ? ($oldMaterialTypes[$index] ?? '') : '',
                                             'code' => is_array($oldCategoryCodes) ? ($oldCategoryCodes[$index] ?? '') : '',
@@ -48,6 +50,7 @@
                             @foreach ($initialRows as $index => $row)
                                 <div class="entry-row">
                                     <div class="mt-1 flex items-center gap-2">
+                                        <input type="hidden" name="category_ids[]" value="{{ $row['id'] ?? '' }}">
                                         <input
                                             id="category_{{ $index }}"
                                             name="categories[]"
@@ -77,6 +80,7 @@
                             @endforeach
                             <div class="entry-row">
                                 <div class="mt-1 flex items-center gap-2">
+                                    <input type="hidden" name="category_ids[]" value="">
                                     <input
                                         id="category_new"
                                         name="categories[]"
@@ -129,6 +133,7 @@
                 wrapper.className = 'entry-row';
                 wrapper.innerHTML = `
                     <div class="mt-1 flex items-center gap-2">
+                        <input type="hidden" name="category_ids[]" value="">
                         <input
                             id="category_${index}"
                             name="categories[]"

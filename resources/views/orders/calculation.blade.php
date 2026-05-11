@@ -1579,22 +1579,29 @@
                     return this.getMaterialType(product?.material);
                 },
 
+                isRollingMaterialOptionExcluded(material) {
+                    const category = this.normalizeText(this.getMaterialCategory(material));
+                    const code = String(this.getMaterialCode(material) || '').trim().toUpperCase();
+
+                    if (code === 'MAT-FLM-009') {
+                        return true;
+                    }
+
+                    return ['фанера', 'банер', 'папір', 'холст'].includes(category);
+                },
+
                 getRollingP1Options(product) {
                     let options = this.getPriceMaterialOptions();
 
                     options = options.filter((material) => {
-                        const category = this.normalizeText(this.getMaterialCategory(material));
-                        const code = this.getMaterialCode(material);
-                        if (code === 'MAT-FLM-009') return false;
-                        return !['фанера', 'банер', 'папір'].includes(category);
+                        return !this.isRollingMaterialOptionExcluded(material);
                     });
 
                     const baseMaterialType = this.getRollingBaseMaterialType(product);
                     if (baseMaterialType === 'Листовий') {
                         options = options.filter((material) => {
-                            const code = this.getMaterialCode(material);
                             return this.getMaterialType(material) === 'Рулонний'
-                                && code !== 'MAT-FLM-009';
+                                && !this.isRollingMaterialOptionExcluded(material);
                         });
                     } else if (baseMaterialType === 'Рулонний') {
                         options = options.filter((material) => {
@@ -1608,7 +1615,8 @@
                 },
 
                 getRollingP2Options(product) {
-                    let options = this.getPriceMaterialOptions();
+                    let options = this.getPriceMaterialOptions()
+                        .filter((material) => !this.isRollingMaterialOptionExcluded(material));
                     const p1 = product.services.rollingMaterialP1;
                     if (!p1) {
                         return [];
@@ -1620,10 +1628,8 @@
                     if (p1Category === 'плівка' || p1Category === 'скотч' || p1Type === 'Листовий') {
                         options = options.filter((material) => {
                             const category = this.normalizeText(this.getMaterialCategory(material));
-                            const code = this.getMaterialCode(material);
                             const allowScotch = p1Category !== 'скотч';
-                            return (category === 'плівка' || (allowScotch && category === 'скотч'))
-                                && code !== 'MAT-FLM-009';
+                            return category === 'плівка' || (allowScotch && category === 'скотч');
                         });
                     }
 
@@ -1635,7 +1641,8 @@
                 },
 
                 getRollingIP2Options(product) {
-                    let options = this.getPriceMaterialOptions();
+                    let options = this.getPriceMaterialOptions()
+                        .filter((material) => !this.isRollingMaterialOptionExcluded(material));
                     const ip1 = product.services.rollingMaterialIP1;
                     if (!ip1) {
                         return [];
@@ -1647,10 +1654,8 @@
                     if (ip1Category === 'плівка' || ip1Category === 'скотч' || ip1Type === 'Листовий') {
                         options = options.filter((material) => {
                             const category = this.normalizeText(this.getMaterialCategory(material));
-                            const code = this.getMaterialCode(material);
                             const allowScotch = ip1Category !== 'скотч';
-                            return (category === 'плівка' || (allowScotch && category === 'скотч'))
-                                && code !== 'MAT-FLM-009';
+                            return category === 'плівка' || (allowScotch && category === 'скотч');
                         });
                     }
 
@@ -2432,6 +2437,10 @@
                     const materialCategory = this.normalizeText(this.getMaterialCategory(product.material));
 
                     if (materialCategory === 'папір' && ['cutting', 'weeding', 'montage', 'rolling'].includes(block)) {
+                        return false;
+                    }
+
+                    if (materialCategory === 'холст') {
                         return false;
                     }
 

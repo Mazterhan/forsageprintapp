@@ -55,7 +55,7 @@
                         </a>
                     @else
                         <a href="{{ route('login') }}" class="inline-flex items-center justify-center px-16 py-6 text-xl font-semibold text-gray-900 uppercase tracking-widest rounded-full shadow-xl transition duration-200 ease-in-out hover:scale-110 hover:bg-gradient-to-r hover:from-pink-500 hover:via-orange-400 hover:to-yellow-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2" style="background-color: #FCEEDF;">
-                            Log in
+                            Авторизуватись
                         </a>
                         {{-- Register disabled --}}
                     @endauth
