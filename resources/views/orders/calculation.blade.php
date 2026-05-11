@@ -1587,7 +1587,7 @@
                         return true;
                     }
 
-                    return ['фанера', 'банер', 'папір', 'уф холст'].includes(category);
+                    return ['фанера', 'банер', 'папір', 'холст'].includes(category);
                 },
 
                 getRollingP1Options(product) {
@@ -2437,6 +2437,10 @@
                     const materialCategory = this.normalizeText(this.getMaterialCategory(product.material));
 
                     if (materialCategory === 'папір' && ['cutting', 'weeding', 'montage', 'rolling'].includes(block)) {
+                        return false;
+                    }
+
+                    if (materialCategory === 'холст') {
                         return false;
                     }
 
