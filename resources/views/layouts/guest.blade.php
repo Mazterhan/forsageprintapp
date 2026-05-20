@@ -7,6 +7,7 @@
 
         <title>@yield('title', config('app.name', 'Laravel'))</title>
         <link rel="icon" type="image/webp" href="{{ asset('images/favicon.webp') }}">
+        @include('partials.pwa')
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
