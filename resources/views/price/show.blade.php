@@ -234,7 +234,17 @@
             const servicePriceInput = document.getElementById('service_price');
             const purchasePriceInput = document.getElementById('purchase_price');
             const markupPercentInput = document.getElementById('markup_percent');
+            const updateForm = document.getElementById('price-item-update-form');
+            const commentInput = document.getElementById('comment');
+            const watchedFields = [servicePriceInput, purchasePriceInput, commentInput].filter((field) => field && !field.disabled);
             let isSyncing = false;
+            let isDirty = false;
+
+            const initialValues = new Map(watchedFields.map((field) => [field, String(field.value ?? '')]));
+
+            const updateDirtyState = () => {
+                isDirty = watchedFields.some((field) => String(field.value ?? '') !== initialValues.get(field));
+            };
 
             const parseNumber = (value) => {
                 const normalized = String(value ?? '').replace(',', '.').trim();
@@ -280,6 +290,26 @@
                 syncServicePrice();
             });
             markupPercentInput?.addEventListener('input', syncServicePrice);
+
+            watchedFields.forEach((field) => {
+                field.addEventListener('input', updateDirtyState);
+            });
+
+            markupPercentInput?.addEventListener('input', updateDirtyState);
+
+            updateForm?.addEventListener('submit', () => {
+                isDirty = false;
+            });
+
+            window.addEventListener('beforeunload', (event) => {
+                updateDirtyState();
+                if (!isDirty) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.returnValue = '';
+            });
         })();
     </script>
 </x-app-layout>

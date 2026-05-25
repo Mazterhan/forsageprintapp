@@ -1246,7 +1246,7 @@
                 },
 
                 setupUnsavedChangesGuard() {
-                    if (!this.proposalId || this.beforeUnloadHandler) {
+                    if (this.beforeUnloadHandler) {
                         return;
                     }
 
