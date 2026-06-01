@@ -436,7 +436,7 @@
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
                                             @if($showPurchaseFields)
                                                 <span class="text-sm text-gray-700">Собівартість:</span>
-                                                <input x-model="product.services.weedingPurchaseCost" @focus="clearDefaultZero($event, 'integer')" @blur="restoreDefaultOnBlur(product.services, 'weedingPurchaseCost', '0', $event)" @input="sanitizeIntegerInObject(product.services, 'weedingPurchaseCost', $event)" type="text" inputmode="numeric" class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-gray-700" title="Собівартість">
+                                                <input type="text" :value="getWeedingPurchaseCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700" title="Собівартість">
                                                 <span class="text-sm text-gray-700">Вартість:</span>
                                             @endif
                                             <input type="text" :value="getWeedingCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
@@ -3013,15 +3013,13 @@
                         return 0;
                     }
 
-                    if (pricingMode === 'purchase') {
-                        const purchaseCost = this.toNumber(product.services.weedingPurchaseCost);
-                        const safePurchaseCost = Number.isFinite(purchaseCost) ? purchaseCost : 0;
-                        return this.normalizeMoney(safePurchaseCost);
-                    }
-
-                    const weedingPrice = this.toNumber(product.services.weedingPrice);
-                    const safeWeedingPrice = Number.isFinite(weedingPrice) ? Math.trunc(weedingPrice) : 0;
-                    if (safeWeedingPrice !== 0 && safeWeedingPrice < 100) {
+                    const unitPrice = pricingMode === 'purchase'
+                        ? this.getServicePurchasePriceByCode('SERV-002')
+                        : this.toNumber(product.services.weedingPrice);
+                    const safeUnitPrice = Number.isFinite(unitPrice)
+                        ? (pricingMode === 'purchase' ? unitPrice : Math.trunc(unitPrice))
+                        : 0;
+                    if (pricingMode !== 'purchase' && safeUnitPrice !== 0 && safeUnitPrice < 100) {
                         return 0;
                     }
                     const width = this.toNumber(this.getFirstPositionValue(product, 'width', '0'));
@@ -3033,7 +3031,7 @@
                     const areaQty = safeWidth * safeHeight * safeQty;
                     const safeUrgency = this.getUrgencyValueByMode(pricingMode);
 
-                    return this.normalizeMoney(safeWeedingPrice * areaQty * safeUrgency);
+                    return this.normalizeMoney(safeUnitPrice * areaQty * safeUrgency);
                 },
 
                 isWeedingPriceRangeWarning(product) {
@@ -4085,7 +4083,10 @@
                             manualThickness: String(product.manualThickness || ''),
                             positions,
                             servicesEnabledRaw: String(product.servicesEnabledRaw || '0'),
-                            services: { ...(product.services || {}) },
+                            services: {
+                                ...(product.services || {}),
+                                weedingPurchaseCost: String(this.getWeedingCost(product, 'purchase')),
+                            },
                             service_rows: this.serializeServiceRows(product),
                             positions_cost: this.getProductPositionsCost(product),
                             positions_purchase_cost: this.getProductPositionsCost(product, 'purchase'),

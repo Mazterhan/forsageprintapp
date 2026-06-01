@@ -227,6 +227,7 @@ class OrderController extends Controller
             ->whereIn('internal_code', [
                 'SERV-001',
                 'SERV-001-MZ',
+                'SERV-002',
                 'SERV-003',
                 'SERV-003-MZ',
                 'SERV-004',
