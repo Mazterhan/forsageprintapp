@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Orders;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\OrderProposal;
+use App\Models\OrderProposalEditLock;
 use App\Models\PriceItem;
 use App\Models\ProductCategory;
 use App\Models\ProductTypeCategoryRule;
@@ -31,6 +32,7 @@ class OrderController extends Controller
         $proposal = null;
         if ($proposalId) {
             $proposal = OrderProposal::query()
+                ->with('editLock')
                 ->whereNull('deleted_date')
                 ->find($proposalId);
 
@@ -45,6 +47,36 @@ class OrderController extends Controller
             if ($permissions->ordersListScope($request->user()) === 'own' && (int) $proposal->user_id !== (int) $request->user()?->id) {
                 abort(403);
             }
+
+            if ((bool) $proposal->is_autosaved) {
+                abort(403);
+            }
+
+            $editToken = trim((string) $request->query('edit_token', ''));
+            $lock = $proposal->editLock;
+            if ($lock && !$lock->isActive()) {
+                $lock->delete();
+                $lock = null;
+            }
+
+            $sessionEditToken = (string) $request->session()->get("order_proposal_edit_tokens.{$proposal->id}", '');
+            if (!$lock && $editToken !== '' && hash_equals($sessionEditToken, $editToken)) {
+                $lock = OrderProposalEditLock::create([
+                    'order_proposal_id' => $proposal->id,
+                    'user_id' => $request->user()->id,
+                    'lock_token' => $editToken,
+                    'started_at' => now(),
+                    'heartbeat_at' => now(),
+                ]);
+            }
+
+            if (!$lock || $editToken === '' || (string) $lock->lock_token !== $editToken || (int) $lock->user_id !== (int) $request->user()?->id) {
+                return redirect()
+                    ->route('orders.proposals.show', $proposal)
+                    ->with('status', 'Заявка заблокована для редагування. Відкрийте редагування зі сторінки заявки.');
+            }
+
+            $lock->update(['heartbeat_at' => now()]);
         }
 
         $clients = Client::query()
@@ -227,6 +259,7 @@ class OrderController extends Controller
             ->whereIn('internal_code', [
                 'SERV-001',
                 'SERV-001-MZ',
+                'SERV-002',
                 'SERV-003',
                 'SERV-003-MZ',
                 'SERV-004',
@@ -286,6 +319,9 @@ class OrderController extends Controller
             'typeCategoryMatrix' => $typeCategoryMatrix,
             'proposalId' => $proposal?->id,
             'initialState' => $proposal?->payload,
+            'editLockToken' => isset($editToken) ? $editToken : null,
+            'editLockHeartbeatUrl' => $proposal ? route('orders.proposals.edit-lock.heartbeat', $proposal) : null,
+            'editLockReleaseUrl' => $proposal ? route('orders.proposals.edit-lock.release', $proposal) : null,
             'canSaveProposal' => $permissions->can($request->user(), 'orders_calc_save'),
             'showPurchaseFields' => $permissions->can($request->user(), 'orders_calc_purchase_visible'),
         ]);

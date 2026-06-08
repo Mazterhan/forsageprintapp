@@ -23,6 +23,12 @@ class OrderProposalFactory extends Factory
             'payload' => $this->payload($total),
             'deleted_by' => null,
             'deleted_date' => null,
+            'is_autosaved' => false,
+            'autosaved_by' => null,
+            'autosaved_at' => null,
+            'autosave_token' => null,
+            'autosave_confirmed_by' => null,
+            'autosave_confirmed_at' => null,
         ];
     }
 

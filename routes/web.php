@@ -67,6 +67,7 @@ Route::middleware(['auth', 'permission:orders|orders_calculation'])
     ->group(function () {
         Route::get('/calculation', [OrderController::class, 'calculation'])->name('calculation');
         Route::post('/proposals', [ProposalController::class, 'store'])->name('proposals.store');
+        Route::post('/proposals/autosave', [ProposalController::class, 'autosave'])->name('proposals.autosave');
     });
 
 Route::middleware(['auth', 'permission:orders|orders_proposals'])
@@ -75,6 +76,11 @@ Route::middleware(['auth', 'permission:orders|orders_proposals'])
     ->group(function () {
         Route::get('/proposals', [ProposalController::class, 'index'])->name('proposals');
         Route::get('/proposals/{orderProposal}', [ProposalController::class, 'show'])->name('proposals.show');
+        Route::post('/proposals/{orderProposal}/confirm-autosave', [ProposalController::class, 'confirmAutosave'])->name('proposals.confirm-autosave');
+        Route::post('/proposals/{orderProposal}/delete-autosave', [ProposalController::class, 'deleteAutosave'])->name('proposals.delete-autosave');
+        Route::post('/proposals/{orderProposal}/edit-lock', [ProposalController::class, 'startEditLock'])->name('proposals.edit-lock.start');
+        Route::patch('/proposals/{orderProposal}/edit-lock', [ProposalController::class, 'heartbeatEditLock'])->name('proposals.edit-lock.heartbeat');
+        Route::delete('/proposals/{orderProposal}/edit-lock', [ProposalController::class, 'releaseEditLock'])->name('proposals.edit-lock.release');
     });
 
 Route::middleware(['auth', 'permission:orders|orders_proposals|orders_list_edit'])

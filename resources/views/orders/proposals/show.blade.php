@@ -46,13 +46,34 @@
         if (!$hasMultipleProducts) {
             $viewMode = 'combined';
         }
+        $activeEditLock = $proposal->activeEditLock;
     @endphp
+    <style>
+        @keyframes proposalStatusBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
+
+        .proposal-status-blink {
+            animation: proposalStatusBlink 1.2s ease-in-out infinite;
+        }
+    </style>
     <x-slot name="header">
         <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3">
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                    {{ __('Заявка :number', ['number' => $proposal->proposal_number]) }}
-                </h2>
+                <div class="space-y-1">
+                    <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                        {{ __('Заявка :number', ['number' => $proposal->proposal_number]) }}
+                    </h2>
+                    @if($proposal->is_autosaved)
+                        <div class="proposal-status-blink text-sm font-semibold text-amber-700">Автоматично збережена збережений прорахунок</div>
+                        <div class="text-sm text-gray-700"><span class="font-semibold">Користувач:</span> {{ $proposal->autosavedBy?->name ?? '—' }}</div>
+                        <div class="text-sm text-gray-700"><span class="font-semibold">Час останнього автоматичного збереження:</span> {{ $formatProposalDate($proposal->autosaved_at) }}</div>
+                    @elseif($activeEditLock)
+                        <div class="proposal-status-blink text-sm font-semibold text-blue-700">Заявка знаходиться на редагуванні</div>
+                        <div class="text-sm text-gray-700"><span class="font-semibold">Користувачем:</span> {{ $activeEditLock->user?->name ?? '—' }}</div>
+                    @endif
+                </div>
                 @if($hasMultipleProducts)
                     <select
                         onchange="window.location.href='{{ route('orders.proposals.show', $proposal) }}?view_mode=' + this.value"
@@ -66,8 +87,34 @@
             </div>
             <div class="flex items-center gap-2">
                 <a href="{{ route('orders.proposals') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">Повернутись до заявок</a>
-                @if($canEditProposal ?? false)
-                    <a href="{{ route('orders.calculation', ['proposal' => $proposal->id]) }}" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">Редагувати</a>
+                @if($proposal->is_autosaved)
+                    @if($canConfirmAutosave ?? false)
+                        <form
+                            method="POST"
+                            action="{{ route('orders.proposals.confirm-autosave', $proposal) }}"
+                            onsubmit="try { localStorage.setItem('forsageprint-autosave-confirmed', JSON.stringify({ proposal_id: {{ (int) $proposal->id }}, at: Date.now() })); } catch (e) {}"
+                        >
+                            @csrf
+                            <button type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">Зафіксувати прорахунок</button>
+                        </form>
+                        <form
+                            method="POST"
+                            action="{{ route('orders.proposals.delete-autosave', $proposal) }}"
+                            onsubmit="if (!confirm('Видалити автоматично збережений прорахунок?')) return false; try { localStorage.setItem('forsageprint-autosave-deleted', JSON.stringify({ proposal_id: {{ (int) $proposal->id }}, at: Date.now() })); } catch (e) {}"
+                        >
+                            @csrf
+                            <button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md text-sm text-white hover:bg-red-700">Видалити прорахунок</button>
+                        </form>
+                    @endif
+                @elseif($activeEditLock)
+                    <button type="button" disabled class="inline-flex items-center px-4 py-2 bg-gray-300 border border-transparent rounded-md text-sm text-gray-600 cursor-not-allowed">Редагувати</button>
+                @elseif($canEditProposal ?? false)
+                    <button
+                        type="button"
+                        data-edit-lock-url="{{ route('orders.proposals.edit-lock.start', $proposal) }}"
+                        onclick="window.startProposalEdit && window.startProposalEdit(this)"
+                        class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700"
+                    >Редагувати</button>
                 @endif
             </div>
         </div>
@@ -75,6 +122,11 @@
 
     <div class="py-8">
         <div class="max-w-[1700px] mx-auto px-6 sm:px-8 lg:px-12 space-y-4">
+            @if (session('status'))
+                <div class="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                    {{ session('status') }}
+                </div>
+            @endif
             <div class="bg-white shadow-sm sm:rounded-lg p-4 text-sm text-gray-800">
                 <div class="flex flex-row items-start justify-between gap-6 w-full">
                     <div class="space-y-2 flex-1 min-w-0">
@@ -616,4 +668,35 @@
             </div>
         </div>
     </div>
+    <script>
+        window.startProposalEdit = async function (button) {
+            const url = button?.dataset?.editLockUrl;
+            if (!url) return;
+
+            button.disabled = true;
+            const originalText = button.textContent;
+            button.textContent = 'Відкриття...';
+            try {
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrf,
+                    },
+                    body: JSON.stringify({}),
+                });
+                const payload = await response.json();
+                if (!response.ok || !payload?.ok || !payload?.edit_url) {
+                    throw new Error(payload?.message || 'Не вдалося відкрити заявку для редагування.');
+                }
+                window.location.href = payload.edit_url;
+            } catch (error) {
+                alert(error?.message || 'Не вдалося відкрити заявку для редагування.');
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        };
+    </script>
 </x-app-layout>
