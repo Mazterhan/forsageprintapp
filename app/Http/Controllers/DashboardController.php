@@ -85,6 +85,9 @@ class DashboardController extends Controller
 
             OrderProposal::query()
                 ->whereNull('deleted_date')
+                ->where(function ($query): void {
+                    $query->whereNull('is_autosaved')->orWhere('is_autosaved', false);
+                })
                 ->where('user_id', $user?->id)
                 ->get(['client_name', 'payload'])
                 ->each(function (OrderProposal $proposal) use (&$availableClientIds, &$availableClientNames) {
@@ -133,7 +136,10 @@ class DashboardController extends Controller
 
         $query = OrderProposal::query()
             ->with('user:id,name')
-            ->whereNull('deleted_date');
+            ->whereNull('deleted_date')
+            ->where(function ($query): void {
+                $query->whereNull('is_autosaved')->orWhere('is_autosaved', false);
+            });
 
         if ($permissions->ordersListScope($user) === 'own') {
             $query->where('user_id', $user?->id);

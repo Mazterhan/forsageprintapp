@@ -68,6 +68,15 @@
     <style>
         [x-cloak] { display: none !important; }
 
+        @keyframes proposalStatusBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
+
+        .proposal-status-blink {
+            animation: proposalStatusBlink 1.2s ease-in-out infinite;
+        }
+
         .proposal-table thead tr {
             background-color: #FCEEDF;
         }
@@ -224,6 +233,11 @@
                                             <a href="{{ route('orders.proposals.show', $proposal) }}" class="text-indigo-600 hover:text-indigo-900">
                                                 {{ $proposal->proposal_number }}
                                             </a>
+                                            @if($proposal->is_autosaved)
+                                                <span class="proposal-status-blink ml-2 inline-flex rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Автозбереженна чернетка</span>
+                                            @elseif($proposal->activeEditLock)
+                                                <span class="proposal-status-blink ml-2 inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">Редагується</span>
+                                            @endif
                                         </td>
                                         <td class="px-4 py-3 border-b">{{ $proposal->client_name ?: '—' }}</td>
                                         <td class="px-4 py-3 border-b">{{ $proposal->user?->name ?? '—' }}</td>
