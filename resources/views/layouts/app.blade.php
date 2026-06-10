@@ -17,6 +17,35 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased">
+        @auth
+            @php
+                $unfinishedAutosaves = collect();
+                if (\Illuminate\Support\Facades\Schema::hasColumn('order_proposals', 'is_autosaved')) {
+                    $unfinishedAutosaves = \App\Models\OrderProposal::query()
+                        ->whereNull('deleted_date')
+                        ->where('is_autosaved', true)
+                        ->where('autosaved_by', Auth::id())
+                        ->latest('autosaved_at')
+                        ->limit(3)
+                        ->get(['id', 'proposal_number', 'autosaved_at']);
+                }
+            @endphp
+            @if($unfinishedAutosaves->isNotEmpty())
+                <div class="fixed right-5 top-5 z-[14000] max-w-md rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-lg">
+                    <div class="font-semibold">Вами створено прорахунки, які були автоматично збережені без підтвердження:</div>
+                    <div class="mt-2 space-y-1">
+                        @foreach($unfinishedAutosaves as $autosaveProposal)
+                            <a href="{{ route('orders.proposals.show', $autosaveProposal) }}" class="block text-indigo-700 hover:text-indigo-900">
+                                {{ $autosaveProposal->proposal_number }}
+                                @if($autosaveProposal->autosaved_at)
+                                    <span class="text-amber-800">({{ $autosaveProposal->autosaved_at->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i') }})</span>
+                                @endif
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        @endauth
         <div class="min-h-screen bg-gray-100">
             @include('layouts.navigation')
 

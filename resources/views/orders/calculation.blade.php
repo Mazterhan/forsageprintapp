@@ -50,8 +50,19 @@
                     proposalId: @js($proposalId ?? null),
                     initialState: @js($initialState ?? null),
                     saveUrl: @js(route('orders.proposals.store')),
+                    autosaveUrl: @js(route('orders.proposals.autosave')),
+                    editLockToken: @js($editLockToken ?? null),
+                    editLockHeartbeatUrl: @js($editLockHeartbeatUrl ?? null),
+                    editLockReleaseUrl: @js($editLockReleaseUrl ?? null),
                 })"
             >
+                <div
+                    x-show="toastMessage"
+                    x-transition
+                    x-cloak
+                    class="fixed right-6 top-6 z-[13000] max-w-md rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800 shadow-lg"
+                    x-text="toastMessage"
+                ></div>
                 <div class="sticky top-0 z-[9999] isolate overflow-visible border border-gray-300 rounded-lg p-4 shadow-sm" style="background-color: #FCEEDF;">
                     <div class="flex flex-wrap items-end gap-4">
                         <div class="text-sm font-semibold text-gray-700">Замовник</div>
@@ -1057,6 +1068,18 @@
                 proposalId: config.proposalId || null,
                 initialState: config.initialState || null,
                 saveUrl: config.saveUrl || '',
+                autosaveUrl: config.autosaveUrl || '',
+                autosaveToken: '',
+                autosaveIntervalMs: 20 * 60 * 1000,
+                autosaveTimer: null,
+                autosaveStopped: false,
+                autosaveInFlight: false,
+                editLockToken: config.editLockToken || '',
+                editLockHeartbeatUrl: config.editLockHeartbeatUrl || '',
+                editLockReleaseUrl: config.editLockReleaseUrl || '',
+                editLockHeartbeatTimer: null,
+                toastMessage: '',
+                toastTimer: null,
                 selectedClientId: '',
                 selectedClientQuery: '',
                 showClientDropdown: false,
@@ -1089,6 +1112,8 @@
                     }
                     this.onClientChanged();
                     this.setupUnsavedChangesGuard();
+                    this.setupCalculationAutosave();
+                    this.setupEditLockHeartbeat();
                     this.$nextTick(() => {
                         this.resetUnsavedChangesBaseline();
                     });
@@ -1261,6 +1286,202 @@
                     };
 
                     window.addEventListener('beforeunload', this.beforeUnloadHandler);
+                },
+
+                setupCalculationAutosave() {
+                    if (this.proposalId || !this.autosaveUrl) {
+                        return;
+                    }
+
+                    this.autosaveToken = this.generateClientToken();
+                    window.addEventListener('online', () => {
+                        if (!this.autosaveStopped) {
+                            this.scheduleNextAutosave();
+                        }
+                    });
+                    window.addEventListener('storage', (event) => {
+                        if (!['forsageprint-autosave-confirmed', 'forsageprint-autosave-deleted'].includes(event.key) || !event.newValue) {
+                            return;
+                        }
+
+                        try {
+                            const payload = JSON.parse(event.newValue);
+                            if (Number(payload?.proposal_id) === Number(this.proposalId)) {
+                                this.stopAutosave();
+                                this.showToast(event.key === 'forsageprint-autosave-deleted'
+                                    ? 'Автоматично збережений прорахунок видалено. Автоматичне збереження деактивоване.'
+                                    : 'Заявка збережена вручну. Автоматичне збереження деактивоване.');
+                            }
+                        } catch (error) {
+                            // Ignore unrelated localStorage payloads.
+                        }
+                    });
+                    this.scheduleNextAutosave();
+                },
+
+                scheduleNextAutosave() {
+                    if (this.autosaveStopped || this.proposalId && this.editLockToken) {
+                        return;
+                    }
+
+                    if (this.autosaveTimer) {
+                        clearTimeout(this.autosaveTimer);
+                    }
+
+                    this.autosaveTimer = window.setTimeout(() => {
+                        this.runAutosave();
+                    }, this.autosaveIntervalMs);
+                },
+
+                async runAutosave() {
+                    if (this.autosaveStopped || this.autosaveInFlight || this.editLockToken || !this.autosaveUrl) {
+                        return;
+                    }
+
+                    if (!navigator.onLine) {
+                        return;
+                    }
+
+                    if (!this.hasUnsavedChanges() && !this.proposalId) {
+                        this.scheduleNextAutosave();
+                        return;
+                    }
+
+                    if (!this.hasUnsavedChanges() && this.proposalId) {
+                        this.scheduleNextAutosave();
+                        return;
+                    }
+
+                    this.autosaveInFlight = true;
+                    try {
+                        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                        const response = await fetch(this.autosaveUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrf,
+                            },
+                            body: JSON.stringify({
+                                proposal_id: this.proposalId,
+                                autosave_token: this.autosaveToken,
+                                urgency_coefficient: String(this.urgencyCoefficient || '1.00'),
+                                state: this.buildSaveState(),
+                            }),
+                        });
+
+                        if (response.status === 401 || response.status === 419) {
+                            this.stopAutosave();
+                            return;
+                        }
+
+                        const payload = await response.json();
+                        if (!response.ok || !payload?.ok) {
+                            throw new Error(payload?.message || 'Не вдалося автоматично зберегти заявку.');
+                        }
+
+                        this.proposalId = payload.proposal_id || this.proposalId;
+                        this.showToast(`Автоматично збережено заявку ${payload.proposal_number || ''}`.trim());
+                        this.resetUnsavedChangesBaseline();
+                    } catch (error) {
+                        if (navigator.onLine) {
+                            this.showToast(error?.message || 'Автоматичне збереження не виконано.');
+                        }
+                    } finally {
+                        this.autosaveInFlight = false;
+                        if (!this.autosaveStopped && navigator.onLine) {
+                            this.scheduleNextAutosave();
+                        }
+                    }
+                },
+
+                stopAutosave() {
+                    this.autosaveStopped = true;
+                    if (this.autosaveTimer) {
+                        clearTimeout(this.autosaveTimer);
+                        this.autosaveTimer = null;
+                    }
+                },
+
+                setupEditLockHeartbeat() {
+                    if (!this.editLockToken || !this.editLockHeartbeatUrl) {
+                        return;
+                    }
+
+                    this.editLockHeartbeatTimer = window.setInterval(() => {
+                        this.sendEditLockHeartbeat();
+                    }, 60 * 1000);
+
+                    window.addEventListener('beforeunload', () => {
+                        this.releaseEditLock(true);
+                    });
+                },
+
+                async sendEditLockHeartbeat() {
+                    if (!this.editLockToken || !this.editLockHeartbeatUrl || !navigator.onLine) {
+                        return;
+                    }
+
+                    try {
+                        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                        const response = await fetch(this.editLockHeartbeatUrl, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrf,
+                            },
+                            body: JSON.stringify({
+                                lock_token: this.editLockToken,
+                            }),
+                        });
+
+                        if (response.status === 401 || response.status === 419 || response.status === 409) {
+                            if (this.editLockHeartbeatTimer) {
+                                clearInterval(this.editLockHeartbeatTimer);
+                            }
+                        }
+                    } catch (error) {
+                        // Temporary network issues are handled by the next heartbeat.
+                    }
+                },
+
+                releaseEditLock(keepalive = false) {
+                    if (!this.editLockToken || !this.editLockReleaseUrl) {
+                        return;
+                    }
+
+                    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                    fetch(this.editLockReleaseUrl, {
+                        method: 'DELETE',
+                        keepalive,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrf,
+                        },
+                        body: JSON.stringify({
+                            lock_token: this.editLockToken,
+                        }),
+                    }).catch(() => {});
+                },
+
+                generateClientToken() {
+                    if (window.crypto?.randomUUID) {
+                        return window.crypto.randomUUID();
+                    }
+
+                    return `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
+                },
+
+                showToast(message) {
+                    this.toastMessage = message;
+                    if (this.toastTimer) {
+                        clearTimeout(this.toastTimer);
+                    }
+                    this.toastTimer = window.setTimeout(() => {
+                        this.toastMessage = '';
+                    }, 6000);
                 },
 
                 buildUnsavedComparableState() {
@@ -4136,6 +4357,7 @@
                             },
                             body: JSON.stringify({
                                 proposal_id: this.proposalId,
+                                edit_lock_token: this.editLockToken || null,
                                 urgency_coefficient: String(this.urgencyCoefficient || '1.00'),
                                 state: this.buildSaveState(),
                             }),
@@ -4147,6 +4369,10 @@
                         }
 
                         this.proposalId = payload.proposal_id || this.proposalId;
+                        this.stopAutosave();
+                        if (this.editLockToken) {
+                            this.releaseEditLock(false);
+                        }
                         this.resetUnsavedChangesBaseline();
                         if (payload.redirect_url) {
                             window.location.href = payload.redirect_url;
