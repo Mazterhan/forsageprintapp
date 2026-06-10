@@ -17,6 +17,86 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased">
+        <script>
+            window.autosaveNotice = function (signature) {
+                return {
+                    signature,
+                    visible: true,
+                    dragging: false,
+                    dragOffsetX: 0,
+                    dragOffsetY: 0,
+                    left: null,
+                    top: null,
+
+                    get positionStyle() {
+                        if (this.left === null || this.top === null) {
+                            return 'right: 1.25rem; top: 1.25rem;';
+                        }
+
+                        return `left: ${this.left}px; top: ${this.top}px;`;
+                    },
+
+                    init() {
+                        const dismissedSignature = sessionStorage.getItem('forsageprint-autosave-notice-dismissed');
+                        this.visible = dismissedSignature !== this.signature;
+
+                        try {
+                            const savedPosition = JSON.parse(localStorage.getItem('forsageprint-autosave-notice-position') || 'null');
+                            if (savedPosition && Number.isFinite(savedPosition.left) && Number.isFinite(savedPosition.top)) {
+                                this.left = this.clamp(savedPosition.left, 0, window.innerWidth - 280);
+                                this.top = this.clamp(savedPosition.top, 0, window.innerHeight - 120);
+                            }
+                        } catch (error) {
+                            // Ignore invalid localStorage payloads.
+                        }
+                    },
+
+                    close() {
+                        this.visible = false;
+                        sessionStorage.setItem('forsageprint-autosave-notice-dismissed', this.signature);
+                    },
+
+                    startDrag(event) {
+                        if (window.innerWidth < 768) {
+                            return;
+                        }
+
+                        const rect = this.$el.getBoundingClientRect();
+                        this.left = rect.left;
+                        this.top = rect.top;
+                        this.dragOffsetX = event.clientX - rect.left;
+                        this.dragOffsetY = event.clientY - rect.top;
+                        this.dragging = true;
+                    },
+
+                    drag(event) {
+                        if (!this.dragging) {
+                            return;
+                        }
+
+                        const rect = this.$el.getBoundingClientRect();
+                        this.left = this.clamp(event.clientX - this.dragOffsetX, 0, window.innerWidth - rect.width);
+                        this.top = this.clamp(event.clientY - this.dragOffsetY, 0, window.innerHeight - rect.height);
+                    },
+
+                    stopDrag() {
+                        if (!this.dragging) {
+                            return;
+                        }
+
+                        this.dragging = false;
+                        localStorage.setItem('forsageprint-autosave-notice-position', JSON.stringify({
+                            left: this.left,
+                            top: this.top,
+                        }));
+                    },
+
+                    clamp(value, min, max) {
+                        return Math.min(Math.max(value, min), Math.max(min, max));
+                    },
+                };
+            };
+        </script>
         @auth
             @php
                 $unfinishedAutosaves = collect();
@@ -29,10 +109,34 @@
                         ->limit(3)
                         ->get(['id', 'proposal_number', 'autosaved_at']);
                 }
+                $unfinishedAutosavesSignature = $unfinishedAutosaves
+                    ->map(fn ($proposal) => $proposal->id.'-'.optional($proposal->autosaved_at)->timestamp)
+                    ->implode('|');
             @endphp
             @if($unfinishedAutosaves->isNotEmpty())
-                <div class="fixed right-5 top-5 z-[14000] max-w-md rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-lg">
-                    <div class="font-semibold">Вами створено прорахунки, які були автоматично збережені без підтвердження:</div>
+                <div
+                    x-data="window.autosaveNotice(@js($unfinishedAutosavesSignature))"
+                    x-show="visible"
+                    x-cloak
+                    x-init="init()"
+                    @mouseup.window="stopDrag()"
+                    @mousemove.window="drag($event)"
+                    class="fixed z-[14000] max-w-md rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-lg"
+                    :style="positionStyle"
+                >
+                    <div
+                        class="flex cursor-move items-start justify-between gap-3"
+                        @mousedown.prevent="startDrag($event)"
+                    >
+                        <div class="font-semibold">Вами створено прорахунки, які були автоматично збережені без підтвердження:</div>
+                        <button
+                            type="button"
+                            class="shrink-0 rounded px-1 text-lg leading-none text-amber-900 hover:bg-amber-100"
+                            title="Закрити"
+                            @mousedown.stop
+                            @click="close()"
+                        >&times;</button>
+                    </div>
                     <div class="mt-2 space-y-1">
                         @foreach($unfinishedAutosaves as $autosaveProposal)
                             <a href="{{ route('orders.proposals.show', $autosaveProposal) }}" class="block text-indigo-700 hover:text-indigo-900">
