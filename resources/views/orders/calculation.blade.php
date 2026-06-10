@@ -200,10 +200,12 @@
 
                             <template x-for="(position, positionIndex) in product.positions" :key="position.uid">
                                 <div class="space-y-3">
-                                    <div class="flex items-center justify-between gap-4">
-                                        <div class="text-sm font-bold text-gray-800" x-text="`Позиція замовлення #${positionIndex + 1}`"></div>
+                                    <div
+                                        x-show="product.positions.length > 1"
+                                        class="flex items-center justify-between gap-4 rounded-md border border-gray-300 bg-gray-200 px-3 py-2 text-sm font-semibold text-gray-800"
+                                    >
+                                        <span x-text="`Позиція замовлення #${positionIndex + 1}`"></span>
                                         <button
-                                            x-show="product.positions.length > 1"
                                             type="button"
                                             @click="removePosition(product, positionIndex)"
                                             class="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-xs font-semibold text-gray-800"
@@ -211,6 +213,10 @@
                                         >
                                             Видалити позицію замовлення
                                         </button>
+                                    </div>
+
+                                    <div x-show="product.positions.length <= 1" class="flex items-center justify-between gap-4">
+                                        <div class="text-sm font-bold text-gray-800" x-text="`Позиція замовлення #${positionIndex + 1}`"></div>
                                     </div>
 
                                     <div class="flex flex-wrap items-end gap-4">
