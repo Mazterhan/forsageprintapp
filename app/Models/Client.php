@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Client extends Model
 {
-    use HasFactory;
+    use HasFactory, HasPublicId;
 
     protected $fillable = [
         'code',
@@ -32,6 +33,11 @@ class Client extends Model
         'updated_by',
         'last_order_at',
     ];
+
+    public function getRouteKeyName(): string
+    {
+        return 'public_id';
+    }
 
     public function manager(): BelongsTo
     {

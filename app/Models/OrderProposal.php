@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class OrderProposal extends Model
 {
-    use HasFactory;
+    use HasFactory, HasPublicId;
 
     protected $fillable = [
         'proposal_number',
@@ -40,6 +41,11 @@ class OrderProposal extends Model
         'autosave_confirmed_at' => 'datetime',
         'payload' => 'array',
     ];
+
+    public function getRouteKeyName(): string
+    {
+        return 'public_id';
+    }
 
     public function user(): BelongsTo
     {

@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Role extends Model
 {
-    use HasFactory;
+    use HasFactory, HasPublicId;
 
     protected $fillable = [
         'name',
@@ -67,4 +68,9 @@ class Role extends Model
         'admin_reference_manage' => 'boolean',
         'admin_users_org_manage' => 'boolean',
     ];
+
+    public function getRouteKeyName(): string
+    {
+        return 'public_id';
+    }
 }

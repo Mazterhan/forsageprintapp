@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PriceItemHistory extends Model
 {
-    use HasFactory;
+    use HasFactory, HasPublicId;
 
     public $timestamps = false;
 
@@ -26,6 +27,11 @@ class PriceItemHistory extends Model
         'markup_percent' => 'decimal:2',
         'created_at' => 'datetime',
     ];
+
+    public function getRouteKeyName(): string
+    {
+        return 'public_id';
+    }
 
     public function priceItem(): BelongsTo
     {

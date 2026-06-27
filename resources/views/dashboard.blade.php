@@ -694,7 +694,7 @@
                                             <tr>
                                                 <td class="px-3 py-2 border-b">
                                                     @if($canOpenProposal)
-                                                        <a href="{{ route('orders.proposals.show', $row['proposal_id']) }}" class="text-blue-700 hover:underline">
+                                                        <a href="{{ route('orders.proposals.show', $row['proposal_public_id']) }}" class="text-blue-700 hover:underline">
                                                             {{ $row['proposal_number'] }}
                                                         </a>
                                                     @else
@@ -737,7 +737,7 @@
                                             <tr>
                                                 <td class="px-3 py-2 border-b">
                                                     @if($canOpenProposal)
-                                                        <a href="{{ route('orders.proposals.show', $row['proposal_id']) }}" class="text-blue-700 hover:underline">
+                                                        <a href="{{ route('orders.proposals.show', $row['proposal_public_id']) }}" class="text-blue-700 hover:underline">
                                                             {{ $row['proposal_number'] }}
                                                         </a>
                                                     @else

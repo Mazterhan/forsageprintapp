@@ -107,7 +107,7 @@
                         ->where('autosaved_by', Auth::id())
                         ->latest('autosaved_at')
                         ->limit(3)
-                        ->get(['id', 'proposal_number', 'autosaved_at']);
+                        ->get(['id', 'public_id', 'proposal_number', 'autosaved_at']);
                 }
                 $unfinishedAutosavesSignature = $unfinishedAutosaves
                     ->map(fn ($proposal) => $proposal->id.'-'.optional($proposal->autosaved_at)->timestamp)

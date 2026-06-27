@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PriceItem extends Model
 {
-    use HasFactory;
+    use HasFactory, HasPublicId;
 
     protected $fillable = [
         'internal_code',
@@ -42,7 +43,7 @@ class PriceItem extends Model
 
     public function getRouteKeyName(): string
     {
-        return 'internal_code';
+        return 'public_id';
     }
 
     public function histories(): HasMany

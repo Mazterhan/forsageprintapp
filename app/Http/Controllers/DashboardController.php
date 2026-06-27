@@ -285,6 +285,7 @@ class DashboardController extends Controller
 
             $rows[] = [
                 'proposal_id' => (int) $proposal->id,
+                'proposal_public_id' => (string) $proposal->public_id,
                 'proposal_number' => (string) $proposal->proposal_number,
                 'working_date' => $workingDateKyiv,
                 'working_date_key' => $workingDateKyiv ? $workingDateKyiv->format('Y-m-d') : null,
@@ -517,6 +518,7 @@ class DashboardController extends Controller
             ->map(function ($row) {
                 return [
                     'proposal_id' => (int) $row['proposal_id'],
+                    'proposal_public_id' => (string) $row['proposal_public_id'],
                     'proposal_number' => (string) $row['proposal_number'],
                     'client_name' => (string) ($row['client_name'] ?: '—'),
                     'total_cost' => (float) $row['total_cost'],
@@ -533,6 +535,7 @@ class DashboardController extends Controller
             ->map(function ($row) {
                 return [
                     'proposal_id' => (int) $row['proposal_id'],
+                    'proposal_public_id' => (string) $row['proposal_public_id'],
                     'proposal_number' => (string) $row['proposal_number'],
                     'client_name' => (string) ($row['client_name'] ?: '—'),
                     'total_cost' => (float) $row['total_cost'],

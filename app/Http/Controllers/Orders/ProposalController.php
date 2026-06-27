@@ -418,7 +418,7 @@ class ProposalController extends Controller
         return response()->json([
             'ok' => true,
             'edit_url' => route('orders.calculation', [
-                'proposal' => $orderProposal->id,
+                'proposal' => $orderProposal->public_id,
                 'edit_token' => $token,
             ]),
         ]);

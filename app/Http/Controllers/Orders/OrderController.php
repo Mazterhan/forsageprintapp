@@ -28,13 +28,14 @@ class OrderController extends Controller
 
     public function calculation(Request $request, PermissionService $permissions)
     {
-        $proposalId = $request->query('proposal');
+        $proposalPublicId = trim((string) $request->query('proposal', ''));
         $proposal = null;
-        if ($proposalId) {
+        if ($proposalPublicId !== '') {
             $proposal = OrderProposal::query()
                 ->with('editLock')
                 ->whereNull('deleted_date')
-                ->find($proposalId);
+                ->where('public_id', $proposalPublicId)
+                ->first();
 
             if (!$proposal) {
                 abort(404);
