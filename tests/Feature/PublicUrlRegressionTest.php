@@ -115,8 +115,9 @@ class PublicUrlRegressionTest extends TestCase
             ->assertJsonPath('ok', true)
             ->assertJsonStructure(['ok', 'edit_url']);
 
-        $this->assertStringContainsString((string) $proposalToEdit->public_id, (string) $editResponse->json('edit_url'));
-        $this->assertStringNotContainsString('proposal='.$proposalToEdit->id, (string) $editResponse->json('edit_url'));
+        parse_str((string) parse_url((string) $editResponse->json('edit_url'), PHP_URL_QUERY), $editUrlQuery);
+        $this->assertSame((string) $proposalToEdit->public_id, (string) ($editUrlQuery['proposal'] ?? ''));
+        $this->assertNotSame((string) $proposalToEdit->id, (string) ($editUrlQuery['proposal'] ?? ''));
 
         $this->assertDatabaseHas('order_proposal_edit_locks', [
             'order_proposal_id' => $proposalToEdit->id,

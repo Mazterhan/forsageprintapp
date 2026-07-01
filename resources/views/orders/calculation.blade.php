@@ -67,13 +67,16 @@
                     <div class="flex flex-wrap items-end gap-4">
                         <div class="text-sm font-semibold text-gray-700">Замовник</div>
                         <div class="min-w-[260px] flex-1">
-                            <div class="relative z-[10000] overflow-visible" @click.outside="showClientDropdown = false">
+                            <div class="relative z-[10000] overflow-visible" @click.outside="showClientDropdown = false; clientDropdownActiveIndex = -1">
                                 <div class="relative overflow-hidden rounded-md">
                                     <input
                                         x-model="selectedClientQuery"
                                         @input="onClientInputChanged(); showClientDropdown = true"
-                                        @focus="showClientDropdown = true"
-                                        @keydown.escape="showClientDropdown = false"
+                                        @focus="showClientDropdown = true; syncClientDropdownActiveIndex()"
+                                        @keydown.arrow-down.prevent="moveClientDropdown(1)"
+                                        @keydown.arrow-up.prevent="moveClientDropdown(-1)"
+                                        @keydown.enter.prevent="selectActiveClient()"
+                                        @keydown.escape="showClientDropdown = false; clientDropdownActiveIndex = -1"
                                         @blur="handleClientInputBlur()"
                                         type="text"
                                         autocomplete="off"
@@ -82,7 +85,7 @@
                                     />
                                     <button
                                         type="button"
-                                        @click="showClientDropdown = !showClientDropdown"
+                                        @click="showClientDropdown = !showClientDropdown; if (showClientDropdown) syncClientDropdownActiveIndex()"
                                         class="absolute inset-y-0 right-0 z-10 flex w-10 items-center justify-center rounded-r-md border-l border-gray-200 bg-white text-gray-500 hover:text-gray-700"
                                     >
                                         <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -98,11 +101,12 @@
                                     <template x-if="getFilteredClients().length === 0">
                                         <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
                                     </template>
-                                    <template x-for="client in getFilteredClients()" :key="`client-option-${client.id}`">
+                                    <template x-for="(client, clientIndex) in getFilteredClients()" :key="`client-option-${client.id}`">
                                         <button
                                             type="button"
                                             @mousedown.prevent="selectClient(client)"
                                             class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                            :class="clientDropdownActiveIndex === clientIndex ? 'bg-indigo-50 text-indigo-800' : ''"
                                             x-text="client.name"
                                         ></button>
                                     </template>
@@ -151,13 +155,17 @@
 
                                 <div class="ml-4 text-sm font-semibold text-gray-700">Матеріал</div>
                                 <div style="width: 330px;">
-                                    <div class="relative" @click.outside="product.showMaterialDropdown = false">
+                                    <div class="relative" @click.outside="product.showMaterialDropdown = false; product.materialDropdownActiveIndex = -1; product.materialKeyboardNavigating = false">
                                         <div class="mt-1 flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
                                             <input
                                                 x-model="product.materialQuery"
                                                 @input="onMaterialInputChanged(product); product.showMaterialDropdown = true"
-                                                @focus="if (product.productTypeId) product.showMaterialDropdown = true"
-                                                @keydown.escape="product.showMaterialDropdown = false"
+                                                @focus="handleMaterialInputFocus(product, $event)"
+                                                @keydown="handleMaterialEditKey(product, $event)"
+                                                @keydown.arrow-down.prevent="moveMaterialDropdown(product, 1)"
+                                                @keydown.arrow-up.prevent="moveMaterialDropdown(product, -1)"
+                                                @keydown.enter.prevent="selectActiveMaterial(product)"
+                                                @keydown.escape.prevent.stop="resetMaterialDropdown(product)"
                                                 @blur="handleMaterialInputBlur(product)"
                                                 type="text"
                                                 autocomplete="off"
@@ -167,7 +175,7 @@
                                             />
                                             <button
                                                 type="button"
-                                                @click="if (product.productTypeId) { product.showMaterialDropdown = !product.showMaterialDropdown }"
+                                                @click="if (product.productTypeId) { product.showMaterialDropdown = !product.showMaterialDropdown; if (product.showMaterialDropdown) syncMaterialDropdownActiveIndex(product) }"
                                                 :disabled="!product.productTypeId"
                                                 class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
                                             >
@@ -179,16 +187,21 @@
                                         <div
                                             x-show="product.productTypeId && product.showMaterialDropdown"
                                             x-transition
+                                            :data-material-dropdown="product.uid"
                                             class="absolute z-[300] mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
                                         >
                                             <template x-if="getFilteredMaterials(product).length === 0">
                                                 <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
                                             </template>
-                                            <template x-for="material in getFilteredMaterials(product)" :key="`material-option-${product.uid}-${material}`">
+                                            <template x-for="(material, materialIndex) in getFilteredMaterials(product)" :key="`material-option-${product.uid}-${material}`">
                                                 <button
                                                     type="button"
+                                                    :data-material-option-index="materialIndex"
+                                                    @mousemove="activateMaterialMouseHover(product, materialIndex)"
+                                                    @mouseenter="if (!product.materialKeyboardNavigating) product.materialDropdownActiveIndex = materialIndex"
                                                     @mousedown.prevent="selectMaterial(product, material)"
-                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700"
+                                                    :class="product.materialDropdownActiveIndex === materialIndex ? 'bg-indigo-50 text-indigo-800' : ''"
                                                     x-text="material"
                                                 ></button>
                                             </template>
@@ -1089,6 +1102,7 @@
                 selectedClientId: '',
                 selectedClientQuery: '',
                 showClientDropdown: false,
+                clientDropdownActiveIndex: -1,
                 urgencyCoefficient: '1.00',
                 minimumOrderTotal: 100,
                 showMinOrderTotalModal: false,
@@ -1132,7 +1146,12 @@
                         productTypeId: '',
                         material: '',
                         materialQuery: '',
+                        materialFilterQuery: '',
+                        materialShowUnfilteredList: false,
                         showMaterialDropdown: false,
+                        materialDropdownActiveIndex: -1,
+                        materialKeyboardNavigating: false,
+                        materialSkipNextBlurAutoMatch: false,
                         thickness: '',
                         manualThickness: '',
                         manualThicknessError: '',
@@ -1565,10 +1584,12 @@
                 },
 
                 onClientInputChanged() {
+                    this.clientDropdownActiveIndex = 0;
                     const query = String(this.selectedClientQuery || '').trim();
                     if (query === '') {
                         this.selectedClientId = '';
                         this.onClientChanged();
+                        this.syncClientDropdownActiveIndex();
                         return;
                     }
 
@@ -1577,18 +1598,21 @@
                     if (exact) {
                         this.selectedClientId = String(exact.id);
                         this.onClientChanged();
+                        this.syncClientDropdownActiveIndex();
                         return;
                     }
 
                     // Manual input is allowed; pricing lock applies only when a known client is matched.
                     this.selectedClientId = '';
                     this.onClientChanged();
+                    this.syncClientDropdownActiveIndex();
                 },
 
                 handleClientInputBlur() {
                     this.applyClientAutoMatch();
                     setTimeout(() => {
                         this.showClientDropdown = false;
+                        this.clientDropdownActiveIndex = -1;
                     }, 120);
                 },
 
@@ -1604,11 +1628,53 @@
                         .slice(0, 50);
                 },
 
+                syncClientDropdownActiveIndex() {
+                    const filteredClients = this.getFilteredClients();
+                    if (filteredClients.length === 0) {
+                        this.clientDropdownActiveIndex = -1;
+                        return;
+                    }
+
+                    if (this.clientDropdownActiveIndex < 0 || this.clientDropdownActiveIndex >= filteredClients.length) {
+                        this.clientDropdownActiveIndex = 0;
+                    }
+                },
+
+                moveClientDropdown(direction) {
+                    const filteredClients = this.getFilteredClients();
+                    if (filteredClients.length === 0) {
+                        this.clientDropdownActiveIndex = -1;
+                        this.showClientDropdown = true;
+                        return;
+                    }
+
+                    this.showClientDropdown = true;
+                    if (this.clientDropdownActiveIndex < 0 || this.clientDropdownActiveIndex >= filteredClients.length) {
+                        this.clientDropdownActiveIndex = direction > 0 ? 0 : filteredClients.length - 1;
+                    } else {
+                        this.clientDropdownActiveIndex = (this.clientDropdownActiveIndex + direction + filteredClients.length) % filteredClients.length;
+                    }
+                },
+
+                selectActiveClient() {
+                    const filteredClients = this.getFilteredClients();
+                    if (!this.showClientDropdown) {
+                        this.showClientDropdown = true;
+                        this.syncClientDropdownActiveIndex();
+                        return;
+                    }
+
+                    if (this.clientDropdownActiveIndex >= 0 && this.clientDropdownActiveIndex < filteredClients.length) {
+                        this.selectClient(filteredClients[this.clientDropdownActiveIndex]);
+                    }
+                },
+
                 selectClient(client) {
                     this.selectedClientQuery = client.name || '';
                     this.selectedClientId = String(client.id);
                     this.onClientChanged();
                     this.showClientDropdown = false;
+                    this.clientDropdownActiveIndex = -1;
                 },
 
                 applyClientAutoMatch() {
@@ -2414,7 +2480,11 @@
 
                 getFilteredMaterials(product) {
                     const allowed = this.getAllowedMaterials(product);
-                    const query = this.normalizeForCompare(product.materialQuery || '');
+                    if (product.materialShowUnfilteredList) {
+                        return allowed.slice(0, 50);
+                    }
+
+                    const query = this.normalizeForCompare(product.materialFilterQuery || '');
                     if (!query) {
                         return allowed.slice(0, 50);
                     }
@@ -2429,7 +2499,10 @@
                         return;
                     }
 
+                    product.materialDropdownActiveIndex = 0;
                     const query = String(product.materialQuery || '').trim();
+                    product.materialShowUnfilteredList = false;
+                    product.materialFilterQuery = query;
                     const allowed = this.getAllowedMaterials(product);
 
                     if (query === '') {
@@ -2437,6 +2510,8 @@
                             product.material = '';
                             this.onMaterialChanged(product);
                         }
+                        product.materialFilterQuery = '';
+                        this.syncMaterialDropdownActiveIndex(product);
                         return;
                     }
 
@@ -2450,27 +2525,215 @@
                             this.onMaterialChanged(product);
                         }
                         product.materialQuery = exact;
+                        product.materialFilterQuery = query;
+                        this.syncMaterialDropdownActiveIndex(product);
                         return;
                     }
 
                     if (product.material !== '') {
-                        product.material = '';
-                        this.onMaterialChanged(product);
+                        this.clearMaterialSelectionKeepingQuery(product, query);
                     }
+                    this.syncMaterialDropdownActiveIndex(product);
+                },
+
+                clearMaterialSelectionKeepingQuery(product, query) {
+                    product.material = '';
+                    this.onMaterialChanged(product);
+                    product.materialQuery = query;
+                    product.materialFilterQuery = query;
+                    product.materialShowUnfilteredList = false;
+                    product.showMaterialDropdown = true;
+                },
+
+                handleMaterialInputFocus(product, event) {
+                    if (!product.productTypeId) {
+                        return;
+                    }
+
+                    product.showMaterialDropdown = true;
+                    product.materialShowUnfilteredList = Boolean(product.material && product.materialQuery === product.material);
+                    product.materialFilterQuery = product.materialShowUnfilteredList ? '' : String(product.materialQuery || '').trim();
+                    this.syncMaterialDropdownActiveIndex(product);
+                    this.$nextTick(() => {
+                        if (event?.target && document.activeElement === event.target) {
+                            const valueLength = String(event.target.value || '').length;
+                            if (event.target.selectionStart === 0 && event.target.selectionEnd === valueLength) {
+                                event.target.setSelectionRange(valueLength, valueLength);
+                            }
+                        }
+                    });
+                },
+
+                handleMaterialEditKey(product, event) {
+                    if (!['Backspace', 'Delete'].includes(event.key) || event.ctrlKey || event.metaKey || event.altKey) {
+                        return;
+                    }
+
+                    const input = event?.target;
+                    const value = String(input?.value || '');
+                    if (!input || value.length === 0) {
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    const selectionStart = Number.isInteger(input.selectionStart) ? input.selectionStart : value.length;
+                    const selectionEnd = Number.isInteger(input.selectionEnd) ? input.selectionEnd : selectionStart;
+                    let nextValue = value;
+                    let nextCursor = selectionStart;
+
+                    if (selectionStart !== selectionEnd) {
+                        nextValue = value.slice(0, selectionStart) + value.slice(selectionEnd);
+                        nextCursor = selectionStart;
+                    } else if (event.key === 'Backspace') {
+                        const cursorPosition = selectionStart === selectionEnd ? selectionStart : selectionEnd;
+                        if (cursorPosition === 0) {
+                            return;
+                        }
+
+                        nextValue = value.slice(0, cursorPosition - 1) + value.slice(cursorPosition);
+                        nextCursor = cursorPosition - 1;
+                    } else if (event.key === 'Delete') {
+                        const cursorPosition = selectionStart;
+                        if (cursorPosition >= value.length) {
+                            return;
+                        }
+
+                        nextValue = value.slice(0, cursorPosition) + value.slice(cursorPosition + 1);
+                        nextCursor = cursorPosition;
+                    }
+
+                    input.value = nextValue;
+                    product.materialQuery = nextValue;
+                    product.materialShowUnfilteredList = false;
+                    product.materialFilterQuery = nextValue.trim();
+                    product.showMaterialDropdown = true;
+                    this.onMaterialInputChanged(product);
+                    this.$nextTick(() => input.setSelectionRange(nextCursor, nextCursor));
                 },
 
                 handleMaterialInputBlur(product) {
+                    if (product.materialSkipNextBlurAutoMatch) {
+                        product.materialSkipNextBlurAutoMatch = false;
+                        setTimeout(() => {
+                            product.materialQuery = product.material || '';
+                            product.materialFilterQuery = '';
+                            product.materialShowUnfilteredList = false;
+                            product.showMaterialDropdown = false;
+                            product.materialDropdownActiveIndex = -1;
+                            product.materialKeyboardNavigating = false;
+                        }, 120);
+                        return;
+                    }
+
                     this.applyMaterialAutoMatch(product);
                     setTimeout(() => {
                         product.showMaterialDropdown = false;
+                        product.materialDropdownActiveIndex = -1;
+                        product.materialKeyboardNavigating = false;
                     }, 120);
+                },
+
+                resetMaterialDropdown(product) {
+                    product.materialQuery = '';
+                    product.materialFilterQuery = '';
+                    product.materialShowUnfilteredList = true;
+                    product.showMaterialDropdown = Boolean(product.productTypeId);
+                    product.materialDropdownActiveIndex = 0;
+                    product.materialKeyboardNavigating = false;
+                    product.materialSkipNextBlurAutoMatch = true;
+                    this.$nextTick(() => {
+                        product.materialDropdownActiveIndex = 0;
+                        const dropdown = document.querySelector(`[data-material-dropdown="${product.uid}"]`);
+                        if (dropdown) {
+                            dropdown.scrollTop = 0;
+                        }
+                        const activeInput = document.activeElement;
+                        if (activeInput && activeInput.matches('input')) {
+                            activeInput.setSelectionRange(0, 0);
+                        }
+                    });
+                },
+
+                syncMaterialDropdownActiveIndex(product) {
+                    const filteredMaterials = this.getFilteredMaterials(product);
+                    if (filteredMaterials.length === 0) {
+                        product.materialDropdownActiveIndex = -1;
+                        return;
+                    }
+
+                    if (product.materialDropdownActiveIndex < 0 || product.materialDropdownActiveIndex >= filteredMaterials.length) {
+                        product.materialDropdownActiveIndex = 0;
+                    }
+
+                    this.scrollMaterialDropdownActiveOptionIntoView(product);
+                },
+
+                moveMaterialDropdown(product, direction) {
+                    if (!product.productTypeId) {
+                        return;
+                    }
+
+                    const filteredMaterials = this.getFilteredMaterials(product);
+                    if (filteredMaterials.length === 0) {
+                        product.materialDropdownActiveIndex = -1;
+                        product.showMaterialDropdown = true;
+                        return;
+                    }
+
+                    product.showMaterialDropdown = true;
+                    product.materialKeyboardNavigating = true;
+                    if (product.materialDropdownActiveIndex < 0 || product.materialDropdownActiveIndex >= filteredMaterials.length) {
+                        product.materialDropdownActiveIndex = direction > 0 ? 0 : filteredMaterials.length - 1;
+                    } else {
+                        product.materialDropdownActiveIndex = (product.materialDropdownActiveIndex + direction + filteredMaterials.length) % filteredMaterials.length;
+                    }
+
+                    this.scrollMaterialDropdownActiveOptionIntoView(product);
+                },
+
+                selectActiveMaterial(product) {
+                    if (!product.productTypeId) {
+                        return;
+                    }
+
+                    const filteredMaterials = this.getFilteredMaterials(product);
+                    if (!product.showMaterialDropdown) {
+                        product.showMaterialDropdown = true;
+                        this.syncMaterialDropdownActiveIndex(product);
+                        return;
+                    }
+
+                    if (product.materialDropdownActiveIndex >= 0 && product.materialDropdownActiveIndex < filteredMaterials.length) {
+                        this.selectMaterial(product, filteredMaterials[product.materialDropdownActiveIndex]);
+                    }
+                },
+
+                activateMaterialMouseHover(product, materialIndex) {
+                    product.materialKeyboardNavigating = false;
+                    product.materialDropdownActiveIndex = materialIndex;
+                },
+
+                scrollMaterialDropdownActiveOptionIntoView(product) {
+                    this.$nextTick(() => {
+                        if (!product?.uid || product.materialDropdownActiveIndex < 0) {
+                            return;
+                        }
+
+                        const selector = `[data-material-dropdown="${product.uid}"] [data-material-option-index="${product.materialDropdownActiveIndex}"]`;
+                        document.querySelector(selector)?.scrollIntoView({ block: 'nearest' });
+                    });
                 },
 
                 selectMaterial(product, material) {
                     product.material = material;
                     product.materialQuery = material;
+                    product.materialFilterQuery = '';
+                    product.materialShowUnfilteredList = false;
                     this.onMaterialChanged(product);
                     product.showMaterialDropdown = false;
+                    product.materialDropdownActiveIndex = -1;
+                    product.materialKeyboardNavigating = false;
                 },
 
                 applyMaterialAutoMatch(product) {
@@ -2482,6 +2745,8 @@
                             product.material = '';
                             this.onMaterialChanged(product);
                         }
+                        product.materialFilterQuery = '';
+                        product.materialShowUnfilteredList = false;
                         return;
                     }
 
@@ -2495,6 +2760,8 @@
                             this.onMaterialChanged(product);
                         }
                         product.materialQuery = exact;
+                        product.materialFilterQuery = '';
+                        product.materialShowUnfilteredList = false;
                         return;
                     }
 
@@ -2502,6 +2769,8 @@
                     if (startsWithMatches.length === 1) {
                         product.material = startsWithMatches[0];
                         product.materialQuery = startsWithMatches[0];
+                        product.materialFilterQuery = '';
+                        product.materialShowUnfilteredList = false;
                         this.onMaterialChanged(product);
                         return;
                     }
@@ -2510,6 +2779,8 @@
                     if (containsMatches.length === 1) {
                         product.material = containsMatches[0];
                         product.materialQuery = containsMatches[0];
+                        product.materialFilterQuery = '';
+                        product.materialShowUnfilteredList = false;
                         this.onMaterialChanged(product);
                         return;
                     }
@@ -2836,9 +3107,13 @@
                     if (selectedMaterial !== '') {
                         product.material = selectedMaterial;
                         product.materialQuery = selectedMaterial;
+                        product.materialFilterQuery = '';
+                        product.materialShowUnfilteredList = false;
                     } else {
                         product.material = resetProduct.material;
                         product.materialQuery = resetProduct.materialQuery;
+                        product.materialFilterQuery = resetProduct.materialFilterQuery;
+                        product.materialShowUnfilteredList = resetProduct.materialShowUnfilteredList;
                     }
 
                     const options = this.getThicknessOptions(product.material);
@@ -2861,6 +3136,8 @@
                     product.productTypeId = selectedProductTypeId;
                     product.material = resetProduct.material;
                     product.materialQuery = resetProduct.materialQuery;
+                    product.materialFilterQuery = resetProduct.materialFilterQuery;
+                    product.materialShowUnfilteredList = resetProduct.materialShowUnfilteredList;
                     product.showMaterialDropdown = false;
                     product.thickness = resetProduct.thickness;
                     product.manualThickness = resetProduct.manualThickness;
