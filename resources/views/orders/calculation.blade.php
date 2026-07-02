@@ -547,18 +547,22 @@
                                     </div>
 
                                     <div x-show="product.services.rolling === '1'" class="flex items-start gap-6 pb-1 overflow-visible">
-                                        <div class="space-y-3 border border-gray-200 rounded-md p-3 w-[500px] max-w-full shrink-0">
+                                        <div class="box-content space-y-3 border border-gray-200 rounded-md p-3 w-[500px] max-w-full shrink-0">
                                             <div class="grid items-center gap-x-3 relative z-[560]" style="grid-template-columns: 120px 360px;">
                                                 <div class="w-[120px] text-sm text-gray-700">Матеріал прикатки 1</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
-                                                    <div class="relative" @click.outside="product.services.showRollingP1Dropdown = false">
+                                                    <div class="relative" @click.outside="closeRollingDropdown(product, 'p1')">
                                                         <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
                                                             <input
                                                                 x-model="product.services.rollingMaterialP1Query"
-                                                                @input="onRollingP1InputChanged(product); product.services.showRollingP1Dropdown = true"
-                                                                @focus="if (product.services.rolling === '1' && !product.services.rollingIndividual) product.services.showRollingP1Dropdown = true"
-                                                                @keydown.escape="product.services.showRollingP1Dropdown = false"
-                                                                @blur="handleRollingP1Blur(product)"
+                                                                @input="onRollingDropdownInputChanged(product, 'p1')"
+                                                                @focus="handleRollingDropdownFocus(product, 'p1', $event)"
+                                                                @keydown="handleRollingDropdownEditKey(product, 'p1', $event)"
+                                                                @keydown.arrow-down.prevent="moveRollingDropdown(product, 'p1', 1)"
+                                                                @keydown.arrow-up.prevent="moveRollingDropdown(product, 'p1', -1)"
+                                                                @keydown.enter.prevent="selectActiveRollingDropdownOption(product, 'p1')"
+                                                                @keydown.escape.prevent.stop="resetRollingDropdown(product, 'p1')"
+                                                                @blur="handleRollingDropdownBlur(product, 'p1')"
                                                                 type="text"
                                                                 autocomplete="off"
                                                                 :disabled="product.services.rollingIndividual"
@@ -567,7 +571,7 @@
                                                             />
                                                             <button
                                                                 type="button"
-                                                                @click="if (product.services.rolling === '1' && !product.services.rollingIndividual) { product.services.showRollingP1Dropdown = !product.services.showRollingP1Dropdown }"
+                                                                @click="toggleRollingDropdown(product, 'p1')"
                                                                 :disabled="product.services.rollingIndividual"
                                                                 class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
                                                             >
@@ -579,17 +583,22 @@
                                                         <div
                                                             x-show="product.services.showRollingP1Dropdown && !product.services.rollingIndividual"
                                                             x-transition
+                                                            :data-rolling-dropdown="`${product.uid}-p1`"
                                                             class="absolute mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
                                                             style="z-index: 9999;"
                                                         >
                                                             <template x-if="getFilteredRollingP1Options(product).length === 0">
                                                                 <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
                                                             </template>
-                                                            <template x-for="material in getFilteredRollingP1Options(product)" :key="`rolling-p1-${product.uid}-${material}`">
+                                                            <template x-for="(material, materialIndex) in getFilteredRollingP1Options(product)" :key="`rolling-p1-${product.uid}-${material}`">
                                                                 <button
                                                                     type="button"
+                                                                    :data-rolling-option-index="materialIndex"
+                                                                    @mousemove="activateRollingDropdownMouseHover(product, 'p1', materialIndex)"
+                                                                    @mouseenter="if (!product.services.rollingP1KeyboardNavigating) product.services.rollingP1DropdownActiveIndex = materialIndex"
                                                                     @mousedown.prevent="selectRollingMaterialP1(product, material)"
-                                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700"
+                                                                    :class="product.services.rollingP1DropdownActiveIndex === materialIndex ? 'bg-indigo-50 text-indigo-800' : ''"
                                                                     x-text="material"
                                                                 ></button>
                                                             </template>
@@ -605,14 +614,18 @@
                                             >
                                                 <div class="w-[120px] text-sm text-gray-700">Матеріал прикатки 2</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
-                                                    <div class="relative" @click.outside="product.services.showRollingP2Dropdown = false">
+                                                    <div class="relative" @click.outside="closeRollingDropdown(product, 'p2')">
                                                         <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
                                                             <input
                                                                 x-model="product.services.rollingMaterialP2Query"
-                                                                @input="onRollingP2InputChanged(product); product.services.showRollingP2Dropdown = true"
-                                                                @focus="if (product.services.rolling === '1' && !product.services.rollingIndividual && product.services.rollingMaterialP1) product.services.showRollingP2Dropdown = true"
-                                                                @keydown.escape="product.services.showRollingP2Dropdown = false"
-                                                                @blur="handleRollingP2Blur(product)"
+                                                                @input="onRollingDropdownInputChanged(product, 'p2')"
+                                                                @focus="handleRollingDropdownFocus(product, 'p2', $event)"
+                                                                @keydown="handleRollingDropdownEditKey(product, 'p2', $event)"
+                                                                @keydown.arrow-down.prevent="moveRollingDropdown(product, 'p2', 1)"
+                                                                @keydown.arrow-up.prevent="moveRollingDropdown(product, 'p2', -1)"
+                                                                @keydown.enter.prevent="selectActiveRollingDropdownOption(product, 'p2')"
+                                                                @keydown.escape.prevent.stop="resetRollingDropdown(product, 'p2')"
+                                                                @blur="handleRollingDropdownBlur(product, 'p2')"
                                                                 type="text"
                                                                 autocomplete="off"
                                                                 :disabled="product.services.rollingIndividual || !product.services.rollingMaterialP1"
@@ -621,7 +634,7 @@
                                                             />
                                                             <button
                                                                 type="button"
-                                                                @click="if (product.services.rolling === '1' && !product.services.rollingIndividual && product.services.rollingMaterialP1) { product.services.showRollingP2Dropdown = !product.services.showRollingP2Dropdown }"
+                                                                @click="toggleRollingDropdown(product, 'p2')"
                                                                 :disabled="product.services.rollingIndividual || !product.services.rollingMaterialP1"
                                                                 class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
                                                             >
@@ -633,17 +646,22 @@
                                                         <div
                                                             x-show="product.services.showRollingP2Dropdown && !product.services.rollingIndividual && product.services.rollingMaterialP1"
                                                             x-transition
+                                                            :data-rolling-dropdown="`${product.uid}-p2`"
                                                             class="absolute mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
                                                             style="z-index: 9999;"
                                                         >
                                                             <template x-if="getFilteredRollingP2Options(product).length === 0">
                                                                 <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
                                                             </template>
-                                                            <template x-for="material in getFilteredRollingP2Options(product)" :key="`rolling-p2-${product.uid}-${material}`">
+                                                            <template x-for="(material, materialIndex) in getFilteredRollingP2Options(product)" :key="`rolling-p2-${product.uid}-${material}`">
                                                                 <button
                                                                     type="button"
+                                                                    :data-rolling-option-index="materialIndex"
+                                                                    @mousemove="activateRollingDropdownMouseHover(product, 'p2', materialIndex)"
+                                                                    @mouseenter="if (!product.services.rollingP2KeyboardNavigating) product.services.rollingP2DropdownActiveIndex = materialIndex"
                                                                     @mousedown.prevent="selectRollingMaterialP2(product, material)"
-                                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700"
+                                                                    :class="product.services.rollingP2DropdownActiveIndex === materialIndex ? 'bg-indigo-50 text-indigo-800' : ''"
                                                                     x-text="material"
                                                                 ></button>
                                                             </template>
@@ -657,14 +675,18 @@
                                             <div class="grid items-center gap-x-2 relative z-[560]" style="grid-template-columns: 160px 360px auto 90px auto 90px;">
                                                 <div class="w-[160px] text-sm text-gray-700">Матеріал індивідуальної прикатки 1</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
-                                                    <div class="relative" @click.outside="product.services.showRollingIP1Dropdown = false">
+                                                    <div class="relative" @click.outside="closeRollingDropdown(product, 'ip1')">
                                                         <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
                                                             <input
                                                                 x-model="product.services.rollingMaterialIP1Query"
-                                                                @input="onRollingIP1InputChanged(product); product.services.showRollingIP1Dropdown = true"
-                                                                @focus="if (product.services.rolling === '1' && product.services.rollingIndividual) product.services.showRollingIP1Dropdown = true"
-                                                                @keydown.escape="product.services.showRollingIP1Dropdown = false"
-                                                                @blur="handleRollingIP1Blur(product)"
+                                                                @input="onRollingDropdownInputChanged(product, 'ip1')"
+                                                                @focus="handleRollingDropdownFocus(product, 'ip1', $event)"
+                                                                @keydown="handleRollingDropdownEditKey(product, 'ip1', $event)"
+                                                                @keydown.arrow-down.prevent="moveRollingDropdown(product, 'ip1', 1)"
+                                                                @keydown.arrow-up.prevent="moveRollingDropdown(product, 'ip1', -1)"
+                                                                @keydown.enter.prevent="selectActiveRollingDropdownOption(product, 'ip1')"
+                                                                @keydown.escape.prevent.stop="resetRollingDropdown(product, 'ip1')"
+                                                                @blur="handleRollingDropdownBlur(product, 'ip1')"
                                                                 type="text"
                                                                 autocomplete="off"
                                                                 :disabled="!product.services.rollingIndividual"
@@ -673,7 +695,7 @@
                                                             />
                                                             <button
                                                                 type="button"
-                                                                @click="if (product.services.rolling === '1' && product.services.rollingIndividual) { product.services.showRollingIP1Dropdown = !product.services.showRollingIP1Dropdown }"
+                                                                @click="toggleRollingDropdown(product, 'ip1')"
                                                                 :disabled="!product.services.rollingIndividual"
                                                                 class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
                                                             >
@@ -685,17 +707,22 @@
                                                         <div
                                                             x-show="product.services.showRollingIP1Dropdown && product.services.rollingIndividual"
                                                             x-transition
+                                                            :data-rolling-dropdown="`${product.uid}-ip1`"
                                                             class="absolute mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
                                                             style="z-index: 9999;"
                                                         >
                                                             <template x-if="getFilteredRollingIP1Options(product).length === 0">
                                                                 <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
                                                             </template>
-                                                            <template x-for="material in getFilteredRollingIP1Options(product)" :key="`rolling-ip1-${product.uid}-${material}`">
+                                                            <template x-for="(material, materialIndex) in getFilteredRollingIP1Options(product)" :key="`rolling-ip1-${product.uid}-${material}`">
                                                                 <button
                                                                     type="button"
+                                                                    :data-rolling-option-index="materialIndex"
+                                                                    @mousemove="activateRollingDropdownMouseHover(product, 'ip1', materialIndex)"
+                                                                    @mouseenter="if (!product.services.rollingIP1KeyboardNavigating) product.services.rollingIP1DropdownActiveIndex = materialIndex"
                                                                     @mousedown.prevent="selectRollingMaterialIP1(product, material)"
-                                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700"
+                                                                    :class="product.services.rollingIP1DropdownActiveIndex === materialIndex ? 'bg-indigo-50 text-indigo-800' : ''"
                                                                     x-text="material"
                                                                 ></button>
                                                             </template>
@@ -738,14 +765,18 @@
                                             >
                                                 <div class="w-[160px] text-sm text-gray-700">Матеріал індивідуальної прикатки 2</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
-                                                    <div class="relative" @click.outside="product.services.showRollingIP2Dropdown = false">
+                                                    <div class="relative" @click.outside="closeRollingDropdown(product, 'ip2')">
                                                         <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
                                                             <input
                                                                 x-model="product.services.rollingMaterialIP2Query"
-                                                                @input="onRollingIP2InputChanged(product); product.services.showRollingIP2Dropdown = true"
-                                                                @focus="if (product.services.rolling === '1' && product.services.rollingIndividual && product.services.rollingMaterialIP1) product.services.showRollingIP2Dropdown = true"
-                                                                @keydown.escape="product.services.showRollingIP2Dropdown = false"
-                                                                @blur="handleRollingIP2Blur(product)"
+                                                                @input="onRollingDropdownInputChanged(product, 'ip2')"
+                                                                @focus="handleRollingDropdownFocus(product, 'ip2', $event)"
+                                                                @keydown="handleRollingDropdownEditKey(product, 'ip2', $event)"
+                                                                @keydown.arrow-down.prevent="moveRollingDropdown(product, 'ip2', 1)"
+                                                                @keydown.arrow-up.prevent="moveRollingDropdown(product, 'ip2', -1)"
+                                                                @keydown.enter.prevent="selectActiveRollingDropdownOption(product, 'ip2')"
+                                                                @keydown.escape.prevent.stop="resetRollingDropdown(product, 'ip2')"
+                                                                @blur="handleRollingDropdownBlur(product, 'ip2')"
                                                                 type="text"
                                                                 autocomplete="off"
                                                                 :disabled="!product.services.rollingIndividual || !product.services.rollingMaterialIP1"
@@ -754,7 +785,7 @@
                                                             />
                                                             <button
                                                                 type="button"
-                                                                @click="if (product.services.rolling === '1' && product.services.rollingIndividual && product.services.rollingMaterialIP1) { product.services.showRollingIP2Dropdown = !product.services.showRollingIP2Dropdown }"
+                                                                @click="toggleRollingDropdown(product, 'ip2')"
                                                                 :disabled="!product.services.rollingIndividual || !product.services.rollingMaterialIP1"
                                                                 class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
                                                             >
@@ -766,17 +797,22 @@
                                                         <div
                                                             x-show="product.services.showRollingIP2Dropdown && product.services.rollingIndividual && product.services.rollingMaterialIP1"
                                                             x-transition
+                                                            :data-rolling-dropdown="`${product.uid}-ip2`"
                                                             class="absolute mt-1 w-full rounded-md border border-gray-300 bg-white shadow-sm max-h-64 overflow-auto text-left"
                                                             style="z-index: 9999;"
                                                         >
                                                             <template x-if="getFilteredRollingIP2Options(product).length === 0">
                                                                 <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
                                                             </template>
-                                                            <template x-for="material in getFilteredRollingIP2Options(product)" :key="`rolling-ip2-${product.uid}-${material}`">
+                                                            <template x-for="(material, materialIndex) in getFilteredRollingIP2Options(product)" :key="`rolling-ip2-${product.uid}-${material}`">
                                                                 <button
                                                                     type="button"
+                                                                    :data-rolling-option-index="materialIndex"
+                                                                    @mousemove="activateRollingDropdownMouseHover(product, 'ip2', materialIndex)"
+                                                                    @mouseenter="if (!product.services.rollingIP2KeyboardNavigating) product.services.rollingIP2DropdownActiveIndex = materialIndex"
                                                                     @mousedown.prevent="selectRollingMaterialIP2(product, material)"
-                                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700"
+                                                                    :class="product.services.rollingIP2DropdownActiveIndex === materialIndex ? 'bg-indigo-50 text-indigo-800' : ''"
                                                                     x-text="material"
                                                                 ></button>
                                                             </template>
@@ -1175,10 +1211,30 @@
                             rollingMaterialP2Query: '',
                             rollingMaterialIP1Query: '',
                             rollingMaterialIP2Query: '',
+                            rollingMaterialP1FilterQuery: '',
+                            rollingMaterialP2FilterQuery: '',
+                            rollingMaterialIP1FilterQuery: '',
+                            rollingMaterialIP2FilterQuery: '',
+                            rollingP1ShowUnfilteredList: false,
+                            rollingP2ShowUnfilteredList: false,
+                            rollingIP1ShowUnfilteredList: false,
+                            rollingIP2ShowUnfilteredList: false,
                             showRollingP1Dropdown: false,
                             showRollingP2Dropdown: false,
                             showRollingIP1Dropdown: false,
                             showRollingIP2Dropdown: false,
+                            rollingP1DropdownActiveIndex: -1,
+                            rollingP2DropdownActiveIndex: -1,
+                            rollingIP1DropdownActiveIndex: -1,
+                            rollingIP2DropdownActiveIndex: -1,
+                            rollingP1KeyboardNavigating: false,
+                            rollingP2KeyboardNavigating: false,
+                            rollingIP1KeyboardNavigating: false,
+                            rollingIP2KeyboardNavigating: false,
+                            rollingP1SkipNextBlurAutoMatch: false,
+                            rollingP2SkipNextBlurAutoMatch: false,
+                            rollingIP1SkipNextBlurAutoMatch: false,
+                            rollingIP2SkipNextBlurAutoMatch: false,
                             rollingIp1Width: '0',
                             rollingIp1Height: '0',
                             rollingIp2Width: '0',
@@ -1955,40 +2011,120 @@
                     return this.appendRollingServiceOption(options);
                 },
 
-                getFilteredRollingP1Options(product) {
-                    const options = this.getRollingP1Options(product);
-                    const query = this.normalizeForCompare(product.services.rollingMaterialP1Query || '');
+                getRollingDropdownConfig(key) {
+                    return {
+                        p1: {
+                            selectedKey: 'rollingMaterialP1',
+                            queryKey: 'rollingMaterialP1Query',
+                            filterKey: 'rollingMaterialP1FilterQuery',
+                            showUnfilteredKey: 'rollingP1ShowUnfilteredList',
+                            showKey: 'showRollingP1Dropdown',
+                            activeKey: 'rollingP1DropdownActiveIndex',
+                            keyboardKey: 'rollingP1KeyboardNavigating',
+                            skipBlurKey: 'rollingP1SkipNextBlurAutoMatch',
+                            optionsMethod: 'getRollingP1Options',
+                            inputMethod: 'onRollingP1InputChanged',
+                            selectMethod: 'selectRollingMaterialP1',
+                            applyMethod: 'applyRollingP1AutoMatch',
+                        },
+                        p2: {
+                            selectedKey: 'rollingMaterialP2',
+                            queryKey: 'rollingMaterialP2Query',
+                            filterKey: 'rollingMaterialP2FilterQuery',
+                            showUnfilteredKey: 'rollingP2ShowUnfilteredList',
+                            showKey: 'showRollingP2Dropdown',
+                            activeKey: 'rollingP2DropdownActiveIndex',
+                            keyboardKey: 'rollingP2KeyboardNavigating',
+                            skipBlurKey: 'rollingP2SkipNextBlurAutoMatch',
+                            optionsMethod: 'getRollingP2Options',
+                            inputMethod: 'onRollingP2InputChanged',
+                            selectMethod: 'selectRollingMaterialP2',
+                            applyMethod: 'applyRollingP2AutoMatch',
+                        },
+                        ip1: {
+                            selectedKey: 'rollingMaterialIP1',
+                            queryKey: 'rollingMaterialIP1Query',
+                            filterKey: 'rollingMaterialIP1FilterQuery',
+                            showUnfilteredKey: 'rollingIP1ShowUnfilteredList',
+                            showKey: 'showRollingIP1Dropdown',
+                            activeKey: 'rollingIP1DropdownActiveIndex',
+                            keyboardKey: 'rollingIP1KeyboardNavigating',
+                            skipBlurKey: 'rollingIP1SkipNextBlurAutoMatch',
+                            optionsMethod: 'getRollingIP1Options',
+                            inputMethod: 'onRollingIP1InputChanged',
+                            selectMethod: 'selectRollingMaterialIP1',
+                            applyMethod: 'applyRollingIP1AutoMatch',
+                        },
+                        ip2: {
+                            selectedKey: 'rollingMaterialIP2',
+                            queryKey: 'rollingMaterialIP2Query',
+                            filterKey: 'rollingMaterialIP2FilterQuery',
+                            showUnfilteredKey: 'rollingIP2ShowUnfilteredList',
+                            showKey: 'showRollingIP2Dropdown',
+                            activeKey: 'rollingIP2DropdownActiveIndex',
+                            keyboardKey: 'rollingIP2KeyboardNavigating',
+                            skipBlurKey: 'rollingIP2SkipNextBlurAutoMatch',
+                            optionsMethod: 'getRollingIP2Options',
+                            inputMethod: 'onRollingIP2InputChanged',
+                            selectMethod: 'selectRollingMaterialIP2',
+                            applyMethod: 'applyRollingIP2AutoMatch',
+                        },
+                    }[key] || null;
+                },
+
+                isRollingDropdownEnabled(product, key) {
+                    if (!product?.services || product.services.rolling !== '1') {
+                        return false;
+                    }
+
+                    if (key === 'p1') {
+                        return !product.services.rollingIndividual;
+                    }
+                    if (key === 'p2') {
+                        return !product.services.rollingIndividual && Boolean(product.services.rollingMaterialP1);
+                    }
+                    if (key === 'ip1') {
+                        return Boolean(product.services.rollingIndividual);
+                    }
+                    if (key === 'ip2') {
+                        return Boolean(product.services.rollingIndividual) && Boolean(product.services.rollingMaterialIP1);
+                    }
+
+                    return false;
+                },
+
+                getFilteredRollingOptions(product, key) {
+                    const config = this.getRollingDropdownConfig(key);
+                    if (!config) {
+                        return [];
+                    }
+
+                    const options = this[config.optionsMethod](product);
+                    if (product.services[config.showUnfilteredKey]) {
+                        return options;
+                    }
+
+                    const query = this.normalizeForCompare(product.services[config.filterKey] || '');
                     if (!query) {
                         return options;
                     }
                     return options.filter((material) => this.normalizeForCompare(material).includes(query));
+                },
+
+                getFilteredRollingP1Options(product) {
+                    return this.getFilteredRollingOptions(product, 'p1');
                 },
 
                 getFilteredRollingP2Options(product) {
-                    const options = this.getRollingP2Options(product);
-                    const query = this.normalizeForCompare(product.services.rollingMaterialP2Query || '');
-                    if (!query) {
-                        return options;
-                    }
-                    return options.filter((material) => this.normalizeForCompare(material).includes(query));
+                    return this.getFilteredRollingOptions(product, 'p2');
                 },
 
                 getFilteredRollingIP1Options(product) {
-                    const options = this.getRollingIP1Options(product);
-                    const query = this.normalizeForCompare(product.services.rollingMaterialIP1Query || '');
-                    if (!query) {
-                        return options;
-                    }
-                    return options.filter((material) => this.normalizeForCompare(material).includes(query));
+                    return this.getFilteredRollingOptions(product, 'ip1');
                 },
 
                 getFilteredRollingIP2Options(product) {
-                    const options = this.getRollingIP2Options(product);
-                    const query = this.normalizeForCompare(product.services.rollingMaterialIP2Query || '');
-                    if (!query) {
-                        return options;
-                    }
-                    return options.filter((material) => this.normalizeForCompare(material).includes(query));
+                    return this.getFilteredRollingOptions(product, 'ip2');
                 },
 
                 ensureRollingMaterials(product) {
@@ -2006,6 +2142,7 @@
                         product.services.showRollingP2Dropdown = false;
                         product.services.showRollingIP1Dropdown = false;
                         product.services.showRollingIP2Dropdown = false;
+                        this.resetAllRollingDropdownUiState(product);
                         return;
                     }
 
@@ -2016,6 +2153,8 @@
                         product.services.rollingMaterialIP2Query = '';
                         product.services.showRollingP2Dropdown = false;
                         product.services.showRollingIP2Dropdown = false;
+                        this.resetRollingDropdownUiState(product, 'p2');
+                        this.resetRollingDropdownUiState(product, 'ip2');
                         product.services.rollingIp2Width = '0';
                         product.services.rollingIp2Height = '0';
                     }
@@ -2087,6 +2226,7 @@
                     product.services.showRollingP2Dropdown = false;
                     product.services.showRollingIP1Dropdown = false;
                     product.services.showRollingIP2Dropdown = false;
+                    this.resetAllRollingDropdownUiState(product);
                     product.services.rollingIp1Width = '0';
                     product.services.rollingIp1Height = '0';
                     product.services.rollingIp2Width = '0';
@@ -2098,6 +2238,7 @@
                     product.services.rollingMaterialP2 = '';
                     product.services.rollingMaterialP2Query = '';
                     product.services.showRollingP2Dropdown = false;
+                    this.resetRollingDropdownUiState(product, 'p2');
                     this.ensureRollingMaterials(product);
                 },
 
@@ -2105,7 +2246,280 @@
                     product.services.rollingMaterialIP2 = '';
                     product.services.rollingMaterialIP2Query = '';
                     product.services.showRollingIP2Dropdown = false;
+                    this.resetRollingDropdownUiState(product, 'ip2');
                     this.ensureRollingMaterials(product);
+                },
+
+                onRollingDropdownInputChanged(product, key) {
+                    const config = this.getRollingDropdownConfig(key);
+                    if (!config || !this.isRollingDropdownEnabled(product, key)) {
+                        return;
+                    }
+
+                    const query = String(product.services[config.queryKey] || '').trim();
+                    product.services[config.showUnfilteredKey] = false;
+                    product.services[config.filterKey] = query;
+                    product.services[config.activeKey] = 0;
+                    product.services[config.showKey] = true;
+
+                    this[config.inputMethod](product);
+
+                    if (query !== '' && product.services[config.selectedKey] === '' && product.services[config.queryKey] === '') {
+                        product.services[config.queryKey] = query;
+                        product.services[config.filterKey] = query;
+                        product.services[config.showKey] = true;
+                    }
+
+                    this.syncRollingDropdownActiveIndex(product, key);
+                },
+
+                handleRollingDropdownFocus(product, key, event) {
+                    const config = this.getRollingDropdownConfig(key);
+                    if (!config || !this.isRollingDropdownEnabled(product, key)) {
+                        return;
+                    }
+
+                    const selected = String(product.services[config.selectedKey] || '');
+                    const query = String(product.services[config.queryKey] || '');
+                    product.services[config.showKey] = true;
+                    product.services[config.showUnfilteredKey] = Boolean(selected && query === selected);
+                    product.services[config.filterKey] = product.services[config.showUnfilteredKey] ? '' : query.trim();
+                    this.syncRollingDropdownActiveIndex(product, key);
+                    this.$nextTick(() => {
+                        if (event?.target && document.activeElement === event.target) {
+                            const valueLength = String(event.target.value || '').length;
+                            if (event.target.selectionStart === 0 && event.target.selectionEnd === valueLength) {
+                                event.target.setSelectionRange(valueLength, valueLength);
+                            }
+                        }
+                    });
+                },
+
+                handleRollingDropdownEditKey(product, key, event) {
+                    if (!['Backspace', 'Delete'].includes(event.key) || event.ctrlKey || event.metaKey || event.altKey) {
+                        return;
+                    }
+
+                    const config = this.getRollingDropdownConfig(key);
+                    if (!config || !this.isRollingDropdownEnabled(product, key)) {
+                        return;
+                    }
+
+                    const input = event?.target;
+                    const value = String(input?.value || '');
+                    if (!input || value.length === 0) {
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    const selectionStart = Number.isInteger(input.selectionStart) ? input.selectionStart : value.length;
+                    const selectionEnd = Number.isInteger(input.selectionEnd) ? input.selectionEnd : selectionStart;
+                    let nextValue = value;
+                    let nextCursor = selectionStart;
+
+                    if (selectionStart !== selectionEnd) {
+                        nextValue = value.slice(0, selectionStart) + value.slice(selectionEnd);
+                        nextCursor = selectionStart;
+                    } else if (event.key === 'Backspace') {
+                        if (selectionStart === 0) {
+                            return;
+                        }
+                        nextValue = value.slice(0, selectionStart - 1) + value.slice(selectionStart);
+                        nextCursor = selectionStart - 1;
+                    } else if (event.key === 'Delete') {
+                        if (selectionStart >= value.length) {
+                            return;
+                        }
+                        nextValue = value.slice(0, selectionStart) + value.slice(selectionStart + 1);
+                        nextCursor = selectionStart;
+                    }
+
+                    input.value = nextValue;
+                    product.services[config.queryKey] = nextValue;
+                    product.services[config.filterKey] = nextValue.trim();
+                    product.services[config.showUnfilteredKey] = false;
+                    product.services[config.showKey] = true;
+                    this.onRollingDropdownInputChanged(product, key);
+                    this.$nextTick(() => input.setSelectionRange(nextCursor, nextCursor));
+                },
+
+                handleRollingDropdownBlur(product, key) {
+                    const config = this.getRollingDropdownConfig(key);
+                    if (!config) {
+                        return;
+                    }
+
+                    if (product.services[config.skipBlurKey]) {
+                        product.services[config.skipBlurKey] = false;
+                        setTimeout(() => {
+                            product.services[config.queryKey] = product.services[config.selectedKey] || '';
+                            product.services[config.filterKey] = '';
+                            product.services[config.showUnfilteredKey] = false;
+                            this.closeRollingDropdown(product, key);
+                        }, 120);
+                        return;
+                    }
+
+                    this[config.applyMethod](product);
+                    setTimeout(() => {
+                        this.closeRollingDropdown(product, key);
+                    }, 120);
+                },
+
+                resetRollingDropdown(product, key) {
+                    const config = this.getRollingDropdownConfig(key);
+                    if (!config || !this.isRollingDropdownEnabled(product, key)) {
+                        return;
+                    }
+
+                    product.services[config.queryKey] = '';
+                    product.services[config.filterKey] = '';
+                    product.services[config.showUnfilteredKey] = true;
+                    product.services[config.showKey] = true;
+                    product.services[config.activeKey] = 0;
+                    product.services[config.keyboardKey] = false;
+                    product.services[config.skipBlurKey] = true;
+                    this.$nextTick(() => {
+                        product.services[config.activeKey] = 0;
+                        const dropdown = document.querySelector(`[data-rolling-dropdown="${product.uid}-${key}"]`);
+                        if (dropdown) {
+                            dropdown.scrollTop = 0;
+                        }
+                        const activeInput = document.activeElement;
+                        if (activeInput && activeInput.matches('input')) {
+                            activeInput.setSelectionRange(0, 0);
+                        }
+                    });
+                },
+
+                closeRollingDropdown(product, key) {
+                    const config = this.getRollingDropdownConfig(key);
+                    if (!config) {
+                        return;
+                    }
+
+                    product.services[config.showKey] = false;
+                    product.services[config.activeKey] = -1;
+                    product.services[config.keyboardKey] = false;
+                },
+
+                toggleRollingDropdown(product, key) {
+                    const config = this.getRollingDropdownConfig(key);
+                    if (!config || !this.isRollingDropdownEnabled(product, key)) {
+                        return;
+                    }
+
+                    product.services[config.showKey] = !product.services[config.showKey];
+                    if (product.services[config.showKey]) {
+                        const selected = String(product.services[config.selectedKey] || '');
+                        const query = String(product.services[config.queryKey] || '');
+                        product.services[config.showUnfilteredKey] = Boolean(selected && query === selected);
+                        product.services[config.filterKey] = product.services[config.showUnfilteredKey] ? '' : query.trim();
+                        this.syncRollingDropdownActiveIndex(product, key);
+                    }
+                },
+
+                syncRollingDropdownActiveIndex(product, key) {
+                    const config = this.getRollingDropdownConfig(key);
+                    if (!config) {
+                        return;
+                    }
+
+                    const options = this.getFilteredRollingOptions(product, key);
+                    if (options.length === 0) {
+                        product.services[config.activeKey] = -1;
+                        return;
+                    }
+
+                    if (product.services[config.activeKey] < 0 || product.services[config.activeKey] >= options.length) {
+                        product.services[config.activeKey] = 0;
+                    }
+
+                    this.scrollRollingDropdownActiveOptionIntoView(product, key);
+                },
+
+                moveRollingDropdown(product, key, direction) {
+                    const config = this.getRollingDropdownConfig(key);
+                    if (!config || !this.isRollingDropdownEnabled(product, key)) {
+                        return;
+                    }
+
+                    const options = this.getFilteredRollingOptions(product, key);
+                    if (options.length === 0) {
+                        product.services[config.activeKey] = -1;
+                        product.services[config.showKey] = true;
+                        return;
+                    }
+
+                    product.services[config.showKey] = true;
+                    product.services[config.keyboardKey] = true;
+                    if (product.services[config.activeKey] < 0 || product.services[config.activeKey] >= options.length) {
+                        product.services[config.activeKey] = direction > 0 ? 0 : options.length - 1;
+                    } else {
+                        product.services[config.activeKey] = (product.services[config.activeKey] + direction + options.length) % options.length;
+                    }
+
+                    this.scrollRollingDropdownActiveOptionIntoView(product, key);
+                },
+
+                selectActiveRollingDropdownOption(product, key) {
+                    const config = this.getRollingDropdownConfig(key);
+                    if (!config || !this.isRollingDropdownEnabled(product, key)) {
+                        return;
+                    }
+
+                    const options = this.getFilteredRollingOptions(product, key);
+                    if (!product.services[config.showKey]) {
+                        product.services[config.showKey] = true;
+                        this.syncRollingDropdownActiveIndex(product, key);
+                        return;
+                    }
+
+                    const activeIndex = product.services[config.activeKey];
+                    if (activeIndex >= 0 && activeIndex < options.length) {
+                        this[config.selectMethod](product, options[activeIndex]);
+                    }
+                },
+
+                activateRollingDropdownMouseHover(product, key, materialIndex) {
+                    const config = this.getRollingDropdownConfig(key);
+                    if (!config) {
+                        return;
+                    }
+
+                    product.services[config.keyboardKey] = false;
+                    product.services[config.activeKey] = materialIndex;
+                },
+
+                resetRollingDropdownUiState(product, key, query = '') {
+                    const config = this.getRollingDropdownConfig(key);
+                    if (!config) {
+                        return;
+                    }
+
+                    product.services[config.filterKey] = query;
+                    product.services[config.showUnfilteredKey] = false;
+                    product.services[config.showKey] = false;
+                    product.services[config.activeKey] = -1;
+                    product.services[config.keyboardKey] = false;
+                    product.services[config.skipBlurKey] = false;
+                },
+
+                resetAllRollingDropdownUiState(product) {
+                    ['p1', 'p2', 'ip1', 'ip2'].forEach((key) => this.resetRollingDropdownUiState(product, key));
+                },
+
+                scrollRollingDropdownActiveOptionIntoView(product, key) {
+                    const config = this.getRollingDropdownConfig(key);
+                    this.$nextTick(() => {
+                        if (!config || !product?.uid || product.services[config.activeKey] < 0) {
+                            return;
+                        }
+
+                        const selector = `[data-rolling-dropdown="${product.uid}-${key}"] [data-rolling-option-index="${product.services[config.activeKey]}"]`;
+                        document.querySelector(selector)?.scrollIntoView({ block: 'nearest' });
+                    });
                 },
 
                 onRollingP1InputChanged(product) {
@@ -2247,6 +2661,7 @@
                     product.services.rollingMaterialP1 = material;
                     product.services.rollingMaterialP1Query = material;
                     product.services.showRollingP1Dropdown = false;
+                    this.resetRollingDropdownUiState(product, 'p1');
                     if (previous !== material) {
                         this.onRollingMaterialP1Changed(product);
                     } else {
@@ -2258,6 +2673,7 @@
                     product.services.rollingMaterialP2 = material;
                     product.services.rollingMaterialP2Query = material;
                     product.services.showRollingP2Dropdown = false;
+                    this.resetRollingDropdownUiState(product, 'p2');
                     this.ensureRollingMaterials(product);
                 },
 
@@ -2266,6 +2682,7 @@
                     product.services.rollingMaterialIP1 = material;
                     product.services.rollingMaterialIP1Query = material;
                     product.services.showRollingIP1Dropdown = false;
+                    this.resetRollingDropdownUiState(product, 'ip1');
                     if (previous !== material) {
                         this.onRollingMaterialIP1Changed(product);
                     } else {
@@ -2277,6 +2694,7 @@
                     product.services.rollingMaterialIP2 = material;
                     product.services.rollingMaterialIP2Query = material;
                     product.services.showRollingIP2Dropdown = false;
+                    this.resetRollingDropdownUiState(product, 'ip2');
                     this.ensureRollingMaterials(product);
                 },
 
@@ -4553,6 +4971,34 @@
                     return rows;
                 },
 
+                getSerializableServices(product) {
+                    const {
+                        rollingMaterialP1FilterQuery,
+                        rollingMaterialP2FilterQuery,
+                        rollingMaterialIP1FilterQuery,
+                        rollingMaterialIP2FilterQuery,
+                        rollingP1ShowUnfilteredList,
+                        rollingP2ShowUnfilteredList,
+                        rollingIP1ShowUnfilteredList,
+                        rollingIP2ShowUnfilteredList,
+                        rollingP1DropdownActiveIndex,
+                        rollingP2DropdownActiveIndex,
+                        rollingIP1DropdownActiveIndex,
+                        rollingIP2DropdownActiveIndex,
+                        rollingP1KeyboardNavigating,
+                        rollingP2KeyboardNavigating,
+                        rollingIP1KeyboardNavigating,
+                        rollingIP2KeyboardNavigating,
+                        rollingP1SkipNextBlurAutoMatch,
+                        rollingP2SkipNextBlurAutoMatch,
+                        rollingIP1SkipNextBlurAutoMatch,
+                        rollingIP2SkipNextBlurAutoMatch,
+                        ...services
+                    } = product.services || {};
+
+                    return services;
+                },
+
                 buildSaveState() {
                     const minimumProductNumbers = this.products
                         .map((product, index) => this.isMinimumProductApplied(product) ? this.displayProductNumber(index) : null)
@@ -4588,7 +5034,7 @@
                             positions,
                             servicesEnabledRaw: String(product.servicesEnabledRaw || '0'),
                             services: {
-                                ...(product.services || {}),
+                                ...this.getSerializableServices(product),
                                 weedingPurchaseCost: String(this.getWeedingCost(product, 'purchase')),
                             },
                             service_rows: this.serializeServiceRows(product),
