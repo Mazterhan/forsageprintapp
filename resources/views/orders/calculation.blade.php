@@ -156,7 +156,7 @@
                                 <div class="ml-4 text-sm font-semibold text-gray-700">Матеріал</div>
                                 <div style="width: 330px;">
                                     <div class="relative" @click.outside="product.showMaterialDropdown = false; product.materialDropdownActiveIndex = -1; product.materialKeyboardNavigating = false">
-                                        <div class="mt-1 flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+                                        <div class="mt-1 relative overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
                                             <input
                                                 x-model="product.materialQuery"
                                                 @input="onMaterialInputChanged(product); product.showMaterialDropdown = true"
@@ -170,19 +170,20 @@
                                                 type="text"
                                                 autocomplete="off"
                                                 :disabled="!product.productTypeId"
-                                                class="block w-full border-0 bg-transparent pr-3 text-left focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
+                                                class="block w-full border-0 bg-transparent py-2 pl-3 pr-10 text-left text-base leading-6 text-gray-900 focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
                                                 placeholder="Оберіть матеріал"
                                             />
-                                            <button
-                                                type="button"
-                                                @click="if (product.productTypeId) { product.showMaterialDropdown = !product.showMaterialDropdown; if (product.showMaterialDropdown) syncMaterialDropdownActiveIndex(product) }"
-                                                :disabled="!product.productTypeId"
-                                                class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+                                            <span
+                                                aria-hidden="true"
+                                                @mousedown.prevent
+                                                @click="if (product.productTypeId) { product.showMaterialDropdown = !product.showMaterialDropdown; if (product.showMaterialDropdown) syncMaterialDropdownActiveIndex(product); $el.parentElement?.querySelector('input')?.focus() }"
+                                                class="absolute inset-y-0 right-0 flex w-10 cursor-default items-center justify-center bg-transparent text-gray-500 hover:text-gray-700"
+                                                :class="!product.productTypeId ? 'text-gray-400' : ''"
                                             >
-                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                                <svg class="h-6 w-6" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                                    <path d="m6 8 4 4 4-4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
                                                 </svg>
-                                            </button>
+                                            </span>
                                         </div>
                                         <div
                                             x-show="product.productTypeId && product.showMaterialDropdown"
@@ -552,7 +553,7 @@
                                                 <div class="w-[120px] text-sm text-gray-700">Матеріал прикатки 1</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
                                                     <div class="relative" @click.outside="closeRollingDropdown(product, 'p1')">
-                                                        <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+                                                        <div class="relative overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
                                                             <input
                                                                 x-model="product.services.rollingMaterialP1Query"
                                                                 @input="onRollingDropdownInputChanged(product, 'p1')"
@@ -566,19 +567,20 @@
                                                                 type="text"
                                                                 autocomplete="off"
                                                                 :disabled="product.services.rollingIndividual"
-                                                                class="block w-full border-0 bg-transparent pr-3 text-left focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
+                                                                class="block w-full border-0 bg-transparent py-2 pl-3 pr-10 text-left text-base leading-6 text-gray-900 focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
                                                                 placeholder="Оберіть матеріал П1"
                                                             />
-                                                            <button
-                                                                type="button"
-                                                                @click="toggleRollingDropdown(product, 'p1')"
-                                                                :disabled="product.services.rollingIndividual"
-                                                                class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+                                                            <span
+                                                                aria-hidden="true"
+                                                                @mousedown.prevent
+                                                                @click="if (!product.services.rollingIndividual) { toggleRollingDropdown(product, 'p1'); $el.parentElement?.querySelector('input')?.focus() }"
+                                                                class="absolute inset-y-0 right-0 flex w-10 cursor-default items-center justify-center bg-transparent text-gray-500 hover:text-gray-700"
+                                                                :class="product.services.rollingIndividual ? 'text-gray-400' : ''"
                                                             >
-                                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                                                <svg class="h-6 w-6" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                                                    <path d="m6 8 4 4 4-4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
                                                                 </svg>
-                                                            </button>
+                                                            </span>
                                                         </div>
                                                         <div
                                                             x-show="product.services.showRollingP1Dropdown && !product.services.rollingIndividual"
@@ -615,7 +617,7 @@
                                                 <div class="w-[120px] text-sm text-gray-700">Матеріал прикатки 2</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
                                                     <div class="relative" @click.outside="closeRollingDropdown(product, 'p2')">
-                                                        <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+                                                        <div class="relative overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
                                                             <input
                                                                 x-model="product.services.rollingMaterialP2Query"
                                                                 @input="onRollingDropdownInputChanged(product, 'p2')"
@@ -629,19 +631,20 @@
                                                                 type="text"
                                                                 autocomplete="off"
                                                                 :disabled="product.services.rollingIndividual || !product.services.rollingMaterialP1"
-                                                                class="block w-full border-0 bg-transparent pr-3 text-left focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
+                                                                class="block w-full border-0 bg-transparent py-2 pl-3 pr-10 text-left text-base leading-6 text-gray-900 focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
                                                                 placeholder="Оберіть матеріал П2"
                                                             />
-                                                            <button
-                                                                type="button"
-                                                                @click="toggleRollingDropdown(product, 'p2')"
-                                                                :disabled="product.services.rollingIndividual || !product.services.rollingMaterialP1"
-                                                                class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+                                                            <span
+                                                                aria-hidden="true"
+                                                                @mousedown.prevent
+                                                                @click="if (!product.services.rollingIndividual && product.services.rollingMaterialP1) { toggleRollingDropdown(product, 'p2'); $el.parentElement?.querySelector('input')?.focus() }"
+                                                                class="absolute inset-y-0 right-0 flex w-10 cursor-default items-center justify-center bg-transparent text-gray-500 hover:text-gray-700"
+                                                                :class="product.services.rollingIndividual || !product.services.rollingMaterialP1 ? 'text-gray-400' : ''"
                                                             >
-                                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                                                <svg class="h-6 w-6" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                                                    <path d="m6 8 4 4 4-4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
                                                                 </svg>
-                                                            </button>
+                                                            </span>
                                                         </div>
                                                         <div
                                                             x-show="product.services.showRollingP2Dropdown && !product.services.rollingIndividual && product.services.rollingMaterialP1"
@@ -676,7 +679,7 @@
                                                 <div class="w-[160px] text-sm text-gray-700">Матеріал індивідуальної прикатки 1</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
                                                     <div class="relative" @click.outside="closeRollingDropdown(product, 'ip1')">
-                                                        <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+                                                        <div class="relative overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
                                                             <input
                                                                 x-model="product.services.rollingMaterialIP1Query"
                                                                 @input="onRollingDropdownInputChanged(product, 'ip1')"
@@ -690,19 +693,20 @@
                                                                 type="text"
                                                                 autocomplete="off"
                                                                 :disabled="!product.services.rollingIndividual"
-                                                                class="block w-full border-0 bg-transparent pr-3 text-left focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
+                                                                class="block w-full border-0 bg-transparent py-2 pl-3 pr-10 text-left text-base leading-6 text-gray-900 focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
                                                                 placeholder="Оберіть матеріал ІП1"
                                                             />
-                                                            <button
-                                                                type="button"
-                                                                @click="toggleRollingDropdown(product, 'ip1')"
-                                                                :disabled="!product.services.rollingIndividual"
-                                                                class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+                                                            <span
+                                                                aria-hidden="true"
+                                                                @mousedown.prevent
+                                                                @click="if (product.services.rollingIndividual) { toggleRollingDropdown(product, 'ip1'); $el.parentElement?.querySelector('input')?.focus() }"
+                                                                class="absolute inset-y-0 right-0 flex w-10 cursor-default items-center justify-center bg-transparent text-gray-500 hover:text-gray-700"
+                                                                :class="!product.services.rollingIndividual ? 'text-gray-400' : ''"
                                                             >
-                                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                                                <svg class="h-6 w-6" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                                                    <path d="m6 8 4 4 4-4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
                                                                 </svg>
-                                                            </button>
+                                                            </span>
                                                         </div>
                                                         <div
                                                             x-show="product.services.showRollingIP1Dropdown && product.services.rollingIndividual"
@@ -766,7 +770,7 @@
                                                 <div class="w-[160px] text-sm text-gray-700">Матеріал індивідуальної прикатки 2</div>
                                                 <div style="width: 360px; min-width: 360px; max-width: 360px;">
                                                     <div class="relative" @click.outside="closeRollingDropdown(product, 'ip2')">
-                                                        <div class="flex items-stretch overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+                                                        <div class="relative overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
                                                             <input
                                                                 x-model="product.services.rollingMaterialIP2Query"
                                                                 @input="onRollingDropdownInputChanged(product, 'ip2')"
@@ -780,19 +784,20 @@
                                                                 type="text"
                                                                 autocomplete="off"
                                                                 :disabled="!product.services.rollingIndividual || !product.services.rollingMaterialIP1"
-                                                                class="block w-full border-0 bg-transparent pr-3 text-left focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
+                                                                class="block w-full border-0 bg-transparent py-2 pl-3 pr-10 text-left text-base leading-6 text-gray-900 focus:border-transparent focus:ring-0 disabled:bg-gray-100 disabled:text-gray-500"
                                                                 placeholder="Оберіть матеріал ІП2"
                                                             />
-                                                            <button
-                                                                type="button"
-                                                                @click="toggleRollingDropdown(product, 'ip2')"
-                                                                :disabled="!product.services.rollingIndividual || !product.services.rollingMaterialIP1"
-                                                                class="flex w-10 shrink-0 items-center justify-center border-l border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+                                                            <span
+                                                                aria-hidden="true"
+                                                                @mousedown.prevent
+                                                                @click="if (product.services.rollingIndividual && product.services.rollingMaterialIP1) { toggleRollingDropdown(product, 'ip2'); $el.parentElement?.querySelector('input')?.focus() }"
+                                                                class="absolute inset-y-0 right-0 flex w-10 cursor-default items-center justify-center bg-transparent text-gray-500 hover:text-gray-700"
+                                                                :class="!product.services.rollingIndividual || !product.services.rollingMaterialIP1 ? 'text-gray-400' : ''"
                                                             >
-                                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                                                <svg class="h-6 w-6" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                                                    <path d="m6 8 4 4 4-4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
                                                                 </svg>
-                                                            </button>
+                                                            </span>
                                                         </div>
                                                         <div
                                                             x-show="product.services.showRollingIP2Dropdown && product.services.rollingIndividual && product.services.rollingMaterialIP1"
@@ -2376,12 +2381,11 @@
                     product.services[config.queryKey] = '';
                     product.services[config.filterKey] = '';
                     product.services[config.showUnfilteredKey] = true;
-                    product.services[config.showKey] = true;
-                    product.services[config.activeKey] = 0;
+                    product.services[config.showKey] = false;
+                    product.services[config.activeKey] = -1;
                     product.services[config.keyboardKey] = false;
                     product.services[config.skipBlurKey] = true;
                     this.$nextTick(() => {
-                        product.services[config.activeKey] = 0;
                         const dropdown = document.querySelector(`[data-rolling-dropdown="${product.uid}-${key}"]`);
                         if (dropdown) {
                             dropdown.scrollTop = 0;
@@ -3056,12 +3060,11 @@
                     product.materialQuery = '';
                     product.materialFilterQuery = '';
                     product.materialShowUnfilteredList = true;
-                    product.showMaterialDropdown = Boolean(product.productTypeId);
-                    product.materialDropdownActiveIndex = 0;
+                    product.showMaterialDropdown = false;
+                    product.materialDropdownActiveIndex = -1;
                     product.materialKeyboardNavigating = false;
                     product.materialSkipNextBlurAutoMatch = true;
                     this.$nextTick(() => {
-                        product.materialDropdownActiveIndex = 0;
                         const dropdown = document.querySelector(`[data-material-dropdown="${product.uid}"]`);
                         if (dropdown) {
                             dropdown.scrollTop = 0;
