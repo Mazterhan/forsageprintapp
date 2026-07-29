@@ -22,6 +22,9 @@
                         <a href="{{ route('admin.product-types.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
                             {{ __('Тип виробу') }}
                         </a>
+                        <a href="{{ route('admin.set-flm.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                            {{ __('Набір з позицій (FLM)') }}
+                        </a>
                     </div>
                 </div>
             </div>

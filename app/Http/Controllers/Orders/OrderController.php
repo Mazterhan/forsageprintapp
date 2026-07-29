@@ -12,6 +12,7 @@ use App\Models\ProductTypeCategoryRule;
 use App\Models\ProductType;
 use App\Services\PermissionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
@@ -292,6 +293,15 @@ class OrderController extends Controller
             ->map(fn ($value) => round((float) ($value ?? 0), 2))
             ->toArray();
 
+        $specialFlmCodes = DB::table('special_flm_set_items')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->pluck('internal_code')
+            ->map(fn ($code) => trim((string) $code))
+            ->filter(fn ($code) => $code !== '')
+            ->values()
+            ->all();
+
         $typeCategoryMatrix = ProductTypeCategoryRule::query()
             ->with(['productType:id', 'productCategory:id,name'])
             ->get()
@@ -317,6 +327,7 @@ class OrderController extends Controller
             'materialCodeByMaterial' => $materialCodeByMaterial,
             'servicePriceByCode' => $servicePriceByCode,
             'servicePurchasePriceByCode' => $servicePurchasePriceByCode,
+            'specialFlmCodes' => $specialFlmCodes,
             'typeCategoryMatrix' => $typeCategoryMatrix,
             'proposalId' => $proposal?->id,
             'initialState' => $proposal?->payload,

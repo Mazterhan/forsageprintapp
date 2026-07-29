@@ -188,6 +188,8 @@ Route::middleware(['auth', 'permission:admin'])
         Route::post('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'storeProductCategories'])->name('product-categories.store');
         Route::get('/editgroupsandcategories/product-types', [ProductTypeController::class, 'index'])->name('product-types.index');
         Route::post('/editgroupsandcategories/product-types', [ProductTypeController::class, 'store'])->name('product-types.store');
+        Route::get('/editgroupsandcategories/set1-flm', [EditGroupsAndCategoriesController::class, 'setFlm'])->name('set-flm.index');
+        Route::post('/editgroupsandcategories/set1-flm', [EditGroupsAndCategoriesController::class, 'storeSetFlm'])->name('set-flm.store');
         });
     });
 

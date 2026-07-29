@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ProductCategory;
 use App\Models\ProductGroup;
+use App\Models\PriceItem;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -101,6 +102,170 @@ class EditGroupsAndCategoriesController extends Controller
                 'Без типу матеріалу',
             ],
         ]);
+    }
+
+    public function setFlm(): View
+    {
+        $priceItems = PriceItem::query()
+            ->where('model_type', 'Матеріал')
+            ->where('internal_code', 'like', '%FLM%')
+            ->orderBy('internal_code')
+            ->get(['id', 'internal_code', 'name'])
+            ->map(fn (PriceItem $item) => [
+                'id' => $item->id,
+                'code' => (string) $item->internal_code,
+                'name' => (string) $item->name,
+            ])
+            ->all();
+
+        $savedRows = DB::table('special_flm_set_items')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['price_item_id', 'internal_code', 'name'])
+            ->map(fn ($item) => [
+                'price_item_id' => (int) $item->price_item_id,
+                'code' => (string) $item->internal_code,
+                'name' => (string) $item->name,
+            ])
+            ->all();
+
+        $historyRows = DB::table('special_flm_set_histories')
+            ->leftJoin('users', 'users.id', '=', 'special_flm_set_histories.user_id')
+            ->orderByDesc('special_flm_set_histories.created_at')
+            ->limit(50)
+            ->get([
+                'special_flm_set_histories.action',
+                'special_flm_set_histories.internal_code',
+                'special_flm_set_histories.name',
+                'special_flm_set_histories.change_summary',
+                'special_flm_set_histories.created_at',
+                'users.name as user_name',
+            ])
+            ->map(function ($row) {
+                return [
+                    'user_name' => (string) ($row->user_name ?? 'Система'),
+                    'action' => (string) $row->action,
+                    'code' => (string) ($row->internal_code ?? ''),
+                    'name' => (string) ($row->name ?? ''),
+                    'summary' => (string) $row->change_summary,
+                    'created_at' => $row->created_at,
+                ];
+            })
+            ->all();
+
+        return view('admin.editgroupsandcategories.set-flm', [
+            'priceItems' => $priceItems,
+            'selectedRows' => $savedRows,
+            'historyRows' => $historyRows,
+        ]);
+    }
+
+    public function storeSetFlm(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'price_item_ids' => ['nullable', 'array'],
+            'price_item_ids.*' => ['nullable', 'integer', 'exists:price_items,id'],
+        ]);
+
+        $ids = collect($data['price_item_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values();
+
+        $items = PriceItem::query()
+            ->whereIn('id', $ids)
+            ->where('model_type', 'Матеріал')
+            ->where('internal_code', 'like', '%FLM%')
+            ->get(['id', 'internal_code', 'name'])
+            ->keyBy('id');
+
+        $validIds = $ids->filter(fn (int $id) => $items->has($id))->values();
+        if ($validIds->count() !== $ids->count()) {
+            return redirect()
+                ->route('admin.set-flm.index')
+                ->withErrors(['set_flm' => __('Список може містити тільки позиції прайса з кодом FLM.')]);
+        }
+
+        $userId = $request->user()?->id;
+
+        DB::transaction(function () use ($validIds, $items, $userId): void {
+            $existing = DB::table('special_flm_set_items')
+                ->get(['price_item_id', 'internal_code', 'name'])
+                ->keyBy('price_item_id');
+
+            $nextIdSet = $validIds->flip();
+
+            foreach ($existing as $priceItemId => $row) {
+                if (! $nextIdSet->has((int) $priceItemId)) {
+                    DB::table('special_flm_set_histories')->insert([
+                        'user_id' => $userId,
+                        'action' => 'removed',
+                        'internal_code' => $row->internal_code,
+                        'name' => $row->name,
+                        'change_summary' => 'Позицію видалено зі списку спеціальних FLM-позицій.',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            foreach ($validIds as $index => $priceItemId) {
+                $item = $items->get($priceItemId);
+                $existingRow = $existing->get($priceItemId);
+                $payload = [
+                    'price_item_id' => $item->id,
+                    'internal_code' => (string) $item->internal_code,
+                    'name' => (string) $item->name,
+                    'sort_order' => $index + 1,
+                    'updated_by' => $userId,
+                    'updated_at' => now(),
+                ];
+
+                if ($existingRow) {
+                    DB::table('special_flm_set_items')
+                        ->where('price_item_id', $item->id)
+                        ->update($payload);
+
+                    if ($existingRow->internal_code !== $item->internal_code || $existingRow->name !== $item->name) {
+                        DB::table('special_flm_set_histories')->insert([
+                            'user_id' => $userId,
+                            'action' => 'updated',
+                            'internal_code' => (string) $item->internal_code,
+                            'name' => (string) $item->name,
+                            'change_summary' => 'Позицію оновлено у списку спеціальних FLM-позицій.',
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+                } else {
+                    DB::table('special_flm_set_items')->insert($payload + [
+                        'created_by' => $userId,
+                        'created_at' => now(),
+                    ]);
+
+                    DB::table('special_flm_set_histories')->insert([
+                        'user_id' => $userId,
+                        'action' => 'added',
+                        'internal_code' => (string) $item->internal_code,
+                        'name' => (string) $item->name,
+                        'change_summary' => 'Позицію додано до списку спеціальних FLM-позицій.',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            $deleteQuery = DB::table('special_flm_set_items');
+            if ($validIds->isNotEmpty()) {
+                $deleteQuery->whereNotIn('price_item_id', $validIds->all());
+            }
+            $deleteQuery->delete();
+        });
+
+        return redirect()
+            ->route('admin.set-flm.index')
+            ->with('status', __('Зміни у списку збережено.'));
     }
 
     public function storeProductCategories(Request $request): RedirectResponse

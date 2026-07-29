@@ -46,6 +46,7 @@
                     materialCodeByMaterial: @js($materialCodeByMaterial),
                     servicePriceByCode: @js($servicePriceByCode),
                     servicePurchasePriceByCode: @js($servicePurchasePriceByCode),
+                    specialFlmCodes: @js($specialFlmCodes ?? []),
                     typeCategoryMatrix: @js($typeCategoryMatrix),
                     proposalId: @js($proposalId ?? null),
                     initialState: @js($initialState ?? null),
@@ -1124,6 +1125,7 @@
                 materialCodeByMaterial: config.materialCodeByMaterial || {},
                 servicePriceByCode: config.servicePriceByCode || {},
                 servicePurchasePriceByCode: config.servicePurchasePriceByCode || {},
+                specialFlmCodes: (config.specialFlmCodes || []).map((item) => (item || '').toString().trim().toUpperCase()).filter((item) => item !== ''),
                 typeCategoryMatrix: config.typeCategoryMatrix || {},
                 proposalId: config.proposalId || null,
                 initialState: config.initialState || null,
@@ -3309,9 +3311,21 @@
                     return this.materialCodeByMaterial[material] || '';
                 },
 
+                normalizeCode(value) {
+                    return (value || '').toString().trim().toUpperCase();
+                },
+
+                isSpecialFlmMaterial(material) {
+                    const code = this.normalizeCode(this.getMaterialCode(material));
+                    if (!code) {
+                        return false;
+                    }
+
+                    return (this.specialFlmCodes || []).includes(code);
+                },
+
                 isFilmMaterialRestrictedByType(material) {
-                    const code = this.getMaterialCode(material);
-                    return code === 'MAT-FLM-010' || code === 'MAT-FLM-011';
+                    return this.isSpecialFlmMaterial(material);
                 },
 
                 getMaterialCategory(material) {
@@ -3352,7 +3366,6 @@
 
                 isServiceBlockVisible(product, block) {
                     const scenario = this.getServiceScenario(product);
-                    const materialCode = this.getMaterialCode(product.material);
                     const materialCategory = this.normalizeText(this.getMaterialCategory(product.material));
 
                     if (materialCategory === 'папір' && ['cutting', 'weeding', 'montage', 'rolling'].includes(block)) {
@@ -3363,7 +3376,7 @@
                         return false;
                     }
 
-                    if (block === 'lamination' && (materialCode === 'MAT-FLM-010' || materialCode === 'MAT-FLM-011')) {
+                    if (block === 'lamination' && this.isSpecialFlmMaterial(product.material)) {
                         return false;
                     }
 
@@ -5181,8 +5194,7 @@
                             return NaN;
                         }
 
-                        const materialCode = this.getMaterialCode(product.material);
-                        const isFilmWithIncludedSolvent = materialCode === 'MAT-FLM-010' || materialCode === 'MAT-FLM-011';
+                        const isFilmWithIncludedSolvent = this.isSpecialFlmMaterial(product.material);
                         baseUnitPrice = isFilmWithIncludedSolvent ? materialPrice : (solventServicePrice + materialPrice);
                     } else if (isCutOnly) {
                         const materialPrice = this.resolveMaterialPriceForProductByMode(product, pricingMode);
