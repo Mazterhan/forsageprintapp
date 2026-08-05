@@ -4,27 +4,310 @@ namespace App\Http\Controllers\Orders;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\Order;
 use App\Models\OrderProposal;
 use App\Models\OrderProposalEditLock;
 use App\Models\PriceItem;
 use App\Models\ProductCategory;
-use App\Models\ProductTypeCategoryRule;
 use App\Models\ProductType;
+use App\Models\ProductTypeCategoryRule;
 use App\Services\PermissionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
     public function index(Request $request, PermissionService $permissions)
     {
+        $sort = (string) $request->query('sort', 'date');
+        $direction = strtolower((string) $request->query('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $perPageRaw = strtolower((string) $request->query('per_page', '20'));
+        $perPageRaw = in_array($perPageRaw, ['20', '50', '100', 'all'], true) ? $perPageRaw : '20';
+
+        $sortMap = [
+            'number' => 'orders.order_number',
+            'customer' => 'orders.customer_name',
+            'user' => 'users.name',
+            'amount_due' => 'orders.amount_due',
+            'total_cost' => 'orders.total_cost',
+        ];
+
+        $query = Order::query()
+            ->leftJoin('users', 'users.id', '=', 'orders.last_edited_by')
+            ->select('orders.*')
+            ->with('lastEditedBy:id,name');
+
+        if ($sort === 'date') {
+            $query->orderBy('orders.updated_at', $direction);
+        } elseif (isset($sortMap[$sort])) {
+            $query->orderBy($sortMap[$sort], $direction);
+        } else {
+            $sort = 'date';
+            $query->orderBy('orders.updated_at', 'desc');
+        }
+
+        $perPage = match ($perPageRaw) {
+            '50' => 50,
+            '100' => 100,
+            'all' => max(1, (clone $query)->count()),
+            default => 20,
+        };
+
         return view('orders.index', [
+            'orders' => $query->paginate($perPage)->withQueryString(),
+            'sort' => $sort,
+            'direction' => $direction,
+            'perPageRaw' => $perPageRaw,
             'ordersPermissions' => [
                 'calculation' => $permissions->can($request->user(), 'orders_calculation'),
                 'proposals' => $permissions->can($request->user(), 'orders_proposals'),
                 'clients' => $permissions->can($request->user(), 'orders_clients_manage'),
             ],
         ]);
+    }
+
+    public function create()
+    {
+        $clients = Client::query()
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('orders.create', [
+            'clients' => $clients,
+        ]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'client_id' => ['nullable', 'integer', 'exists:clients,id'],
+            'customer_name' => ['required', 'string', 'max:255'],
+            'create_client' => ['nullable', 'boolean'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.nomenclature' => ['required', 'string', 'max:500'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.unit_cost' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $customerName = trim((string) $data['customer_name']);
+        $client = ! empty($data['client_id'])
+            ? Client::query()->find((int) $data['client_id'])
+            : $this->findClientByName($customerName);
+
+        if (! $client && ! $request->boolean('create_client')) {
+            return response()->json([
+                'ok' => false,
+                'code' => 'client_not_found',
+                'message' => 'Замовника з таким ім\'ям не знайдено.',
+                'customer_name' => $customerName,
+            ], 422);
+        }
+
+        $normalizedItems = collect($data['items'])
+            ->map(function (array $item): array {
+                $quantity = (int) $item['quantity'];
+                $unitCost = (int) $item['unit_cost'];
+
+                return [
+                    'item_id' => (string) Str::uuid(),
+                    'nomenclature' => trim((string) $item['nomenclature']),
+                    'quantity' => $quantity,
+                    'unit_cost' => $unitCost,
+                    'sum' => $quantity * $unitCost,
+                ];
+            })
+            ->values()
+            ->all();
+
+        $totalCost = (float) collect($normalizedItems)->sum('sum');
+
+        $order = DB::transaction(function () use ($request, $client, $customerName, $normalizedItems, $totalCost): Order {
+            if (! $client) {
+                $client = $this->findClientByName($customerName, true);
+            }
+
+            if (! $client) {
+                $temporaryCode = 'FP-TEMP-'.Str::upper(Str::random(8));
+                $client = Client::query()->create([
+                    'code' => $temporaryCode,
+                    'name' => $customerName,
+                    'status' => 'active',
+                    'created_by' => $request->user()?->id,
+                    'updated_by' => $request->user()?->id,
+                ]);
+                $client->update([
+                    'code' => 'FP-'.str_pad((string) $client->id, 6, '0', STR_PAD_LEFT),
+                ]);
+            }
+
+            $order = Order::query()->create([
+                'customer_name' => $client->name,
+                'client_id' => $client->id,
+                'last_edited_by' => $request->user()?->id,
+                'items' => $normalizedItems,
+                'payments_total' => 0,
+                'amount_due' => $totalCost,
+                'total_cost' => $totalCost,
+            ]);
+
+            $client->update([
+                'last_order_at' => now(),
+                'updated_by' => $request->user()?->id,
+            ]);
+
+            return $order;
+        });
+
+        return response()->json([
+            'ok' => true,
+            'order_id' => $order->public_id,
+            'order_number' => $order->order_number,
+            'redirect_url' => route('orders.index'),
+        ]);
+    }
+
+    public function show(Order $order)
+    {
+        $order->load([
+            'client:id,name',
+            'lastEditedBy:id,name',
+            'histories.user:id,name',
+        ]);
+
+        return view('orders.show', [
+            'order' => $order,
+        ]);
+    }
+
+    public function edit(Order $order)
+    {
+        $order->ensureItemIds();
+
+        $clients = Client::query()
+            ->where(function ($query) use ($order): void {
+                $query->where('status', 'active');
+
+                if ($order->client_id) {
+                    $query->orWhere('id', $order->client_id);
+                }
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('orders.create', [
+            'clients' => $clients,
+            'order' => $order,
+        ]);
+    }
+
+    public function update(Request $request, Order $order): JsonResponse
+    {
+        $order->ensureItemIds();
+
+        $data = $request->validate([
+            'client_id' => ['nullable', 'integer', 'exists:clients,id'],
+            'customer_name' => ['required', 'string', 'max:255'],
+            'create_client' => ['nullable', 'boolean'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.item_id' => ['nullable', 'string', 'max:100'],
+            'items.*.nomenclature' => ['required', 'string', 'max:500'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.unit_cost' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $customerName = trim((string) $data['customer_name']);
+        $client = ! empty($data['client_id'])
+            ? Client::query()->find((int) $data['client_id'])
+            : $this->findClientByName($customerName);
+
+        if (! $client && ! $request->boolean('create_client')) {
+            return response()->json([
+                'ok' => false,
+                'code' => 'client_not_found',
+                'message' => 'Замовника з таким ім\'ям не знайдено.',
+                'customer_name' => $customerName,
+            ], 422);
+        }
+
+        $normalizedItems = collect($data['items'])
+            ->map(function (array $item): array {
+                $quantity = (int) $item['quantity'];
+                $unitCost = (int) $item['unit_cost'];
+                $itemId = trim((string) ($item['item_id'] ?? ''));
+
+                return [
+                    'item_id' => $itemId !== '' ? $itemId : (string) Str::uuid(),
+                    'nomenclature' => trim((string) $item['nomenclature']),
+                    'quantity' => $quantity,
+                    'unit_cost' => $unitCost,
+                    'sum' => $quantity * $unitCost,
+                ];
+            })
+            ->values()
+            ->all();
+
+        $totalCost = (float) collect($normalizedItems)->sum('sum');
+
+        DB::transaction(function () use ($request, $order, $client, $customerName, $normalizedItems, $totalCost): void {
+            if (! $client) {
+                $client = $this->findClientByName($customerName, true);
+            }
+
+            if (! $client) {
+                $temporaryCode = 'FP-TEMP-'.Str::upper(Str::random(8));
+                $client = Client::query()->create([
+                    'code' => $temporaryCode,
+                    'name' => $customerName,
+                    'status' => 'active',
+                    'created_by' => $request->user()?->id,
+                    'updated_by' => $request->user()?->id,
+                ]);
+                $client->update([
+                    'code' => 'FP-'.str_pad((string) $client->id, 6, '0', STR_PAD_LEFT),
+                ]);
+            }
+
+            $paymentsTotal = (float) $order->payments_total;
+            $order->update([
+                'customer_name' => $client->name,
+                'client_id' => $client->id,
+                'last_edited_by' => $request->user()?->id,
+                'items' => $normalizedItems,
+                'amount_due' => max(0, $totalCost - $paymentsTotal),
+                'total_cost' => $totalCost,
+            ]);
+
+            $client->update([
+                'last_order_at' => now(),
+                'updated_by' => $request->user()?->id,
+            ]);
+        });
+
+        return response()->json([
+            'ok' => true,
+            'order_id' => $order->public_id,
+            'order_number' => $order->order_number,
+            'redirect_url' => route('orders.show', $order),
+        ]);
+    }
+
+    private function findClientByName(string $name, bool $lockForUpdate = false): ?Client
+    {
+        if ($name === '') {
+            return null;
+        }
+
+        $query = Client::query()
+            ->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($name, 'UTF-8')]);
+
+        if ($lockForUpdate) {
+            $query->lockForUpdate();
+        }
+
+        return $query->first();
     }
 
     public function calculation(Request $request, PermissionService $permissions)
@@ -38,11 +321,11 @@ class OrderController extends Controller
                 ->where('public_id', $proposalPublicId)
                 ->first();
 
-            if (!$proposal) {
+            if (! $proposal) {
                 abort(404);
             }
 
-            if (!$permissions->can($request->user(), 'orders_edit')) {
+            if (! $permissions->can($request->user(), 'orders_edit')) {
                 abort(403);
             }
 
@@ -56,13 +339,13 @@ class OrderController extends Controller
 
             $editToken = trim((string) $request->query('edit_token', ''));
             $lock = $proposal->editLock;
-            if ($lock && !$lock->isActive()) {
+            if ($lock && ! $lock->isActive()) {
                 $lock->delete();
                 $lock = null;
             }
 
             $sessionEditToken = (string) $request->session()->get("order_proposal_edit_tokens.{$proposal->id}", '');
-            if (!$lock && $editToken !== '' && hash_equals($sessionEditToken, $editToken)) {
+            if (! $lock && $editToken !== '' && hash_equals($sessionEditToken, $editToken)) {
                 $lock = OrderProposalEditLock::create([
                     'order_proposal_id' => $proposal->id,
                     'user_id' => $request->user()->id,
@@ -72,7 +355,7 @@ class OrderController extends Controller
                 ]);
             }
 
-            if (!$lock || $editToken === '' || (string) $lock->lock_token !== $editToken || (int) $lock->user_id !== (int) $request->user()?->id) {
+            if (! $lock || $editToken === '' || (string) $lock->lock_token !== $editToken || (int) $lock->user_id !== (int) $request->user()?->id) {
                 return redirect()
                     ->route('orders.proposals.show', $proposal)
                     ->with('status', 'Заявка заблокована для редагування. Відкрийте редагування зі сторінки заявки.');
@@ -150,6 +433,7 @@ class OrderController extends Controller
                             return $directType;
                         }
                         $category = trim((string) ($item->category ?? ''));
+
                         return $category !== '' ? ($materialTypeByCategory[$category] ?? null) : null;
                     })
                     ->filter(fn ($type) => $type !== null && $type !== '')
@@ -200,7 +484,7 @@ class OrderController extends Controller
                     ->values()
                     ->all();
             })
-            ->filter(fn ($categories, $material) => $material !== '' && !empty($categories))
+            ->filter(fn ($categories, $material) => $material !== '' && ! empty($categories))
             ->toArray();
 
         $materialPriceByMaterial = $materialItems
@@ -246,7 +530,7 @@ class OrderController extends Controller
         if ($rollingServiceItem) {
             $rollingServiceName = trim((string) $rollingServiceItem->name);
             if ($rollingServiceName !== '') {
-                if (!in_array($rollingServiceName, $materials, true)) {
+                if (! in_array($rollingServiceName, $materials, true)) {
                     $materials[] = $rollingServiceName;
                 }
                 $materialCodeByMaterial[$rollingServiceName] = 'SERV-003';

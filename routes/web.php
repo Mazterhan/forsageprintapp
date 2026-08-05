@@ -7,10 +7,10 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Orders\ClientController;
 use App\Http\Controllers\Orders\OrderController;
-use App\Http\Controllers\Orders\ProposalController;
 use App\Http\Controllers\Orders\ProductTypeController;
-use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Orders\ProposalController;
 use App\Http\Controllers\Price\PriceController;
+use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -59,6 +59,11 @@ Route::middleware(['auth', 'permission:orders'])
     ->name('orders.')
     ->group(function () {
         Route::get('/', [OrderController::class, 'index'])->name('index');
+        Route::post('/', [OrderController::class, 'store'])->name('store');
+        Route::get('/create', [OrderController::class, 'create'])->name('create');
+        Route::get('/{order}/edit', [OrderController::class, 'edit'])->whereUuid('order')->name('edit');
+        Route::patch('/{order}', [OrderController::class, 'update'])->whereUuid('order')->name('update');
+        Route::get('/{order}', [OrderController::class, 'show'])->whereUuid('order')->name('show');
     });
 
 Route::middleware(['auth', 'permission:orders|orders_calculation'])
@@ -163,33 +168,33 @@ Route::middleware(['auth', 'permission:admin'])
     ->name('admin.')
     ->group(function () {
         Route::middleware('permission:admin_users_org_manage')->group(function () {
-        Route::get('/users', [UserController::class, 'index'])->name('users.index');
-        Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
-        Route::post('/users', [UserController::class, 'store'])->name('users.store');
-        Route::get('/roles/create', [RoleController::class, 'create'])->name('roles.create');
-        Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
-        Route::get('/roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
-        Route::patch('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
-        Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
-        Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
-        Route::patch('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
-        Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('users.toggle');
+            Route::get('/users', [UserController::class, 'index'])->name('users.index');
+            Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+            Route::post('/users', [UserController::class, 'store'])->name('users.store');
+            Route::get('/roles/create', [RoleController::class, 'create'])->name('roles.create');
+            Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
+            Route::get('/roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
+            Route::patch('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
+            Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+            Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
+            Route::patch('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
+            Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('users.toggle');
 
-        Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
-        Route::get('/departments/create', [DepartmentController::class, 'create'])->name('departments.create');
-        Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
-        Route::get('/departments/{department}/edit', [DepartmentController::class, 'edit'])->name('departments.edit');
-        Route::patch('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
+            Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
+            Route::get('/departments/create', [DepartmentController::class, 'create'])->name('departments.create');
+            Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
+            Route::get('/departments/{department}/edit', [DepartmentController::class, 'edit'])->name('departments.edit');
+            Route::patch('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
         });
 
         Route::middleware('permission:admin_reference_manage')->group(function () {
-        Route::view('/editgroupsandcategories', 'admin.editgroupsandcategories')->name('editgroupsandcategories');
-        Route::get('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'productCategories'])->name('product-categories.index');
-        Route::post('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'storeProductCategories'])->name('product-categories.store');
-        Route::get('/editgroupsandcategories/product-types', [ProductTypeController::class, 'index'])->name('product-types.index');
-        Route::post('/editgroupsandcategories/product-types', [ProductTypeController::class, 'store'])->name('product-types.store');
-        Route::get('/editgroupsandcategories/set1-flm', [EditGroupsAndCategoriesController::class, 'setFlm'])->name('set-flm.index');
-        Route::post('/editgroupsandcategories/set1-flm', [EditGroupsAndCategoriesController::class, 'storeSetFlm'])->name('set-flm.store');
+            Route::view('/editgroupsandcategories', 'admin.editgroupsandcategories')->name('editgroupsandcategories');
+            Route::get('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'productCategories'])->name('product-categories.index');
+            Route::post('/editgroupsandcategories/product-categories', [EditGroupsAndCategoriesController::class, 'storeProductCategories'])->name('product-categories.store');
+            Route::get('/editgroupsandcategories/product-types', [ProductTypeController::class, 'index'])->name('product-types.index');
+            Route::post('/editgroupsandcategories/product-types', [ProductTypeController::class, 'store'])->name('product-types.store');
+            Route::get('/editgroupsandcategories/set1-flm', [EditGroupsAndCategoriesController::class, 'setFlm'])->name('set-flm.index');
+            Route::post('/editgroupsandcategories/set1-flm', [EditGroupsAndCategoriesController::class, 'storeSetFlm'])->name('set-flm.store');
         });
     });
 
