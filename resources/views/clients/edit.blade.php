@@ -5,9 +5,9 @@
         $readOnly = $readOnly ?? false;
         $clientOverpaymentTotal = (float) $client->payments
             ->where('payment_type', 'prepayment')
-            ->sum('amount') - (float) $client->payments
+            ->sum('amount_uah') - (float) $client->payments
                 ->where('is_from_overpayment', true)
-                ->sum('amount');
+                ->sum('amount_uah');
         $clientOverpaymentTotal = max(0, $clientOverpaymentTotal);
         $sectionFields = [
             'main' => ['name', 'type', 'status', 'category', 'is_vip', 'tags', 'notes', 'manager_id'],
@@ -133,6 +133,7 @@
                 initialSection: @js($initialSection),
                 paymentStoreUrl: @js(route('orders.clients.payments.store', $client)),
                 paymentOrdersUrl: @js(route('orders.clients.payments.orders', $client)),
+                ratesUrl: @js(route('orders.payments.exchange-rates')),
                 today: @js(now('Europe/Kiev')->format('Y-m-d')),
                 currentTime: @js(now('Europe/Kiev')->format('H:i')),
                 overpaymentTotal: @js((int) $clientOverpaymentTotal),
@@ -252,10 +253,13 @@
                                                         @endif
                                                     </td>
                                                     <td class="px-3 py-2 text-right font-semibold">
-                                                        {{ number_format((int) $payment->amount, 0, '.', ' ') }}
+                                                        <div>{{ number_format((int) $payment->amount_uah, 0, '.', ' ') }} грн</div>
+                                                        @if($payment->currency !== 'UAH')
+                                                            <div class="mt-0.5 text-xs font-semibold text-blue-600">{{ number_format((int) $payment->amount, 0, '.', ' ') }} {{ $payment->currency === 'USD' ? '$' : '€' }}</div>
+                                                        @endif
                                                     </td>
                                                     <td class="px-3 py-2">
-                                                        {{ $payment->currency === 'UAH' ? 'грн' : $payment->currency }}
+                                                        грн
                                                     </td>
                                                     <td class="px-3 py-2">{{ $payment->createdBy?->name ?? '—' }}</td>
                                                     <td class="px-3 py-2 text-center">
@@ -384,18 +388,25 @@
                     <div data-payment-form-panel class="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-5">
                         <h4 class="font-semibold text-gray-800">Дані платежу</h4>
 
-                    <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
+                    <div class="mt-4 grid grid-cols-1 gap-4" :class="isForeignPaymentCurrency() ? 'md:grid-cols-5' : 'md:grid-cols-4'">
                         <div>
                             <label for="client-payment-amount" class="block text-sm font-medium text-gray-700">Сума операції</label>
-                            <input id="client-payment-amount" x-model="paymentForm.amount" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
+                            <input id="client-payment-amount" x-model="paymentForm.amount" @input="recalculatePaymentAmountUah()" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
                         </div>
                         <div>
                             <label for="client-payment-currency" class="block text-sm font-medium text-gray-700">Валюта операції</label>
-                            <select id="client-payment-currency" x-model="paymentForm.currency" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <select id="client-payment-currency" x-model="paymentForm.currency" @change="paymentCurrencyChanged()" :disabled="paymentForm.fromOverpayment" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100">
                                 <option value="UAH">грн</option>
-                                <option value="USD">USD</option>
-                                <option value="EUR">EUR</option>
+                                <option value="USD" :disabled="!paymentRates.USD" x-text="paymentRateOption('USD')"></option>
+                                <option value="EUR" :disabled="!paymentRates.EUR" x-text="paymentRateOption('EUR')"></option>
                             </select>
+                            <p x-show="paymentRatesLoading" x-cloak class="mt-1 text-xs text-gray-500">Завантаження курсу…</p>
+                            <p x-show="paymentRatesError" x-text="paymentRatesError" x-cloak class="mt-1 text-xs text-red-600"></p>
+                        </div>
+                        <div x-show="isForeignPaymentCurrency()" x-cloak>
+                            <label for="client-payment-amount-uah" class="block text-sm font-medium text-gray-700">Сума списання (ГРН)</label>
+                            <input id="client-payment-amount-uah" x-model="paymentForm.amountUah" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
+                            <p class="mt-1 text-xs text-gray-500" x-text="paymentForm.exchangeRate ? `BUY: ${formatPaymentRate(paymentForm.exchangeRate)} грн/${paymentForm.currency}` : ''"></p>
                         </div>
                         <div>
                             <label for="client-payment-date" class="block text-sm font-medium text-gray-700">Дата</label>
@@ -493,7 +504,10 @@
         function clientCard(config) {
             const emptyPayment = () => ({
                 amount: '',
+                amountUah: '',
+                calculatedAmountUah: '',
                 currency: 'UAH',
+                exchangeRate: null,
                 date: config.today || '',
                 time: config.currentTime || '',
                 paymentType: 'prepayment',
@@ -508,6 +522,7 @@
                 activeSection: config.initialSection || 'main',
                 paymentStoreUrl: config.paymentStoreUrl || '',
                 paymentOrdersUrl: config.paymentOrdersUrl || '',
+                paymentRatesUrl: config.ratesUrl || '',
                 payments: Array.isArray(config.payments) ? config.payments : [],
                 overpaymentTotal: Number(config.overpaymentTotal) || 0,
                 today: config.today || '',
@@ -519,6 +534,10 @@
                 isEditingPayment: false,
                 isSavingPayment: false,
                 paymentError: '',
+                paymentRates: {},
+                paymentRatesFetchedAt: '',
+                paymentRatesLoading: false,
+                paymentRatesError: '',
                 paymentForm: emptyPayment(),
                 activePaymentHistories: [],
 
@@ -529,6 +548,7 @@
                     this.activePaymentHistories = [];
                     this.showPaymentModal = true;
                     this.loadPaymentOrders();
+                    this.loadPaymentRates();
                 },
 
                 openOverpaymentPayment() {
@@ -554,7 +574,10 @@
                     this.paymentError = '';
                     this.paymentForm = {
                         amount: String(payment.amount || ''),
+                        amountUah: String(payment.amountUah || payment.amount || ''),
+                        calculatedAmountUah: String(payment.calculatedAmountUah || ''),
                         currency: payment.currency || 'UAH',
+                        exchangeRate: payment.exchangeRate ? Number(payment.exchangeRate) : null,
                         date: payment.date || this.today,
                         time: payment.time || '',
                         paymentType: payment.paymentType || 'prepayment',
@@ -566,6 +589,7 @@
                     };
                     this.activePaymentHistories = Array.isArray(payment.histories) ? payment.histories : [];
                     this.showPaymentModal = true;
+                    this.loadPaymentRates();
                     if (this.paymentForm.paymentType === 'order') {
                         this.loadPaymentOrders();
                     }
@@ -630,6 +654,15 @@
                     if (!['UAH', 'USD', 'EUR'].includes(this.paymentForm.currency)) {
                         return 'Оберіть доступну валюту.';
                     }
+                    if (this.paymentForm.fromOverpayment && this.paymentForm.currency !== 'UAH') {
+                        return 'Списання з переплати доступне лише у гривні.';
+                    }
+                    if (this.isForeignPaymentCurrency()) {
+                        const amountUah = String(this.paymentForm.amountUah || '').trim();
+                        if (!this.paymentForm.exchangeRate || !/^\d+$/.test(amountUah) || Number.parseInt(amountUah, 10) <= 0) {
+                            return 'Вкажіть суму списання у гривні цілим числом більше нуля.';
+                        }
+                    }
                     if (!this.paymentForm.date || this.paymentForm.date > this.today) {
                         return 'Оберіть поточну або минулу дату.';
                     }
@@ -656,9 +689,18 @@
                         return;
                     }
 
-                    const confirmation = this.isEditingPayment
+                    const amountUahLabel = this.paymentForm.paymentType === 'prepayment'
+                        ? 'Сума поповнення переплати'
+                        : 'Сума списання';
+                    const conversionDetails = this.isForeignPaymentCurrency()
+                        ? `\nКурс BUY ПриватБанку: ${this.formatPaymentRate(this.paymentForm.exchangeRate)} грн/${this.paymentForm.currency}.\n${amountUahLabel}: ${this.paymentForm.amountUah} грн.`
+                        : '';
+                    const overpaymentWarning = this.paymentForm.fromOverpayment
+                        ? '\nСума платежу буде списана з переплати клієнта.'
+                        : '';
+                    const confirmation = (this.isEditingPayment
                         ? 'Підтверджуєте, що всі зміни платежу внесено правильно?'
-                        : 'Підтверджуєте, що всі дані платежу внесено правильно?';
+                        : 'Підтверджуєте, що всі дані платежу внесено правильно?') + conversionDetails + overpaymentWarning;
                     if (!window.confirm(confirmation)) {
                         return;
                     }
@@ -675,6 +717,7 @@
                             },
                             body: JSON.stringify({
                                 amount: Number.parseInt(this.paymentForm.amount, 10),
+                                amount_uah: this.isForeignPaymentCurrency() ? Number.parseInt(this.paymentForm.amountUah, 10) : Number.parseInt(this.paymentForm.amount, 10),
                                 currency: this.paymentForm.currency,
                                 payment_date: this.paymentForm.date,
                                 payment_time: this.paymentForm.time,
@@ -693,11 +736,82 @@
                             throw new Error(validationMessages || payload?.message || 'Не вдалося зберегти платіж.');
                         }
 
+                        if (payload.notification) {
+                            window.alert(payload.notification);
+                        }
                         window.location.href = payload.redirect_url;
                     } catch (error) {
                         this.paymentError = error?.message || 'Не вдалося зберегти платіж.';
                     } finally {
                         this.isSavingPayment = false;
+                    }
+                },
+
+                isForeignPaymentCurrency() {
+                    return ['USD', 'EUR'].includes(this.paymentForm.currency);
+                },
+
+                formatPaymentRate(rate) {
+                    return Number(rate || 0).toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+                },
+
+                paymentRateOption(currency) {
+                    return this.paymentRates[currency]
+                        ? `${currency} — BUY ${this.formatPaymentRate(this.paymentRates[currency])} грн`
+                        : `${currency} — курс недоступний`;
+                },
+
+                paymentCurrencyChanged() {
+                    if (!this.isForeignPaymentCurrency()) {
+                        this.paymentForm.amountUah = this.paymentForm.amount;
+                        this.paymentForm.calculatedAmountUah = this.paymentForm.amount;
+                        this.paymentForm.exchangeRate = null;
+                        return;
+                    }
+
+                    this.paymentForm.exchangeRate = Number(this.paymentRates[this.paymentForm.currency] || 0) || null;
+                    this.recalculatePaymentAmountUah();
+                },
+
+                recalculatePaymentAmountUah() {
+                    if (!this.isForeignPaymentCurrency()) {
+                        this.paymentForm.amountUah = this.paymentForm.amount;
+                        return;
+                    }
+
+                    const amount = Number.parseInt(String(this.paymentForm.amount || ''), 10);
+                    const rate = Number(this.paymentRates[this.paymentForm.currency] || this.paymentForm.exchangeRate || 0);
+                    if (!Number.isInteger(amount) || amount <= 0 || rate <= 0) {
+                        this.paymentForm.amountUah = '';
+                        this.paymentForm.calculatedAmountUah = '';
+                        return;
+                    }
+
+                    const calculated = Math.ceil(amount * rate);
+                    this.paymentForm.exchangeRate = rate;
+                    this.paymentForm.calculatedAmountUah = String(calculated);
+                    this.paymentForm.amountUah = String(calculated);
+                },
+
+                async loadPaymentRates() {
+                    if (this.paymentRatesLoading || !this.paymentRatesUrl) {
+                        return;
+                    }
+
+                    this.paymentRatesLoading = true;
+                    this.paymentRatesError = '';
+                    try {
+                        const response = await fetch(this.paymentRatesUrl, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+                        const payload = await response.json();
+                        if (!response.ok || !payload?.ok) {
+                            throw new Error(payload?.message || 'Не вдалося завантажити курс валют.');
+                        }
+                        this.paymentRates = payload.rates || {};
+                        this.paymentRatesFetchedAt = payload.fetched_at || '';
+                    } catch (error) {
+                        this.paymentRatesError = error?.message || 'Не вдалося завантажити курс валют.';
+                    } finally {
+                        this.paymentRatesLoading = false;
                     }
                 },
             };

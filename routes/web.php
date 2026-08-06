@@ -111,6 +111,7 @@ Route::middleware(['auth', 'permission:orders|orders_clients_manage'])
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
         Route::get('/clients/create', [ClientController::class, 'create'])->name('clients.create');
         Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
+        Route::get('/payments/exchange-rates', [ClientPaymentController::class, 'rates'])->name('payments.exchange-rates');
         Route::get('/clients/{client}/payments/orders', [ClientPaymentController::class, 'orders'])->name('clients.payments.orders');
         Route::post('/clients/{client}/payments', [ClientPaymentController::class, 'store'])->name('clients.payments.store');
         Route::patch('/clients/{client}/payments/{clientPayment}', [ClientPaymentController::class, 'update'])->name('clients.payments.update');

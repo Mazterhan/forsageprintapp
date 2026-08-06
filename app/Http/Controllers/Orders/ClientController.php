@@ -29,7 +29,7 @@ class ClientController extends Controller
         ];
 
         $paymentTotals = DB::table('client_payments')
-            ->selectRaw('order_id, SUM(amount) as total')
+            ->selectRaw('order_id, SUM(amount_uah) as total')
             ->whereNotNull('order_id')
             ->groupBy('order_id');
 
@@ -193,7 +193,13 @@ class ClientController extends Controller
             return [
                 'id' => $payment->public_id,
                 'amount' => $payment->amount,
+                'amountUah' => $payment->amount_uah,
+                'calculatedAmountUah' => $payment->calculated_amount_uah,
                 'currency' => $payment->currency,
+                'exchangeRate' => $payment->exchange_rate,
+                'exchangeRateType' => $payment->exchange_rate_type,
+                'exchangeRateSource' => $payment->exchange_rate_source,
+                'exchangeRateFetchedAt' => $payment->exchange_rate_fetched_at?->toIso8601String(),
                 'date' => $payment->paid_at->copy()->timezone('Europe/Kiev')->format('Y-m-d'),
                 'time' => $payment->paid_at->copy()->timezone('Europe/Kiev')->format('H:i'),
                 'paymentType' => $payment->payment_type,
@@ -220,7 +226,7 @@ class ClientController extends Controller
             'total_cost' => 'orders.total_cost',
         ];
         $paymentTotals = DB::table('client_payments')
-            ->selectRaw('order_id, SUM(amount) as total')
+            ->selectRaw('order_id, SUM(amount_uah) as total')
             ->whereNotNull('order_id')
             ->groupBy('order_id');
         $clientOrdersQuery = $client->orders()

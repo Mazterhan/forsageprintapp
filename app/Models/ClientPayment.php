@@ -15,7 +15,13 @@ class ClientPayment extends Model
         'client_id',
         'order_id',
         'amount',
+        'amount_uah',
+        'calculated_amount_uah',
         'currency',
+        'exchange_rate',
+        'exchange_rate_type',
+        'exchange_rate_source',
+        'exchange_rate_fetched_at',
         'payment_type',
         'is_from_overpayment',
         'paid_at',
@@ -29,12 +35,25 @@ class ClientPayment extends Model
         'client_id' => 'integer',
         'order_id' => 'integer',
         'amount' => 'integer',
+        'amount_uah' => 'integer',
+        'calculated_amount_uah' => 'integer',
+        'exchange_rate' => 'decimal:6',
+        'exchange_rate_fetched_at' => 'datetime',
         'is_from_overpayment' => 'boolean',
         'paid_at' => 'datetime',
         'created_by' => 'integer',
         'updated_by' => 'integer',
         'is_edited' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (ClientPayment $payment): void {
+            if ($payment->amount_uah === null || (int) $payment->amount_uah === 0) {
+                $payment->amount_uah = (int) $payment->amount;
+            }
+        });
+    }
 
     public function getRouteKeyName(): string
     {

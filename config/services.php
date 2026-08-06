@@ -28,6 +28,10 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
+    'privatbank' => [
+        'exchange_rates_url' => env('PRIVATBANK_EXCHANGE_RATES_URL', 'https://api.privatbank.ua/p24api/pubinfo?exchange&coursid=5'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

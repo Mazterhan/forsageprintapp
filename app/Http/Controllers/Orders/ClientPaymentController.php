@@ -6,18 +6,37 @@ use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\ClientPayment;
 use App\Models\Order;
+use App\Services\PrivatBankExchangeRateService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class ClientPaymentController extends Controller
 {
+    public function rates(PrivatBankExchangeRateService $exchangeRates): JsonResponse
+    {
+        try {
+            $payload = $exchangeRates->currentBuyRates();
+        } catch (RuntimeException $exception) {
+            return response()->json([
+                'ok' => false,
+                'message' => $exception->getMessage(),
+            ], 503);
+        }
+
+        return response()->json([
+            'ok' => true,
+            ...$payload,
+        ]);
+    }
+
     public function orders(Client $client): JsonResponse
     {
         $paymentTotals = DB::table('client_payments')
-            ->selectRaw('order_id, SUM(amount) as total')
+            ->selectRaw('order_id, SUM(amount_uah) as total')
             ->whereNotNull('order_id')
             ->groupBy('order_id');
 
@@ -46,9 +65,9 @@ class ClientPaymentController extends Controller
         ]);
     }
 
-    public function store(Request $request, Client $client): JsonResponse
+    public function store(Request $request, Client $client, PrivatBankExchangeRateService $exchangeRates): JsonResponse
     {
-        [$data, $order] = $this->validatedPaymentData($request, $client);
+        [$data, $order] = $this->validatedPaymentData($request, $client, $exchangeRates);
 
         $payment = DB::transaction(function () use ($request, $client, $data, $order): ClientPayment {
             $this->ensureValidOverpaymentBalance($client, $data);
@@ -71,20 +90,26 @@ class ClientPaymentController extends Controller
             'ok' => true,
             'payment_id' => $payment->public_id,
             'redirect_url' => $this->redirectUrl($request, $client, $order),
+            'notification' => $this->currencyNotification($payment),
         ]);
     }
 
-    public function update(Request $request, Client $client, ClientPayment $clientPayment): JsonResponse
+    public function update(Request $request, Client $client, ClientPayment $clientPayment, PrivatBankExchangeRateService $exchangeRates): JsonResponse
     {
         abort_unless((int) $clientPayment->client_id === (int) $client->id, 404);
 
         $clientPayment->loadMissing('order');
         $previousOrder = $clientPayment->order;
-        [$data, $order] = $this->validatedPaymentData($request, $client);
+        [$data, $order] = $this->validatedPaymentData($request, $client, $exchangeRates, $clientPayment);
         $data['is_from_overpayment'] = $clientPayment->is_from_overpayment;
         if ($data['is_from_overpayment'] && $data['payment_type'] !== 'order') {
             throw ValidationException::withMessages([
                 'payment_type' => 'Списання з переплати має бути прив’язане до замовлення.',
+            ]);
+        }
+        if ($data['is_from_overpayment'] && $data['currency'] !== 'UAH') {
+            throw ValidationException::withMessages([
+                'currency' => 'Списання з переплати доступне лише у гривні.',
             ]);
         }
 
@@ -106,8 +131,14 @@ class ClientPaymentController extends Controller
             $after = $this->historySnapshot($clientPayment);
 
             $fieldLabels = [
-                'amount' => 'Сума',
+                'amount' => 'Сума операції',
                 'currency' => 'Валюта',
+                'exchange_rate' => 'Курс BUY ПриватБанку',
+                'exchange_rate_type' => 'Тип курсу',
+                'exchange_rate_source' => 'Джерело курсу',
+                'exchange_rate_fetched_at' => 'Час отримання курсу',
+                'calculated_amount_uah' => 'Автоматично розрахована сума (ГРН)',
+                'amount_uah' => 'Сума списання (ГРН)',
                 'paid_at' => 'Дата та час',
                 'payment_type' => 'Тип платежу',
                 'order' => 'Номер замовлення',
@@ -146,17 +177,23 @@ class ClientPaymentController extends Controller
             'ok' => true,
             'payment_id' => $clientPayment->public_id,
             'redirect_url' => $this->redirectUrl($request, $client, $order),
+            'notification' => $this->currencyNotification($clientPayment->fresh()),
         ]);
     }
 
     /**
      * @return array{0: array<string, mixed>, 1: ?Order}
      */
-    private function validatedPaymentData(Request $request, Client $client): array
-    {
+    private function validatedPaymentData(
+        Request $request,
+        Client $client,
+        PrivatBankExchangeRateService $exchangeRates,
+        ?ClientPayment $currentPayment = null
+    ): array {
         $today = now('Europe/Kiev')->toDateString();
         $validated = $request->validate([
             'amount' => ['required', 'integer', 'min:1'],
+            'amount_uah' => ['nullable', 'integer', 'min:1'],
             'currency' => ['required', 'string', 'in:UAH,USD,EUR'],
             'payment_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$today],
             'payment_time' => ['required', 'date_format:H:i'],
@@ -186,19 +223,90 @@ class ClientPaymentController extends Controller
             ]);
         }
 
+        if ($isFromOverpayment && $validated['currency'] !== 'UAH') {
+            throw ValidationException::withMessages([
+                'currency' => 'Списання з переплати доступне лише у гривні.',
+            ]);
+        }
+
+        $amount = (int) $validated['amount'];
+        $currency = $validated['currency'];
+        $amountUah = $amount;
+        $calculatedAmountUah = null;
+        $exchangeRate = null;
+        $exchangeRateType = null;
+        $exchangeRateSource = null;
+        $exchangeRateFetchedAt = null;
+
+        if ($currency !== 'UAH') {
+            $sameOriginalPayment = $currentPayment
+                && $currentPayment->currency === $currency
+                && (int) $currentPayment->amount === $amount
+                && $currentPayment->exchange_rate !== null;
+
+            if ($sameOriginalPayment) {
+                $exchangeRate = (float) $currentPayment->exchange_rate;
+                $exchangeRateType = $currentPayment->exchange_rate_type;
+                $exchangeRateSource = $currentPayment->exchange_rate_source;
+                $exchangeRateFetchedAt = $currentPayment->exchange_rate_fetched_at;
+            } else {
+                try {
+                    $quote = $exchangeRates->quote($currency);
+                } catch (RuntimeException $exception) {
+                    throw ValidationException::withMessages([
+                        'currency' => $exception->getMessage(),
+                    ]);
+                }
+
+                $exchangeRate = $quote['rate'];
+                $exchangeRateType = $quote['type'];
+                $exchangeRateSource = $quote['source'];
+                $exchangeRateFetchedAt = $quote['fetched_at'];
+            }
+
+            $calculatedAmountUah = (int) ceil($amount * $exchangeRate);
+            $amountUah = (int) ($validated['amount_uah'] ?? 0);
+            if ($amountUah <= 0) {
+                throw ValidationException::withMessages([
+                    'amount_uah' => 'Вкажіть суму списання у гривні цілим числом більше нуля.',
+                ]);
+            }
+        }
+
         $paidAt = CarbonImmutable::createFromFormat(
             '!Y-m-d H:i',
             $validated['payment_date'].' '.$validated['payment_time'],
             'Europe/Kiev'
         )->utc();
 
+        $comment = filled($validated['comment'] ?? null) ? trim($validated['comment']) : null;
+        if ($currency !== 'UAH' && $amountUah !== $calculatedAmountUah) {
+            $note = $this->manualConversionComment(
+                $currency,
+                $amount,
+                $exchangeRate,
+                $calculatedAmountUah,
+                $amountUah,
+                $exchangeRateFetchedAt
+            );
+            if (! str_contains((string) $comment, $note)) {
+                $comment = filled($comment) ? $comment."\n\n".$note : $note;
+            }
+        }
+
         return [[
-            'amount' => (int) $validated['amount'],
-            'currency' => $validated['currency'],
+            'amount' => $amount,
+            'amount_uah' => $amountUah,
+            'calculated_amount_uah' => $calculatedAmountUah,
+            'currency' => $currency,
+            'exchange_rate' => $exchangeRate,
+            'exchange_rate_type' => $exchangeRateType,
+            'exchange_rate_source' => $exchangeRateSource,
+            'exchange_rate_fetched_at' => $exchangeRateFetchedAt,
             'payment_type' => $validated['payment_type'],
             'is_from_overpayment' => $isFromOverpayment,
             'paid_at' => $paidAt,
-            'comment' => filled($validated['comment'] ?? null) ? trim($validated['comment']) : null,
+            'comment' => $comment,
         ], $order];
     }
 
@@ -208,6 +316,12 @@ class ClientPaymentController extends Controller
         return [
             'amount' => (int) $payment->amount,
             'currency' => $payment->currency,
+            'exchange_rate' => $payment->exchange_rate !== null ? number_format((float) $payment->exchange_rate, 6, '.', '') : '—',
+            'exchange_rate_type' => $payment->exchange_rate_type ?? '—',
+            'exchange_rate_source' => $payment->exchange_rate_source ?? '—',
+            'exchange_rate_fetched_at' => $payment->exchange_rate_fetched_at?->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i') ?? '—',
+            'calculated_amount_uah' => $payment->calculated_amount_uah ?? '—',
+            'amount_uah' => (int) $payment->amount_uah,
             'paid_at' => $payment->paid_at->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i'),
             'payment_type' => $payment->payment_type === 'order' ? 'Оплата замовлення' : 'Переплата',
             'order' => $payment->order?->order_number ?? '—',
@@ -238,7 +352,7 @@ class ClientPaymentController extends Controller
 
         $paymentsTotal = (int) ClientPayment::query()
             ->where('order_id', $order->id)
-            ->sum('amount');
+            ->sum('amount_uah');
 
         $order->forceFill([
             'payments_total' => $paymentsTotal,
@@ -254,26 +368,26 @@ class ClientPaymentController extends Controller
         $prepaymentTotal = (int) ClientPayment::query()
             ->where('client_id', $client->id)
             ->where('payment_type', 'prepayment')
-            ->sum('amount');
+            ->sum('amount_uah');
         $usedOverpaymentTotal = (int) ClientPayment::query()
             ->where('client_id', $client->id)
             ->where('is_from_overpayment', true)
-            ->sum('amount');
+            ->sum('amount_uah');
 
         if ($currentPayment) {
             if ($currentPayment->payment_type === 'prepayment') {
-                $prepaymentTotal -= (int) $currentPayment->amount;
+                $prepaymentTotal -= (int) $currentPayment->amount_uah;
             }
             if ($currentPayment->is_from_overpayment) {
-                $usedOverpaymentTotal -= (int) $currentPayment->amount;
+                $usedOverpaymentTotal -= (int) $currentPayment->amount_uah;
             }
         }
 
         if ($data['payment_type'] === 'prepayment') {
-            $prepaymentTotal += (int) $data['amount'];
+            $prepaymentTotal += (int) $data['amount_uah'];
         }
         if ($data['is_from_overpayment']) {
-            $usedOverpaymentTotal += (int) $data['amount'];
+            $usedOverpaymentTotal += (int) $data['amount_uah'];
         }
 
         if ($usedOverpaymentTotal > $prepaymentTotal) {
@@ -291,12 +405,58 @@ class ClientPaymentController extends Controller
 
         $paymentsTotal = (int) ClientPayment::query()
             ->where('order_id', $order->id)
-            ->sum('amount');
+            ->sum('amount_uah');
 
         if ($paymentsTotal > 0 && $paymentsTotal >= (float) $order->total_cost) {
             throw ValidationException::withMessages([
                 'order_public_id' => 'Неможливо додати платіж до вже сплаченого замовлення або замовлення з переплатою.',
             ]);
         }
+    }
+
+    private function manualConversionComment(
+        string $currency,
+        int $amount,
+        float $rate,
+        int $calculatedAmountUah,
+        int $amountUah,
+        mixed $fetchedAt
+    ): string {
+        $currencyName = $currency === 'USD' ? 'доларів' : 'євро';
+        $rateDate = $fetchedAt
+            ? CarbonImmutable::parse($fetchedAt)->timezone('Europe/Kiev')->format('d.m.Y H:i')
+            : now('Europe/Kiev')->format('d.m.Y H:i');
+
+        return sprintf(
+            'Курс BUY ПриватБанку на %s становив %s грн/%s. Автоматично розрахована сума у полі «Сума списання (ГРН)» за %d %s була %s грн. Користувачем встановлено суму %s грн.',
+            $rateDate,
+            number_format($rate, 6, ',', ' '),
+            $currency,
+            $amount,
+            $currencyName,
+            number_format($calculatedAmountUah, 0, ',', ' '),
+            number_format($amountUah, 0, ',', ' '),
+        );
+    }
+
+    private function currencyNotification(ClientPayment $payment): ?string
+    {
+        if ($payment->currency === 'UAH') {
+            return null;
+        }
+
+        $amountUahLabel = $payment->payment_type === 'prepayment'
+            ? 'Сума поповнення переплати'
+            : 'Сума списання';
+
+        return sprintf(
+            'Валютний платіж збережено. Курс BUY ПриватБанку: %s грн/%s. Сума операції: %d %s. %s: %s грн.',
+            number_format((float) $payment->exchange_rate, 6, ',', ' '),
+            $payment->currency,
+            (int) $payment->amount,
+            $payment->currency,
+            $amountUahLabel,
+            number_format((int) $payment->amount_uah, 0, ',', ' '),
+        );
     }
 }

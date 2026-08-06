@@ -42,7 +42,7 @@
             'item_deleted' => 'Видалення',
             'order_updated' => 'Редагування',
         ];
-        $orderPaymentsTotal = (float) $order->payments->sum('amount');
+        $orderPaymentsTotal = (float) $order->payments->sum('amount_uah');
         $orderTotalCost = (float) $order->total_cost;
         $orderAmountDue = $orderTotalCost - $orderPaymentsTotal;
         if ($orderPaymentsTotal <= 0) {
@@ -76,37 +76,34 @@
                             {{ __('Замовлення :number', ['number' => $order->order_number]) }}
                         </h2>
                     </div>
-                    <button
-                        type="button"
-                        title="Вивантажити замовлення у PDF"
-                        aria-label="Вивантажити замовлення у PDF"
-                        class="inline-flex h-[38px] w-[42px] items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                    >
-                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6M8 15h8M8 18h5" />
-                        </svg>
-                    </button>
-                    <button
-                        x-data
-                        type="button"
-                        @click="$dispatch('open-order-payments')"
-                        @disabled(! $order->client_id)
-                        title="{{ $order->client_id ? 'Відкрити платежі замовлення' : 'Для замовлення не вказано клієнта' }}"
-                        class="inline-flex h-[38px] items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                        Платежі
-                    </button>
+                    <a href="{{ route('orders.edit', $order) }}" class="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                        Редагувати
+                    </a>
                 </div>
             </div>
 
             <div class="flex items-center gap-2">
-                <a href="{{ route('orders.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                    {{ __('Повернутись до замовлень') }}
-                </a>
-                <a href="{{ route('orders.edit', $order) }}" class="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
-                    Редагувати
-                </a>
+                <button
+                    type="button"
+                    title="Вивантажити замовлення у PDF"
+                    aria-label="Вивантажити замовлення у PDF"
+                    class="inline-flex h-[38px] w-[42px] items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                >
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6M8 15h8M8 18h5" />
+                    </svg>
+                </button>
+                <button
+                    x-data
+                    type="button"
+                    @click="$dispatch('open-order-payments')"
+                    @disabled(! $order->client_id)
+                    title="{{ $order->client_id ? 'Відкрити платежі замовлення' : 'Для замовлення не вказано клієнта' }}"
+                    class="inline-flex h-[38px] items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    Платежі
+                </button>
             </div>
         </div>
     </x-slot>
@@ -115,6 +112,7 @@
         <div
             x-data="orderPaymentPopup({
                 storeUrl: @js($order->client ? route('orders.clients.payments.store', $order->client) : ''),
+                ratesUrl: @js(route('orders.payments.exchange-rates')),
                 orderPublicId: @js($order->public_id),
                 orderNumber: @js($order->order_number),
                 today: @js(now('Europe/Kiev')->format('Y-m-d')),
@@ -250,18 +248,25 @@
                             </button>
                         </div>
 
-                        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
+                        <div class="mt-4 grid grid-cols-1 gap-4" :class="isForeignCurrency() ? 'md:grid-cols-5' : 'md:grid-cols-4'">
                             <div>
                                 <label for="order-payment-amount" class="block text-sm font-medium text-gray-700">Сума операції</label>
-                                <input id="order-payment-amount" x-ref="paymentAmount" x-model="form.amount" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
+                                <input id="order-payment-amount" x-ref="paymentAmount" x-model="form.amount" @input="recalculateAmountUah()" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
                             </div>
                             <div>
                                 <label for="order-payment-currency" class="block text-sm font-medium text-gray-700">Валюта операції</label>
-                                <select id="order-payment-currency" x-model="form.currency" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <select id="order-payment-currency" x-model="form.currency" @change="currencyChanged()" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                     <option value="UAH">грн</option>
-                                    <option value="USD">USD</option>
-                                    <option value="EUR">EUR</option>
+                                    <option value="USD" :disabled="!rates.USD" x-text="rateOption('USD')"></option>
+                                    <option value="EUR" :disabled="!rates.EUR" x-text="rateOption('EUR')"></option>
                                 </select>
+                                <p x-show="ratesLoading" x-cloak class="mt-1 text-xs text-gray-500">Завантаження курсу…</p>
+                                <p x-show="ratesError" x-text="ratesError" x-cloak class="mt-1 text-xs text-red-600"></p>
+                            </div>
+                            <div x-show="isForeignCurrency()" x-cloak>
+                                <label for="order-payment-amount-uah" class="block text-sm font-medium text-gray-700">Сума списання (ГРН)</label>
+                                <input id="order-payment-amount-uah" x-model="form.amountUah" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
+                                <p class="mt-1 text-xs text-gray-500" x-text="form.exchangeRate ? `BUY: ${formatRate(form.exchangeRate)} грн/${form.currency}` : ''"></p>
                             </div>
                             <div>
                                 <label for="order-payment-date" class="block text-sm font-medium text-gray-700">Дата</label>
@@ -343,8 +348,13 @@
                                                     <div class="mt-0.5 text-xs font-semibold text-blue-600">з переплати</div>
                                                 @endif
                                             </td>
-                                            <td class="px-3 py-2 text-right font-semibold">{{ number_format((int) $payment->amount, 0, '.', ' ') }}</td>
-                                            <td class="px-3 py-2">{{ $payment->currency === 'UAH' ? 'грн' : $payment->currency }}</td>
+                                            <td class="px-3 py-2 text-right font-semibold">
+                                                <div>{{ number_format((int) $payment->amount_uah, 0, '.', ' ') }} грн</div>
+                                                @if($payment->currency !== 'UAH')
+                                                    <div class="mt-0.5 text-xs font-semibold text-blue-600">{{ number_format((int) $payment->amount, 0, '.', ' ') }} {{ $payment->currency === 'USD' ? '$' : '€' }}</div>
+                                                @endif
+                                            </td>
+                                            <td class="px-3 py-2">грн</td>
                                             <td class="px-3 py-2">{{ $payment->createdBy?->name ?? '—' }}</td>
                                             <td class="px-3 py-2 text-center">
                                                 <button type="button" @click="editPayment(@js($payment->public_id))" class="font-semibold text-indigo-600 hover:text-indigo-900">Редагувати</button>
@@ -368,7 +378,10 @@
         function orderPaymentPopup(config) {
             const emptyForm = () => ({
                 amount: '',
+                amountUah: '',
+                calculatedAmountUah: '',
                 currency: 'UAH',
+                exchangeRate: null,
                 date: config.today || '',
                 time: config.currentTime || '',
                 comment: '',
@@ -378,6 +391,7 @@
 
             return {
                 storeUrl: config.storeUrl || '',
+                ratesUrl: config.ratesUrl || '',
                 orderPublicId: config.orderPublicId || '',
                 orderNumber: config.orderNumber || '',
                 payments: Array.isArray(config.payments) ? config.payments : [],
@@ -388,18 +402,24 @@
                 isEditing: false,
                 isSaving: false,
                 paymentError: '',
+                rates: {},
+                ratesFetchedAt: '',
+                ratesLoading: false,
+                ratesError: '',
                 form: emptyForm(),
                 activeHistories: [],
 
                 init() {
                     if (config.openOnLoad) {
                         this.showModal = true;
+                        this.loadRates();
                     }
                 },
 
                 openModal() {
                     this.resetForm();
                     this.showModal = true;
+                    this.loadRates();
                 },
 
                 closeModal() {
@@ -426,7 +446,10 @@
                     this.paymentError = '';
                     this.form = {
                         amount: String(payment.amount || ''),
+                        amountUah: String(payment.amountUah || payment.amount || ''),
+                        calculatedAmountUah: String(payment.calculatedAmountUah || ''),
                         currency: payment.currency || 'UAH',
+                        exchangeRate: payment.exchangeRate ? Number(payment.exchangeRate) : null,
                         date: payment.date || this.today,
                         time: payment.time || '',
                         comment: payment.comment || '',
@@ -434,6 +457,7 @@
                         updateUrl: payment.updateUrl || '',
                     };
                     this.activeHistories = Array.isArray(payment.histories) ? payment.histories : [];
+                    this.loadRates();
                     this.$nextTick(() => {
                         this.$refs.paymentEditor?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         window.setTimeout(() => this.$refs.paymentAmount?.focus({ preventScroll: true }), 250);
@@ -447,6 +471,15 @@
                     }
                     if (!['UAH', 'USD', 'EUR'].includes(this.form.currency)) {
                         return 'Оберіть доступну валюту.';
+                    }
+                    if (this.form.fromOverpayment && this.form.currency !== 'UAH') {
+                        return 'Списання з переплати доступне лише у гривні.';
+                    }
+                    if (this.isForeignCurrency()) {
+                        const amountUah = String(this.form.amountUah || '').trim();
+                        if (!this.form.exchangeRate || !/^\d+$/.test(amountUah) || Number.parseInt(amountUah, 10) <= 0) {
+                            return 'Вкажіть суму списання у гривні цілим числом більше нуля.';
+                        }
                     }
                     if (!this.form.date || this.form.date > this.today) {
                         return 'Оберіть поточну або минулу дату.';
@@ -479,9 +512,15 @@
                         return;
                     }
 
-                    const confirmation = this.isEditing
+                    const conversionDetails = this.isForeignCurrency()
+                        ? `\nКурс BUY ПриватБанку: ${this.formatRate(this.form.exchangeRate)} грн/${this.form.currency}.\nСума списання: ${this.form.amountUah} грн.`
+                        : '';
+                    const overpaymentWarning = this.form.fromOverpayment
+                        ? '\nСума платежу буде списана з переплати клієнта.'
+                        : '';
+                    const confirmation = (this.isEditing
                         ? 'Підтверджуєте, що всі зміни платежу внесено правильно?'
-                        : 'Підтверджуєте, що всі дані платежу внесено правильно?';
+                        : 'Підтверджуєте, що всі дані платежу внесено правильно?') + conversionDetails + overpaymentWarning;
                     if (!window.confirm(confirmation)) {
                         return;
                     }
@@ -498,6 +537,7 @@
                             },
                             body: JSON.stringify({
                                 amount: Number.parseInt(this.form.amount, 10),
+                                amount_uah: this.isForeignCurrency() ? Number.parseInt(this.form.amountUah, 10) : Number.parseInt(this.form.amount, 10),
                                 currency: this.form.currency,
                                 payment_date: this.form.date,
                                 payment_time: this.form.time,
@@ -517,11 +557,82 @@
                             throw new Error(validationMessages || payload?.message || 'Не вдалося зберегти платіж.');
                         }
 
+                        if (payload.notification) {
+                            window.alert(payload.notification);
+                        }
                         window.location.href = payload.redirect_url;
                     } catch (error) {
                         this.paymentError = error?.message || 'Не вдалося зберегти платіж.';
                     } finally {
                         this.isSaving = false;
+                    }
+                },
+
+                isForeignCurrency() {
+                    return ['USD', 'EUR'].includes(this.form.currency);
+                },
+
+                formatRate(rate) {
+                    return Number(rate || 0).toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+                },
+
+                rateOption(currency) {
+                    return this.rates[currency]
+                        ? `${currency} — BUY ${this.formatRate(this.rates[currency])} грн`
+                        : `${currency} — курс недоступний`;
+                },
+
+                currencyChanged() {
+                    if (!this.isForeignCurrency()) {
+                        this.form.amountUah = this.form.amount;
+                        this.form.calculatedAmountUah = this.form.amount;
+                        this.form.exchangeRate = null;
+                        return;
+                    }
+
+                    this.form.exchangeRate = Number(this.rates[this.form.currency] || 0) || null;
+                    this.recalculateAmountUah();
+                },
+
+                recalculateAmountUah() {
+                    if (!this.isForeignCurrency()) {
+                        this.form.amountUah = this.form.amount;
+                        return;
+                    }
+
+                    const amount = Number.parseInt(String(this.form.amount || ''), 10);
+                    const rate = Number(this.rates[this.form.currency] || this.form.exchangeRate || 0);
+                    if (!Number.isInteger(amount) || amount <= 0 || rate <= 0) {
+                        this.form.amountUah = '';
+                        this.form.calculatedAmountUah = '';
+                        return;
+                    }
+
+                    const calculated = Math.ceil(amount * rate);
+                    this.form.exchangeRate = rate;
+                    this.form.calculatedAmountUah = String(calculated);
+                    this.form.amountUah = String(calculated);
+                },
+
+                async loadRates() {
+                    if (this.ratesLoading || !this.ratesUrl) {
+                        return;
+                    }
+
+                    this.ratesLoading = true;
+                    this.ratesError = '';
+                    try {
+                        const response = await fetch(this.ratesUrl, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+                        const payload = await response.json();
+                        if (!response.ok || !payload?.ok) {
+                            throw new Error(payload?.message || 'Не вдалося завантажити курс валют.');
+                        }
+                        this.rates = payload.rates || {};
+                        this.ratesFetchedAt = payload.fetched_at || '';
+                    } catch (error) {
+                        this.ratesError = error?.message || 'Не вдалося завантажити курс валют.';
+                    } finally {
+                        this.ratesLoading = false;
                     }
                 },
             };

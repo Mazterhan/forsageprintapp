@@ -36,7 +36,7 @@ class OrderController extends Controller
         ];
 
         $paymentTotals = DB::table('client_payments')
-            ->selectRaw('order_id, SUM(amount) as total')
+            ->selectRaw('order_id, SUM(amount_uah) as total')
             ->whereNotNull('order_id')
             ->groupBy('order_id');
 
@@ -201,7 +201,13 @@ class OrderController extends Controller
             return [
                 'id' => $payment->public_id,
                 'amount' => $payment->amount,
+                'amountUah' => $payment->amount_uah,
+                'calculatedAmountUah' => $payment->calculated_amount_uah,
                 'currency' => $payment->currency,
+                'exchangeRate' => $payment->exchange_rate,
+                'exchangeRateType' => $payment->exchange_rate_type,
+                'exchangeRateSource' => $payment->exchange_rate_source,
+                'exchangeRateFetchedAt' => $payment->exchange_rate_fetched_at?->toIso8601String(),
                 'date' => $payment->paid_at->copy()->timezone('Europe/Kiev')->format('Y-m-d'),
                 'time' => $payment->paid_at->copy()->timezone('Europe/Kiev')->format('H:i'),
                 'comment' => $payment->comment ?? '',
@@ -218,13 +224,13 @@ class OrderController extends Controller
             ? (int) ClientPayment::query()
                 ->where('client_id', $order->client_id)
                 ->where('payment_type', 'prepayment')
-                ->sum('amount')
+                ->sum('amount_uah')
                 - (int) ClientPayment::query()
                     ->where('client_id', $order->client_id)
                     ->where('is_from_overpayment', true)
-                    ->sum('amount')
+                    ->sum('amount_uah')
             : 0;
-        $orderPaymentsTotal = (float) $order->payments->sum('amount');
+        $orderPaymentsTotal = (float) $order->payments->sum('amount_uah');
         $canAddOrderPayment = $orderPaymentsTotal <= 0 || $orderPaymentsTotal < (float) $order->total_cost;
 
         return view('orders.show', [
@@ -323,7 +329,7 @@ class OrderController extends Controller
                 ]);
             }
 
-            $paymentsTotal = (float) $order->payments()->sum('amount');
+            $paymentsTotal = (float) $order->payments()->sum('amount_uah');
             $order->update([
                 'customer_name' => $client->name,
                 'client_id' => $client->id,
