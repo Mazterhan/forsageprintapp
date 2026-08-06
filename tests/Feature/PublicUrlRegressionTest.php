@@ -203,7 +203,24 @@ class PublicUrlRegressionTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('orders.clients.edit', $client))
-            ->assertOk();
+            ->assertOk()
+            ->assertSee('Розділи картки замовника')
+            ->assertSee('Основні дані')
+            ->assertSee('Контакти')
+            ->assertSee('Доставка')
+            ->assertSee('Службові поля')
+            ->assertSee('Платежі')
+            ->assertSee('Замовлення')
+            ->assertSeeInOrder([
+                'Основні дані',
+                'Замовлення',
+                'Платежі',
+                'Контакти',
+                'Доставка',
+                'Службові поля',
+            ])
+            ->assertSee("activeSection === 'payments'", false)
+            ->assertSee("activeSection === 'orders'", false);
 
         $this->actingAs($user)
             ->get('/orders/clients/'.$client->id.'/edit')

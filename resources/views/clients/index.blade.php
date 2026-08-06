@@ -1,5 +1,12 @@
 <x-app-layout>
     @section('title', __('Замовники'))
+    @php
+        $nextDir = fn (string $column): string => ($sort === $column && $direction === 'asc') ? 'desc' : 'asc';
+        $sortLink = fn (string $column): string => route('orders.clients.index', array_merge(
+            request()->query(),
+            ['sort' => $column, 'direction' => $nextDir($column)]
+        ));
+    @endphp
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
@@ -10,6 +17,33 @@
             </a>
         </div>
     </x-slot>
+
+    <style>
+        .clients-table thead tr {
+            background-color: #FCEEDF;
+        }
+
+        .client-row {
+            transition: background-color 0.5s ease, background-image 0.5s ease;
+        }
+
+        .client-row td {
+            background: transparent;
+        }
+
+        .client-row.row-alt {
+            background-color: #F9FAFB;
+        }
+
+        .client-row.row-base {
+            background-color: #FFFFFF;
+        }
+
+        .client-row:hover {
+            background-color: #D8F1F2;
+            background-image: linear-gradient(90deg, #e9f7f7 0%, #D8F1F2 100%);
+        }
+    </style>
 
     <div class="py-12">
         <div class="max-w-[1700px] mx-auto px-6 sm:px-8 lg:px-12">
@@ -64,43 +98,78 @@
                     </form>
 
                     <div class="overflow-x-auto w-full">
-                        <table class="w-full divide-y divide-gray-200">
+                        <table class="clients-table min-w-full text-sm border border-gray-200">
                             <thead>
                                 <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Назва</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Категорія</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">VIP</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Відповідальний менеджер</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Статус</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дії</th>
+                                    @foreach([
+                                        'name' => "Ім'я / Назва",
+                                        'orders_count' => 'Кількість замовлень',
+                                        'payment_summary' => 'Статус оплати замовлення',
+                                        'category' => 'Категорія',
+                                        'vip' => 'VIP',
+                                        'manager' => 'Відповідальний менеджер',
+                                        'status' => 'Статус',
+                                    ] as $column => $label)
+                                        <th class="px-4 py-3 border-b text-left text-[14px]">
+                                            @if($column === 'payment_summary')
+                                                {{ $label }}
+                                            @else
+                                                <a class="inline-flex items-center gap-1" href="{{ $sortLink($column) }}">
+                                                    {{ $label }}
+                                                    @if ($sort === $column)
+                                                        <span class="text-gray-600">{{ $direction === 'asc' ? '▲' : '▼' }}</span>
+                                                    @else
+                                                        <span class="text-gray-400">↕</span>
+                                                    @endif
+                                                </a>
+                                            @endif
+                                        </th>
+                                    @endforeach
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-200">
+                            <tbody>
                                 @forelse ($clients as $client)
-                                    <tr>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $client->name }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $client->category ?? '-' }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $client->is_vip ? 'Так' : 'Ні' }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $client->manager?->name ?? '-' }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $client->status }}</td>
-                                        <td class="px-4 py-2 text-sm text-gray-700">
-                                            <div class="flex items-center gap-3">
-                                                <a href="{{ route('orders.clients.edit', $client) }}" class="text-indigo-600 hover:text-indigo-900">
-                                                    Редагувати
-                                                </a>
-                                                <form method="POST" action="{{ route('orders.clients.deactivate', $client) }}">
-                                                    @csrf
-                                                    @method('PATCH')
-                                                    <button type="submit" class="text-gray-600 hover:text-gray-900" onclick="return confirm('Деактивувати цього замовника?')">
-                                                        Деактивувати
-                                                    </button>
-                                                </form>
+                                    <tr class="client-row {{ $loop->odd ? 'row-alt' : 'row-base' }}" tabindex="0">
+                                        <td class="px-4 py-3 border-b">
+                                            <a href="{{ route('orders.clients.show', $client) }}" class="font-medium text-indigo-600 hover:text-indigo-900">
+                                                {{ $client->name }}
+                                            </a>
+                                        </td>
+                                        <td class="px-4 py-3 border-b text-center font-semibold text-gray-800">
+                                            {{ (int) $client->orders_count }}
+                                        </td>
+                                        <td class="px-4 py-3 border-b">
+                                            <div class="flex min-w-[380px] flex-wrap gap-2">
+                                                @if((int) $client->unpaid_orders_count > 0)
+                                                    <span class="inline-flex whitespace-nowrap rounded-md border border-red-300 bg-rose-100 px-2 py-1 text-xs font-semibold text-red-800">
+                                                        Відсутня: {{ (int) $client->unpaid_orders_count }}
+                                                    </span>
+                                                @endif
+                                                @if((int) $client->partially_paid_orders_count > 0)
+                                                    <span class="inline-flex whitespace-nowrap rounded-md border border-orange-500 bg-yellow-100 px-2 py-1 text-xs font-semibold text-orange-800">
+                                                        Часткова: {{ (int) $client->partially_paid_orders_count }}
+                                                    </span>
+                                                @endif
+                                                @if((int) $client->fully_paid_orders_count > 0)
+                                                    <span class="inline-flex whitespace-nowrap rounded-md border border-green-300 bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">
+                                                        Повна: {{ (int) $client->fully_paid_orders_count }}
+                                                    </span>
+                                                @endif
+                                                @if((int) $client->overpaid_orders_count > 0)
+                                                    <span class="inline-flex whitespace-nowrap rounded-md border border-blue-400 bg-teal-100 px-2 py-1 text-xs font-semibold text-blue-800">
+                                                        Переплата: {{ (int) $client->overpaid_orders_count }}
+                                                    </span>
+                                                @endif
                                             </div>
                                         </td>
+                                        <td class="px-4 py-3 border-b text-gray-700">{{ $client->category ?? '-' }}</td>
+                                        <td class="px-4 py-3 border-b text-gray-700">{{ $client->is_vip ? 'Так' : 'Ні' }}</td>
+                                        <td class="px-4 py-3 border-b text-gray-700">{{ $client->manager?->name ?? '-' }}</td>
+                                        <td class="px-4 py-3 border-b text-gray-700">{{ $client->status }}</td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="px-4 py-6 text-center text-sm text-gray-500">
+                                        <td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">
                                             Замовників не знайдено.
                                         </td>
                                     </tr>

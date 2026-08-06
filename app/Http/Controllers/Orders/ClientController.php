@@ -18,7 +18,47 @@ class ClientController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Client::query()->with('manager');
+        $sort = (string) $request->query('sort', 'name');
+        $direction = strtolower((string) $request->query('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $sortMap = [
+            'name' => 'clients.name',
+            'orders_count' => 'client_order_stats.orders_count',
+            'category' => 'clients.category',
+            'vip' => 'clients.is_vip',
+            'manager' => 'client_managers.name',
+        ];
+
+        $paymentTotals = DB::table('client_payments')
+            ->selectRaw('order_id, SUM(amount) as total')
+            ->whereNotNull('order_id')
+            ->groupBy('order_id');
+
+        $orderStats = DB::table('orders')
+            ->leftJoinSub($paymentTotals, 'client_order_payment_totals', function ($join): void {
+                $join->on('client_order_payment_totals.order_id', '=', 'orders.id');
+            })
+            ->whereNotNull('orders.client_id')
+            ->groupBy('orders.client_id')
+            ->selectRaw('orders.client_id, COUNT(*) as orders_count')
+            ->selectRaw('SUM(CASE WHEN COALESCE(client_order_payment_totals.total, 0) <= 0 THEN 1 ELSE 0 END) as unpaid_orders_count')
+            ->selectRaw('SUM(CASE WHEN COALESCE(client_order_payment_totals.total, 0) > 0 AND COALESCE(client_order_payment_totals.total, 0) < orders.total_cost THEN 1 ELSE 0 END) as partially_paid_orders_count')
+            ->selectRaw('SUM(CASE WHEN COALESCE(client_order_payment_totals.total, 0) > 0 AND COALESCE(client_order_payment_totals.total, 0) = orders.total_cost THEN 1 ELSE 0 END) as fully_paid_orders_count')
+            ->selectRaw('SUM(CASE WHEN COALESCE(client_order_payment_totals.total, 0) > orders.total_cost THEN 1 ELSE 0 END) as overpaid_orders_count');
+
+        $query = Client::query()
+            ->leftJoin('users as client_managers', 'client_managers.id', '=', 'clients.manager_id')
+            ->leftJoinSub($orderStats, 'client_order_stats', function ($join): void {
+                $join->on('client_order_stats.client_id', '=', 'clients.id');
+            })
+            ->select('clients.*')
+            ->addSelect([
+                DB::raw('COALESCE(client_order_stats.orders_count, 0) as orders_count'),
+                DB::raw('COALESCE(client_order_stats.unpaid_orders_count, 0) as unpaid_orders_count'),
+                DB::raw('COALESCE(client_order_stats.partially_paid_orders_count, 0) as partially_paid_orders_count'),
+                DB::raw('COALESCE(client_order_stats.fully_paid_orders_count, 0) as fully_paid_orders_count'),
+                DB::raw('COALESCE(client_order_stats.overpaid_orders_count, 0) as overpaid_orders_count'),
+            ])
+            ->with('manager');
 
         $search = trim((string) $request->input('search', ''));
         $category = trim((string) $request->input('category', ''));
@@ -26,22 +66,40 @@ class ClientController extends Controller
         $managerId = $request->input('manager_id');
 
         if ($search !== '') {
-            $query->where('name', 'like', '%'.$search.'%');
+            $query->where('clients.name', 'like', '%'.$search.'%');
         }
 
         if ($category !== '') {
-            $query->where('category', $category);
+            $query->where('clients.category', $category);
         }
 
         if ($vip === '0' || $vip === '1') {
-            $query->where('is_vip', (int) $vip);
+            $query->where('clients.is_vip', (int) $vip);
         }
 
         if ($managerId !== null && $managerId !== '') {
-            $query->where('manager_id', (int) $managerId);
+            $query->where('clients.manager_id', (int) $managerId);
         }
 
-        $clients = $query->orderBy('name')->paginate(15)->withQueryString();
+        if ($sort === 'status') {
+            $query->orderByRaw("CASE clients.status
+                WHEN 'active' THEN 1
+                WHEN 'paused' THEN 2
+                WHEN 'blocked' THEN 3
+                ELSE 4
+            END {$direction}");
+        } elseif (isset($sortMap[$sort])) {
+            $query->orderBy($sortMap[$sort], $direction);
+        } else {
+            $sort = 'name';
+            $query->orderBy('clients.name', 'asc');
+        }
+
+        if ($sort !== 'name') {
+            $query->orderBy('clients.name');
+        }
+
+        $clients = $query->paginate(15)->withQueryString();
 
         $categories = Client::query()
             ->whereNotNull('category')
@@ -59,6 +117,8 @@ class ClientController extends Controller
             'clients' => $clients,
             'categories' => $categories,
             'managers' => $managers,
+            'sort' => $sort,
+            'direction' => $direction,
             'filters' => [
                 'search' => $search,
                 'category' => $category,
@@ -101,18 +161,107 @@ class ClientController extends Controller
         return redirect()->route('orders.clients.edit', $client)->with('status', 'Замовника створено.');
     }
 
-    public function edit(Client $client)
+    public function show(Request $request, Client $client)
     {
-        $client->load(['manager', 'createdBy', 'updatedBy']);
+        return $this->renderCard($request, $client, true);
+    }
+
+    public function edit(Request $request, Client $client)
+    {
+        return $this->renderCard($request, $client, false);
+    }
+
+    private function renderCard(Request $request, Client $client, bool $readOnly)
+    {
+        $client->load([
+            'manager',
+            'createdBy',
+            'updatedBy',
+            'payments' => fn ($query) => $query->latest('paid_at'),
+            'payments.order:id,public_id,order_number',
+            'payments.createdBy:id,name',
+            'payments.updatedBy:id,name',
+            'payments.histories.user:id,name',
+        ]);
 
         $managers = User::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
+        $paymentModalData = $client->payments->map(function ($payment) use ($client): array {
+            return [
+                'id' => $payment->public_id,
+                'amount' => $payment->amount,
+                'currency' => $payment->currency,
+                'date' => $payment->paid_at->copy()->timezone('Europe/Kiev')->format('Y-m-d'),
+                'time' => $payment->paid_at->copy()->timezone('Europe/Kiev')->format('H:i'),
+                'paymentType' => $payment->payment_type,
+                'fromOverpayment' => $payment->is_from_overpayment,
+                'orderPublicId' => $payment->order?->public_id,
+                'orderNumber' => $payment->order?->order_number,
+                'comment' => $payment->comment ?? '',
+                'updateUrl' => route('orders.clients.payments.update', [$client, $payment]),
+                'histories' => $payment->histories->map(fn ($history): array => [
+                    'date' => $history->created_at->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i'),
+                    'user' => $history->user?->name ?? '—',
+                    'changes' => $history->changes,
+                ])->values()->all(),
+            ];
+        })->values();
+
+        $orderSort = (string) $request->query('order_sort', 'date');
+        $orderDirection = strtolower((string) $request->query('order_direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $orderSortMap = [
+            'number' => 'orders.order_number',
+            'customer' => 'orders.customer_name',
+            'user' => 'order_editors.name',
+            'amount_due' => 'orders.amount_due',
+            'total_cost' => 'orders.total_cost',
+        ];
+        $paymentTotals = DB::table('client_payments')
+            ->selectRaw('order_id, SUM(amount) as total')
+            ->whereNotNull('order_id')
+            ->groupBy('order_id');
+        $clientOrdersQuery = $client->orders()
+            ->leftJoin('users as order_editors', 'order_editors.id', '=', 'orders.last_edited_by')
+            ->leftJoinSub($paymentTotals, 'card_order_payment_totals', function ($join): void {
+                $join->on('card_order_payment_totals.order_id', '=', 'orders.id');
+            })
+            ->select('orders.*')
+            ->addSelect(DB::raw('COALESCE(card_order_payment_totals.total, 0) as linked_payments_total'))
+            ->with('lastEditedBy:id,name');
+
+        if ($orderSort === 'date') {
+            $clientOrdersQuery->orderBy('orders.updated_at', $orderDirection);
+        } elseif ($orderSort === 'payment') {
+            $clientOrdersQuery->orderByRaw("CASE
+                WHEN COALESCE(card_order_payment_totals.total, 0) <= 0 THEN 1
+                WHEN COALESCE(card_order_payment_totals.total, 0) < orders.total_cost THEN 2
+                WHEN COALESCE(card_order_payment_totals.total, 0) = orders.total_cost THEN 3
+                ELSE 4
+            END {$orderDirection}");
+        } elseif (isset($orderSortMap[$orderSort])) {
+            $clientOrdersQuery->orderBy($orderSortMap[$orderSort], $orderDirection);
+        } else {
+            $orderSort = 'date';
+            $clientOrdersQuery->orderBy('orders.updated_at', 'desc');
+        }
+
+        $clientOrders = $clientOrdersQuery
+            ->paginate(20, ['*'], 'orders_page')
+            ->withQueryString()
+            ->appends(['section' => 'orders']);
+
         return view('clients.edit', [
             'client' => $client,
             'managers' => $managers,
+            'paymentModalData' => $paymentModalData,
+            'requestedSection' => $request->query('section'),
+            'readOnly' => $readOnly,
+            'clientOrders' => $clientOrders,
+            'orderSort' => $orderSort,
+            'orderDirection' => $orderDirection,
         ]);
     }
 

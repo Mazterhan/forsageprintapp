@@ -5,7 +5,6 @@
         $items = is_array($order->items) ? $order->items : [];
         $histories = $order->histories;
         $wasEdited = $histories->isNotEmpty();
-        $lastAutomaticSaveAt = $histories->first()?->created_at;
         $formatOrderMoney = static function ($value): string {
             $formatted = number_format((float) $value, 2, '.', ' ');
             return preg_replace('/\.0+$/', '', $formatted) ?? $formatted;
@@ -43,15 +42,25 @@
             'item_deleted' => 'Видалення',
             'order_updated' => 'Редагування',
         ];
-        if ((float) $order->amount_due <= 0 && (float) $order->total_cost > 0) {
+        $orderPaymentsTotal = (float) $order->payments->sum('amount');
+        $orderTotalCost = (float) $order->total_cost;
+        $orderAmountDue = $orderTotalCost - $orderPaymentsTotal;
+        if ($orderPaymentsTotal <= 0) {
+            $paymentStatusLabel = 'Не сплачено';
+            $paymentStatusClass = 'border-red-300 bg-rose-100 text-red-800';
+            $amountDueTextClass = 'text-red-700';
+        } elseif ($orderPaymentsTotal < $orderTotalCost) {
+            $paymentStatusLabel = 'Частково сплачено';
+            $paymentStatusClass = 'border-orange-500 bg-yellow-100 text-orange-800';
+            $amountDueTextClass = 'text-amber-600';
+        } elseif (abs($orderPaymentsTotal - $orderTotalCost) < 0.005) {
             $paymentStatusLabel = 'Сплачено';
             $paymentStatusClass = 'border-green-300 bg-green-100 text-green-800';
-        } elseif ((float) $order->payments_total > 0) {
-            $paymentStatusLabel = 'Частково сплачено';
-            $paymentStatusClass = 'border-amber-300 bg-amber-100 text-amber-800';
+            $amountDueTextClass = 'text-gray-900';
         } else {
-            $paymentStatusLabel = 'Не сплачено';
-            $paymentStatusClass = 'border-gray-300 bg-gray-100 text-gray-700';
+            $paymentStatusLabel = 'Є переплата';
+            $paymentStatusClass = 'border-blue-400 bg-teal-100 text-blue-800';
+            $amountDueTextClass = 'text-blue-700';
         }
     @endphp
 
@@ -78,16 +87,17 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6M8 15h8M8 18h5" />
                         </svg>
                     </button>
-                    <button type="button" class="inline-flex h-[38px] items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                    <button
+                        x-data
+                        type="button"
+                        @click="$dispatch('open-order-payments')"
+                        @disabled(! $order->client_id)
+                        title="{{ $order->client_id ? 'Відкрити платежі замовлення' : 'Для замовлення не вказано клієнта' }}"
+                        class="inline-flex h-[38px] items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
                         Платежі
                     </button>
                 </div>
-                @if($wasEdited)
-                    <div class="text-sm text-gray-700">
-                        <span class="font-semibold">Час останнього автоматичного збереження:</span>
-                        {{ $formatOrderDate($lastAutomaticSaveAt) }}
-                    </div>
-                @endif
             </div>
 
             <div class="flex items-center gap-2">
@@ -102,7 +112,22 @@
     </x-slot>
 
     <div class="py-8">
-        <div class="max-w-[1700px] mx-auto space-y-4 px-6 sm:px-8 lg:px-12">
+        <div
+            x-data="orderPaymentPopup({
+                storeUrl: @js($order->client ? route('orders.clients.payments.store', $order->client) : ''),
+                orderPublicId: @js($order->public_id),
+                orderNumber: @js($order->order_number),
+                today: @js(now('Europe/Kiev')->format('Y-m-d')),
+                currentTime: @js(now('Europe/Kiev')->format('H:i')),
+                overpaymentTotal: @js($clientOverpaymentTotal),
+                canAddPayment: @js($canAddOrderPayment),
+                payments: @js($paymentModalData),
+                openOnLoad: @js(request()->boolean('payments')),
+            })"
+            @open-order-payments.window="openModal()"
+            @keydown.escape.window="closeModal()"
+            class="max-w-[1700px] mx-auto space-y-4 px-6 sm:px-8 lg:px-12"
+        >
             <div class="bg-white shadow-sm sm:rounded-lg p-4 text-sm text-gray-800">
                 <div class="flex flex-row items-start justify-between gap-6 w-full">
                     <div class="flex-1 min-w-0">
@@ -150,13 +175,13 @@
                             <div class="text-left font-semibold text-gray-700">Сума з ПДВ</div>
                             <div class="text-right font-semibold text-gray-900">{{ $formatOrderMoney($order->total_cost) }}</div>
 
-                            <div class="text-left font-semibold text-gray-700">Загальна сума виплат</div>
-                            <div class="text-right font-semibold text-gray-900">{{ $formatOrderMoney($order->payments_total) }}</div>
+                            <div class="text-left font-semibold text-gray-700">Загальна сума сплат</div>
+                            <div class="text-right font-semibold text-gray-900">{{ $formatOrderMoney($orderPaymentsTotal) }}</div>
 
                             <div class="col-span-2 h-4" aria-hidden="true"></div>
 
-                            <div class="text-left text-base font-bold text-gray-900">Сума до сплати</div>
-                            <div class="text-right text-base font-bold text-gray-900">{{ $formatOrderMoney($order->amount_due) }}</div>
+                            <div class="text-left text-base font-bold {{ $amountDueTextClass }}">Сума до сплати</div>
+                            <div class="text-right text-base font-bold {{ $amountDueTextClass }}">{{ $formatOrderMoney($orderAmountDue) }}</div>
                         </div>
                     </div>
                 @endif
@@ -200,6 +225,306 @@
                     </div>
                 </div>
             @endif
+
+            <div x-show="showModal" x-cloak class="fixed inset-0 z-[14000] flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/50" @click="closeModal()"></div>
+                <div class="relative max-h-[94vh] w-[1100px] max-w-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-6 shadow-2xl">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h3
+                                class="text-lg font-semibold text-gray-900"
+                                x-text="isEditing ? 'Редагування платежу' : `Платежі замовлення ${orderNumber}`"
+                            ></h3>
+                            <p class="mt-1 text-sm text-gray-500">{{ $order->client?->name ?? $order->customer_name }}</p>
+                        </div>
+                        <button type="button" @click="closeModal()" class="text-2xl leading-none text-gray-400 hover:text-gray-700" aria-label="Закрити">&times;</button>
+                    </div>
+
+                    <div x-show="paymentError" x-text="paymentError" class="mt-4 rounded-md bg-red-100 px-4 py-3 text-sm text-red-700"></div>
+
+                    <div x-show="isEditing || canAddPayment" x-cloak x-ref="paymentEditor" class="mt-5 scroll-mt-4 rounded-lg border border-gray-200 bg-gray-50 p-5">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <h4 class="font-semibold text-gray-800" x-text="isEditing ? 'Редагування платежу' : 'Внести платіж'"></h4>
+                            <button x-show="isEditing" x-cloak type="button" @click="resetForm()" class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                                Повернутися до платежів
+                            </button>
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
+                            <div>
+                                <label for="order-payment-amount" class="block text-sm font-medium text-gray-700">Сума</label>
+                                <input id="order-payment-amount" x-ref="paymentAmount" x-model="form.amount" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
+                            </div>
+                            <div>
+                                <label for="order-payment-currency" class="block text-sm font-medium text-gray-700">Валюта</label>
+                                <select id="order-payment-currency" x-model="form.currency" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option value="UAH">грн</option>
+                                    <option value="USD">USD</option>
+                                    <option value="EUR">EUR</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="order-payment-date" class="block text-sm font-medium text-gray-700">Дата</label>
+                                <input id="order-payment-date" x-model="form.date" type="date" :max="today" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label for="order-payment-time" class="block text-sm font-medium text-gray-700">Час</label>
+                                <input id="order-payment-time" x-model="form.time" type="time" step="60" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <label for="order-payment-comment" class="block text-sm font-medium text-gray-700">Коментар</label>
+                            <textarea id="order-payment-comment" x-model="form.comment" rows="3" maxlength="2000" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Додаткові відомості про платіж"></textarea>
+                        </div>
+
+                        <div class="mt-4 flex justify-end gap-3">
+                            <button x-show="isEditing" x-cloak type="button" @click="resetForm()" :disabled="isSaving" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">Скасувати редагування</button>
+                            <button x-show="!isEditing && overpaymentTotal > 0" x-cloak type="button" @click="submitPayment(true)" :disabled="isSaving" class="rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50">
+                                Списати з переплати
+                            </button>
+                            <button type="button" @click="submitPayment(isEditing ? null : false)" :disabled="isSaving" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+                                <span x-text="isSaving ? 'Збереження...' : (isEditing ? 'Зберегти зміни' : 'Внести платіж')"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div x-show="!isEditing && !canAddPayment" x-cloak class="mt-5 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
+                        Новий платіж недоступний: замовлення вже сплачено або має переплату.
+                    </div>
+
+                    <div x-show="isEditing && activeHistories.length > 0" x-cloak class="mt-5 rounded-lg border border-yellow-200 bg-yellow-50 p-5">
+                        <h4 class="text-sm font-semibold uppercase text-gray-700">Історія змін платежу</h4>
+                        <div class="mt-3 space-y-3">
+                            <template x-for="(history, historyIndex) in activeHistories" :key="`order-payment-history-${historyIndex}`">
+                                <div class="rounded-lg border border-yellow-200 bg-white p-4 text-sm">
+                                    <div class="flex flex-wrap justify-between gap-2 font-semibold text-gray-800">
+                                        <span x-text="history.user"></span>
+                                        <span x-text="history.date"></span>
+                                    </div>
+                                    <div class="mt-2 space-y-2">
+                                        <template x-for="(change, changeIndex) in history.changes" :key="`order-payment-change-${historyIndex}-${changeIndex}`">
+                                            <div class="grid gap-1 sm:grid-cols-[150px_1fr]">
+                                                <span class="font-medium text-gray-700" x-text="change.label"></span>
+                                                <span class="break-words text-gray-700">
+                                                    <span class="text-red-700" x-text="change.before ?? '—'"></span>
+                                                    <span class="px-1 text-gray-400">→</span>
+                                                    <span class="text-green-700" x-text="change.after ?? '—'"></span>
+                                                </span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div x-show="!isEditing" x-cloak class="mt-6">
+                        <h4 class="mb-3 text-sm font-semibold uppercase text-gray-700">Історія платежів замовлення</h4>
+                        <div class="overflow-x-auto rounded-lg border border-gray-200">
+                            <table class="min-w-full text-sm">
+                                <thead style="background-color: #D3D4D4;">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left">Дата / час</th>
+                                        <th class="px-3 py-2 text-left">№ замовлення</th>
+                                        <th class="px-3 py-2 text-right">Сума</th>
+                                        <th class="px-3 py-2 text-left">Валюта</th>
+                                        <th class="px-3 py-2 text-left">Користувач</th>
+                                        <th class="w-[130px] px-3 py-2 text-center">Дії</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($order->payments as $payment)
+                                        <tr class="border-t border-gray-200 {{ $payment->is_edited ? 'bg-yellow-100' : 'bg-white' }}">
+                                            <td class="px-3 py-2">{{ $payment->paid_at->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i') }}</td>
+                                            <td class="px-3 py-2 font-medium">
+                                                <div>{{ $order->order_number }}</div>
+                                                @if($payment->is_from_overpayment)
+                                                    <div class="mt-0.5 text-xs font-semibold text-blue-600">з переплати</div>
+                                                @endif
+                                            </td>
+                                            <td class="px-3 py-2 text-right font-semibold">{{ number_format((int) $payment->amount, 0, '.', ' ') }}</td>
+                                            <td class="px-3 py-2">{{ $payment->currency === 'UAH' ? 'грн' : $payment->currency }}</td>
+                                            <td class="px-3 py-2">{{ $payment->createdBy?->name ?? '—' }}</td>
+                                            <td class="px-3 py-2 text-center">
+                                                <button type="button" @click="editPayment(@js($payment->public_id))" class="font-semibold text-indigo-600 hover:text-indigo-900">Редагувати</button>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="6" class="px-3 py-8 text-center text-gray-500">Платежі за цим замовленням ще не внесено.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <script>
+        function orderPaymentPopup(config) {
+            const emptyForm = () => ({
+                amount: '',
+                currency: 'UAH',
+                date: config.today || '',
+                time: config.currentTime || '',
+                comment: '',
+                fromOverpayment: false,
+                updateUrl: '',
+            });
+
+            return {
+                storeUrl: config.storeUrl || '',
+                orderPublicId: config.orderPublicId || '',
+                orderNumber: config.orderNumber || '',
+                payments: Array.isArray(config.payments) ? config.payments : [],
+                overpaymentTotal: Number(config.overpaymentTotal) || 0,
+                canAddPayment: Boolean(config.canAddPayment),
+                today: config.today || '',
+                showModal: false,
+                isEditing: false,
+                isSaving: false,
+                paymentError: '',
+                form: emptyForm(),
+                activeHistories: [],
+
+                init() {
+                    if (config.openOnLoad) {
+                        this.showModal = true;
+                    }
+                },
+
+                openModal() {
+                    this.resetForm();
+                    this.showModal = true;
+                },
+
+                closeModal() {
+                    if (!this.isSaving) {
+                        this.showModal = false;
+                        this.paymentError = '';
+                    }
+                },
+
+                resetForm() {
+                    this.isEditing = false;
+                    this.paymentError = '';
+                    this.form = emptyForm();
+                    this.activeHistories = [];
+                },
+
+                editPayment(paymentId) {
+                    const payment = this.payments.find((item) => item.id === paymentId);
+                    if (!payment) {
+                        return;
+                    }
+
+                    this.isEditing = true;
+                    this.paymentError = '';
+                    this.form = {
+                        amount: String(payment.amount || ''),
+                        currency: payment.currency || 'UAH',
+                        date: payment.date || this.today,
+                        time: payment.time || '',
+                        comment: payment.comment || '',
+                        fromOverpayment: Boolean(payment.fromOverpayment),
+                        updateUrl: payment.updateUrl || '',
+                    };
+                    this.activeHistories = Array.isArray(payment.histories) ? payment.histories : [];
+                    this.$nextTick(() => {
+                        this.$refs.paymentEditor?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        window.setTimeout(() => this.$refs.paymentAmount?.focus({ preventScroll: true }), 250);
+                    });
+                },
+
+                validate() {
+                    const amount = String(this.form.amount || '').trim();
+                    if (!/^\d+$/.test(amount) || Number.parseInt(amount, 10) <= 0) {
+                        return 'Сума повинна бути цілим числом більше нуля.';
+                    }
+                    if (!['UAH', 'USD', 'EUR'].includes(this.form.currency)) {
+                        return 'Оберіть доступну валюту.';
+                    }
+                    if (!this.form.date || this.form.date > this.today) {
+                        return 'Оберіть поточну або минулу дату.';
+                    }
+                    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(this.form.time || '')) {
+                        return 'Вкажіть коректний час у форматі гг:хх.';
+                    }
+                    if (this.form.fromOverpayment && !this.isEditing && Number.parseInt(amount, 10) > this.overpaymentTotal) {
+                        return 'Сума списання перевищує доступну переплату клієнта.';
+                    }
+
+                    return '';
+                },
+
+                async submitPayment(fromOverpayment = null) {
+                    if (this.isSaving) {
+                        return;
+                    }
+                    if (!this.isEditing && !this.canAddPayment) {
+                        this.paymentError = 'Новий платіж недоступний: замовлення вже сплачено або має переплату.';
+                        return;
+                    }
+
+                    if (!this.isEditing && typeof fromOverpayment === 'boolean') {
+                        this.form.fromOverpayment = fromOverpayment;
+                    }
+
+                    this.paymentError = this.validate();
+                    if (this.paymentError) {
+                        return;
+                    }
+
+                    const confirmation = this.isEditing
+                        ? 'Підтверджуєте, що всі зміни платежу внесено правильно?'
+                        : 'Підтверджуєте, що всі дані платежу внесено правильно?';
+                    if (!window.confirm(confirmation)) {
+                        return;
+                    }
+
+                    this.isSaving = true;
+                    try {
+                        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                        const response = await fetch(this.isEditing ? this.form.updateUrl : this.storeUrl, {
+                            method: this.isEditing ? 'PATCH' : 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrf,
+                            },
+                            body: JSON.stringify({
+                                amount: Number.parseInt(this.form.amount, 10),
+                                currency: this.form.currency,
+                                payment_date: this.form.date,
+                                payment_time: this.form.time,
+                                payment_type: 'order',
+                                payment_source: this.form.fromOverpayment ? 'overpayment' : 'direct',
+                                order_public_id: this.orderPublicId,
+                                comment: String(this.form.comment || '').trim() || null,
+                                return_context: 'order',
+                            }),
+                        });
+                        const payload = await response.json();
+
+                        if (!response.ok || !payload?.ok) {
+                            const validationMessages = payload?.errors
+                                ? Object.values(payload.errors).flat().join(' ')
+                                : '';
+                            throw new Error(validationMessages || payload?.message || 'Не вдалося зберегти платіж.');
+                        }
+
+                        window.location.href = payload.redirect_url;
+                    } catch (error) {
+                        this.paymentError = error?.message || 'Не вдалося зберегти платіж.';
+                    } finally {
+                        this.isSaving = false;
+                    }
+                },
+            };
+        }
+    </script>
 </x-app-layout>

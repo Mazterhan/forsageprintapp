@@ -8,12 +8,17 @@
         $saveUrl = $isEdit ? route('orders.update', $order) : route('orders.store');
         $backUrl = $isEdit ? route('orders.show', $order) : route('orders.index');
 
-        if ($isEdit && (float) $order->amount_due <= 0 && (float) $order->total_cost > 0) {
+        if ($isEdit && (float) $order->payments_total > (float) $order->total_cost) {
+            $initialPaymentStatus = ['label' => 'Є переплата', 'className' => 'border-blue-400 bg-teal-100 text-blue-800'];
+        } elseif ($isEdit && abs((float) $order->payments_total - (float) $order->total_cost) < 0.005 && (float) $order->total_cost > 0) {
             $initialPaymentStatus = ['label' => 'Сплачено', 'className' => 'border-green-300 bg-green-100 text-green-800'];
         } elseif ($isEdit && (float) $order->payments_total > 0) {
-            $initialPaymentStatus = ['label' => 'Частково сплачено', 'className' => 'border-amber-300 bg-amber-100 text-amber-800'];
+            $initialPaymentStatus = ['label' => 'Частково сплачено', 'className' => 'border-orange-500 bg-yellow-100 text-orange-800'];
         } else {
-            $initialPaymentStatus = ['label' => $isEdit ? 'Не сплачено' : 'Статус оплати', 'className' => 'border-gray-300 bg-gray-100 text-gray-700'];
+            $initialPaymentStatus = [
+                'label' => $isEdit ? 'Не сплачено' : 'Статус оплати',
+                'className' => $isEdit ? 'border-red-300 bg-rose-100 text-red-800' : 'border-gray-300 bg-gray-100 text-gray-700',
+            ];
         }
     @endphp
 
@@ -221,7 +226,7 @@
                         <div class="text-left font-semibold text-gray-700">Сума з ПДВ</div>
                         <div class="text-right font-semibold text-gray-900" x-text="formatInteger(getOrderTotal())"></div>
 
-                        <div class="text-left font-semibold text-gray-700">Загальна сума виплат</div>
+                        <div class="text-left font-semibold text-gray-700">Загальна сума сплат</div>
                         <div class="text-right font-semibold text-gray-900" x-text="formatInteger(paymentsTotal)"></div>
 
                         <div class="col-span-2 h-4" aria-hidden="true"></div>
@@ -416,7 +421,7 @@
                 },
 
                 getAmountDue() {
-                    return Math.max(0, this.getOrderTotal() - this.paymentsTotal);
+                    return this.getOrderTotal() - this.paymentsTotal;
                 },
 
                 formatInteger(value) {

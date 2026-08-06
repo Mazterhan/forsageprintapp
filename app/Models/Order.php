@@ -76,6 +76,11 @@ class Order extends Model
         return $this->hasMany(OrderHistory::class)->latest('created_at');
     }
 
+    public function payments(): HasMany
+    {
+        return $this->hasMany(ClientPayment::class);
+    }
+
     /**
      * Adds stable identifiers to positions created before item_id was introduced.
      * The technical backfill must not appear in the user-facing change history.

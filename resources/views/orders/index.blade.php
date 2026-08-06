@@ -14,6 +14,24 @@
             request()->query(),
             ['sort' => $column, 'direction' => $nextDir($column)]
         ));
+        $paymentStatus = static function ($order): array {
+            $paymentsTotal = (float) ($order->linked_payments_total ?? 0);
+            $orderTotal = (float) $order->total_cost;
+
+            if ($paymentsTotal <= 0) {
+                return ['Не сплачено', 'border-red-300 bg-rose-100 text-red-800'];
+            }
+
+            if ($paymentsTotal < $orderTotal) {
+                return ['Частково сплачено', 'border-orange-500 bg-yellow-100 text-orange-800'];
+            }
+
+            if (abs($paymentsTotal - $orderTotal) < 0.005) {
+                return ['Сплачено', 'border-green-300 bg-green-100 text-green-800'];
+            }
+
+            return ['Є переплата', 'border-blue-400 bg-teal-100 text-blue-800'];
+        };
     @endphp
 
     <x-slot name="header">
@@ -100,6 +118,7 @@
                                     @foreach([
                                         'date' => 'Дата',
                                         'number' => 'Номер замовлення',
+                                        'payment' => 'Оплата',
                                         'customer' => "Ім'я замовника",
                                         'user' => 'Користувач',
                                         'amount_due' => 'До сплати',
@@ -120,12 +139,18 @@
                             </thead>
                             <tbody>
                                 @forelse($orders as $order)
+                                    @php([$paymentStatusLabel, $paymentStatusClass] = $paymentStatus($order))
                                     <tr class="order-row {{ $loop->odd ? 'row-alt' : 'row-base' }}" tabindex="0">
                                         <td class="px-4 py-3 border-b">{{ $formatOrderDate($order->updated_at) }}</td>
                                         <td class="px-4 py-3 border-b">
                                             <a href="{{ route('orders.show', $order) }}" class="text-indigo-600 hover:text-indigo-900">
                                                 {{ $order->order_number }}
                                             </a>
+                                        </td>
+                                        <td class="px-4 py-3 border-b">
+                                            <span class="inline-flex whitespace-nowrap rounded-md border px-3 py-1 text-sm font-semibold {{ $paymentStatusClass }}">
+                                                {{ $paymentStatusLabel }}
+                                            </span>
                                         </td>
                                         <td class="px-4 py-3 border-b">{{ $order->customer_name ?: '—' }}</td>
                                         <td class="px-4 py-3 border-b">{{ $order->lastEditedBy?->name ?? '—' }}</td>
@@ -134,7 +159,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
                                             Замовлення ще не створено.
                                         </td>
                                     </tr>

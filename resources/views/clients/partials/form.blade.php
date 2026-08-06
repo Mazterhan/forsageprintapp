@@ -1,5 +1,10 @@
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4">
+@php($sectioned = $sectioned ?? false)
+
+<div class="{{ $sectioned ? '' : 'grid grid-cols-1 lg:grid-cols-2 gap-6' }}">
+    <div
+        @if($sectioned) x-show="activeSection === 'main'" x-cloak @endif
+        class="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4"
+    >
         <h3 class="text-sm font-semibold text-gray-700 uppercase">Основні дані замовника</h3>
         <div>
             <label class="block font-medium text-sm text-gray-700" for="code">Код замовника</label>
@@ -56,7 +61,10 @@
         </div>
     </div>
 
-    <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4">
+    <div
+        @if($sectioned) x-show="activeSection === 'contacts'" x-cloak @endif
+        class="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4"
+    >
         <h3 class="text-sm font-semibold text-gray-700 uppercase">Контакти</h3>
         <div>
             <label class="block font-medium text-sm text-gray-700" for="contact_name">Контактна особа</label>
@@ -80,7 +88,10 @@
         </div>
     </div>
 
-    <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4">
+    <div
+        @if($sectioned) x-show="activeSection === 'delivery'" x-cloak @endif
+        class="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4"
+    >
         <h3 class="text-sm font-semibold text-gray-700 uppercase">Доставка</h3>
         <div>
             <label class="block font-medium text-sm text-gray-700" for="delivery_address">Основна адреса доставки</label>
@@ -96,7 +107,10 @@
         </div>
     </div>
 
-    <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4">
+    <div
+        @if($sectioned) x-show="activeSection === 'service'" x-cloak @endif
+        class="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4"
+    >
         <h3 class="text-sm font-semibold text-gray-700 uppercase">Службові поля</h3>
         <div>
             <label class="block font-medium text-sm text-gray-700" for="created_by">Створив</label>
@@ -121,9 +135,11 @@
     </div>
 </div>
 
-<div class="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-    <h3 class="text-sm font-semibold text-gray-700 uppercase mb-4">Замовлення</h3>
-    <div class="text-sm text-gray-500">
-        {{ __('Таблицю замовлень буде додано на наступній ітерації.') }}
+@unless($sectioned)
+    <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+        <h3 class="text-sm font-semibold text-gray-700 uppercase mb-4">Замовлення</h3>
+        <div class="text-sm text-gray-500">
+            {{ __('Таблицю замовлень буде додано на наступній ітерації.') }}
+        </div>
     </div>
-</div>
+@endunless

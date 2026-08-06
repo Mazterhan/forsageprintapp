@@ -3,6 +3,7 @@
 namespace Tests\Feature\Orders;
 
 use App\Models\Client;
+use App\Models\ClientPayment;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -39,6 +40,7 @@ class OrderIndexTest extends TestCase
             ->assertSee('Створити замовлення')
             ->assertSee(route('orders.create'), false)
             ->assertSee('Номер замовлення')
+            ->assertSeeInOrder(['Номер замовлення', 'Оплата', "Ім'я замовника"])
             ->assertSee("Ім'я замовника")
             ->assertSee('До сплати')
             ->assertSee('Вартість')
@@ -47,6 +49,69 @@ class OrderIndexTest extends TestCase
             ->assertSee('Останній редактор')
             ->assertSee('650.25')
             ->assertSee('1 000.50');
+    }
+
+    public function test_orders_table_displays_payment_statuses_with_order_colors(): void
+    {
+        $user = $this->createUserWithRole(['can_orders' => true]);
+        $client = Client::factory()->create();
+        $orders = collect([
+            ['total' => 1000, 'payment' => 0],
+            ['total' => 1000, 'payment' => 400],
+            ['total' => 1000, 'payment' => 1000],
+            ['total' => 1000, 'payment' => 1200],
+        ])->map(fn (array $values): Order => Order::factory()->create([
+            'client_id' => $client->id,
+            'total_cost' => $values['total'],
+        ]));
+
+        foreach ([1 => 400, 2 => 1000, 3 => 1200] as $orderIndex => $amount) {
+            ClientPayment::query()->create([
+                'client_id' => $client->id,
+                'order_id' => $orders[$orderIndex]->id,
+                'amount' => $amount,
+                'currency' => 'UAH',
+                'payment_type' => 'order',
+                'paid_at' => now(),
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+            ]);
+        }
+
+        $this->actingAs($user)
+            ->get(route('orders.index', ['per_page' => 'all']))
+            ->assertOk()
+            ->assertSee(route('orders.index', [
+                'per_page' => 'all',
+                'sort' => 'payment',
+                'direction' => 'asc',
+            ]))
+            ->assertSee('Не сплачено')
+            ->assertSee('border-red-300 bg-rose-100 text-red-800', false)
+            ->assertSee('Частково сплачено')
+            ->assertSee('border-orange-500 bg-yellow-100 text-orange-800', false)
+            ->assertSee('Сплачено')
+            ->assertSee('border-green-300 bg-green-100 text-green-800', false)
+            ->assertSee('Є переплата')
+            ->assertSee('border-blue-400 bg-teal-100 text-blue-800', false);
+
+        $this->actingAs($user)
+            ->get(route('orders.index', [
+                'per_page' => 'all',
+                'sort' => 'payment',
+                'direction' => 'asc',
+            ]))
+            ->assertOk()
+            ->assertSeeInOrder(['Не сплачено', 'Частково сплачено', 'Сплачено', 'Є переплата']);
+
+        $this->actingAs($user)
+            ->get(route('orders.index', [
+                'per_page' => 'all',
+                'sort' => 'payment',
+                'direction' => 'desc',
+            ]))
+            ->assertOk()
+            ->assertSeeInOrder(['Є переплата', 'Сплачено', 'Частково сплачено', 'Не сплачено']);
     }
 
     public function test_create_order_form_loads_active_clients_and_requires_orders_permission(): void
@@ -79,7 +144,7 @@ class OrderIndexTest extends TestCase
             ->assertSee('Кількість')
             ->assertSee('Вартість за одн.')
             ->assertSee('Сума з ПДВ')
-            ->assertSee('Загальна сума виплат')
+            ->assertSee('Загальна сума сплат')
             ->assertSee('Сума до сплати')
             ->assertSee(route('orders.store'), false)
             ->assertSee('Створити замовлення')
@@ -169,7 +234,9 @@ class OrderIndexTest extends TestCase
     {
         $user = $this->createUserWithRole(['can_orders' => true]);
         $editor = User::factory()->create(['name' => 'Редактор замовлення']);
+        $client = Client::factory()->create(['name' => 'Замовник для перегляду']);
         $order = Order::factory()->create([
+            'client_id' => $client->id,
             'customer_name' => 'Замовник для перегляду',
             'last_edited_by' => $editor->id,
             'items' => [
@@ -184,10 +251,21 @@ class OrderIndexTest extends TestCase
             'amount_due' => 500,
             'total_cost' => 800,
         ]);
+        ClientPayment::query()->create([
+            'client_id' => $client->id,
+            'order_id' => $order->id,
+            'amount' => 300,
+            'currency' => 'UAH',
+            'payment_type' => 'order',
+            'paid_at' => now(),
+            'created_by' => $editor->id,
+            'updated_by' => $editor->id,
+        ]);
 
         $showUrl = route('orders.show', $order);
         $this->assertStringContainsString($order->public_id, $showUrl);
-        $this->assertStringNotContainsString('/orders/'.$order->id, $showUrl);
+        $this->assertSame($order->public_id, basename((string) parse_url($showUrl, PHP_URL_PATH)));
+        $this->assertNotSame((string) $order->id, basename((string) parse_url($showUrl, PHP_URL_PATH)));
 
         $this->actingAs($user)
             ->get(route('orders.index'))
@@ -214,7 +292,7 @@ class OrderIndexTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_edited_order_displays_last_autosave_and_change_history(): void
+    public function test_edited_order_displays_change_history_without_autosave_label(): void
     {
         $user = $this->createUserWithRole(['can_orders' => true]);
         $editor = User::factory()->create(['name' => 'Автор зміни']);
@@ -240,13 +318,12 @@ class OrderIndexTest extends TestCase
             ]],
         ]);
 
-        $history = $order->histories()->firstOrFail();
+        $order->histories()->firstOrFail();
 
         $this->actingAs($user)
             ->get(route('orders.show', $order))
             ->assertOk()
-            ->assertSee('Час останнього автоматичного збереження:')
-            ->assertSee($history->created_at->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i'))
+            ->assertDontSee('Час останнього автоматичного збереження:')
             ->assertSee('Історія змін замовлення')
             ->assertSee('Автор зміни')
             ->assertSee('Редагування')
@@ -277,6 +354,16 @@ class OrderIndexTest extends TestCase
             'payments_total' => 20,
             'amount_due' => 80,
             'total_cost' => 100,
+        ]);
+        ClientPayment::query()->create([
+            'client_id' => $client->id,
+            'order_id' => $order->id,
+            'amount' => 20,
+            'currency' => 'UAH',
+            'payment_type' => 'order',
+            'paid_at' => now(),
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
         ]);
 
         $this->actingAs($user)

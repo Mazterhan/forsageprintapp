@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Orders;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\ClientPayment;
 use App\Models\Order;
 use App\Models\OrderProposal;
 use App\Models\OrderProposalEditLock;
@@ -34,13 +35,29 @@ class OrderController extends Controller
             'total_cost' => 'orders.total_cost',
         ];
 
+        $paymentTotals = DB::table('client_payments')
+            ->selectRaw('order_id, SUM(amount) as total')
+            ->whereNotNull('order_id')
+            ->groupBy('order_id');
+
         $query = Order::query()
             ->leftJoin('users', 'users.id', '=', 'orders.last_edited_by')
+            ->leftJoinSub($paymentTotals, 'order_payment_totals', function ($join): void {
+                $join->on('order_payment_totals.order_id', '=', 'orders.id');
+            })
             ->select('orders.*')
+            ->addSelect(DB::raw('COALESCE(order_payment_totals.total, 0) as linked_payments_total'))
             ->with('lastEditedBy:id,name');
 
         if ($sort === 'date') {
             $query->orderBy('orders.updated_at', $direction);
+        } elseif ($sort === 'payment') {
+            $query->orderByRaw("CASE
+                WHEN COALESCE(order_payment_totals.total, 0) <= 0 THEN 1
+                WHEN COALESCE(order_payment_totals.total, 0) < orders.total_cost THEN 2
+                WHEN COALESCE(order_payment_totals.total, 0) = orders.total_cost THEN 3
+                ELSE 4
+            END {$direction}");
         } elseif (isset($sortMap[$sort])) {
             $query->orderBy($sortMap[$sort], $direction);
         } else {
@@ -172,13 +189,49 @@ class OrderController extends Controller
     public function show(Order $order)
     {
         $order->load([
-            'client:id,name',
+            'client:id,public_id,name',
             'lastEditedBy:id,name',
             'histories.user:id,name',
+            'payments' => fn ($query) => $query->latest('paid_at'),
+            'payments.createdBy:id,name',
+            'payments.histories.user:id,name',
         ]);
+
+        $paymentModalData = $order->payments->map(function ($payment) use ($order): array {
+            return [
+                'id' => $payment->public_id,
+                'amount' => $payment->amount,
+                'currency' => $payment->currency,
+                'date' => $payment->paid_at->copy()->timezone('Europe/Kiev')->format('Y-m-d'),
+                'time' => $payment->paid_at->copy()->timezone('Europe/Kiev')->format('H:i'),
+                'comment' => $payment->comment ?? '',
+                'fromOverpayment' => $payment->is_from_overpayment,
+                'updateUrl' => route('orders.clients.payments.update', [$order->client, $payment]),
+                'histories' => $payment->histories->map(fn ($history): array => [
+                    'date' => $history->created_at->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i'),
+                    'user' => $history->user?->name ?? '—',
+                    'changes' => $history->changes,
+                ])->values()->all(),
+            ];
+        })->values();
+        $clientOverpaymentTotal = $order->client_id
+            ? (int) ClientPayment::query()
+                ->where('client_id', $order->client_id)
+                ->where('payment_type', 'prepayment')
+                ->sum('amount')
+                - (int) ClientPayment::query()
+                    ->where('client_id', $order->client_id)
+                    ->where('is_from_overpayment', true)
+                    ->sum('amount')
+            : 0;
+        $orderPaymentsTotal = (float) $order->payments->sum('amount');
+        $canAddOrderPayment = $orderPaymentsTotal <= 0 || $orderPaymentsTotal < (float) $order->total_cost;
 
         return view('orders.show', [
             'order' => $order,
+            'paymentModalData' => $paymentModalData,
+            'clientOverpaymentTotal' => max(0, $clientOverpaymentTotal),
+            'canAddOrderPayment' => $canAddOrderPayment,
         ]);
     }
 
@@ -270,13 +323,14 @@ class OrderController extends Controller
                 ]);
             }
 
-            $paymentsTotal = (float) $order->payments_total;
+            $paymentsTotal = (float) $order->payments()->sum('amount');
             $order->update([
                 'customer_name' => $client->name,
                 'client_id' => $client->id,
                 'last_edited_by' => $request->user()?->id,
                 'items' => $normalizedItems,
-                'amount_due' => max(0, $totalCost - $paymentsTotal),
+                'payments_total' => $paymentsTotal,
+                'amount_due' => $totalCost - $paymentsTotal,
                 'total_cost' => $totalCost,
             ]);
 
