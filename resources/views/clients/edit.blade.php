@@ -386,11 +386,11 @@
 
                     <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
                         <div>
-                            <label for="client-payment-amount" class="block text-sm font-medium text-gray-700">Сума</label>
+                            <label for="client-payment-amount" class="block text-sm font-medium text-gray-700">Сума операції</label>
                             <input id="client-payment-amount" x-model="paymentForm.amount" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
                         </div>
                         <div>
-                            <label for="client-payment-currency" class="block text-sm font-medium text-gray-700">Валюта</label>
+                            <label for="client-payment-currency" class="block text-sm font-medium text-gray-700">Валюта операції</label>
                             <select id="client-payment-currency" x-model="paymentForm.currency" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                 <option value="UAH">грн</option>
                                 <option value="USD">USD</option>

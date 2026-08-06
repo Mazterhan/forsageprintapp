@@ -184,6 +184,8 @@ class ClientPaymentTest extends TestCase
             ->assertSee('@click="openOverpaymentPayment()"', false)
             ->assertSee('Списати з переплати')
             ->assertSee('Внесення платежу з переплати')
+            ->assertSee('Сума операції')
+            ->assertSee('Валюта операції')
             ->assertSee('x-show="!paymentForm.fromOverpayment"', false);
 
         $this->actingAs($user)
@@ -264,6 +266,8 @@ class ClientPaymentTest extends TestCase
             ->get(route('orders.show', $order))
             ->assertOk()
             ->assertSee('@click="$dispatch(\'open-order-payments\')"', false)
+            ->assertSee('Сума операції')
+            ->assertSee('Валюта операції')
             ->assertSee('Платежі замовлення ${orderNumber}', false)
             ->assertSee('Історія платежів замовлення')
             ->assertSee('type="date"', false)
