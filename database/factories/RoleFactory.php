@@ -22,6 +22,7 @@ class RoleFactory extends Factory
             'analytics_show_charts' => false,
             'analytics_show_tables' => false,
             'analytics_finance_access' => false,
+            'analytics_orders_access' => false,
             'can_orders' => false,
             'orders_calculation' => false,
             'orders_calc_save' => false,
@@ -31,7 +32,14 @@ class RoleFactory extends Factory
             'orders_list_purchase_visible' => false,
             'orders_edit' => false,
             'orders_list_edit' => false,
+            'orders_access' => false,
+            'orders_scope' => 'own',
+            'orders_update' => false,
+            'orders_payments' => false,
             'orders_clients_manage' => false,
+            'orders_clients_create' => false,
+            'orders_clients_edit' => false,
+            'orders_clients_payments' => false,
             'can_price' => false,
             'price_create_item' => false,
             'price_deactivate_item' => false,
@@ -48,6 +56,24 @@ class RoleFactory extends Factory
 
     public function withPermissions(array $permissions): static
     {
+        if (($permissions['can_analytics'] ?? false) && ! array_key_exists('analytics_orders_access', $permissions)) {
+            $permissions['analytics_orders_access'] = true;
+        }
+
+        if (($permissions['can_orders'] ?? false) && ! array_key_exists('orders_access', $permissions)) {
+            $permissions['orders_proposals'] ??= true;
+            $permissions['orders_access'] = true;
+            $permissions['orders_scope'] = $permissions['orders_scope'] ?? 'all';
+            $permissions['orders_update'] = true;
+            $permissions['orders_payments'] = true;
+        }
+
+        if (($permissions['orders_clients_manage'] ?? false)) {
+            $permissions['orders_clients_create'] ??= true;
+            $permissions['orders_clients_edit'] ??= true;
+            $permissions['orders_clients_payments'] ??= true;
+        }
+
         return $this->state(fn () => $permissions);
     }
 
@@ -59,6 +85,7 @@ class RoleFactory extends Factory
             'analytics_show_charts' => true,
             'analytics_show_tables' => true,
             'analytics_finance_access' => true,
+            'analytics_orders_access' => true,
             'can_orders' => true,
             'orders_calculation' => true,
             'orders_calc_save' => true,
@@ -68,7 +95,14 @@ class RoleFactory extends Factory
             'orders_list_purchase_visible' => true,
             'orders_edit' => true,
             'orders_list_edit' => true,
+            'orders_access' => true,
+            'orders_scope' => 'all',
+            'orders_update' => true,
+            'orders_payments' => true,
             'orders_clients_manage' => true,
+            'orders_clients_create' => true,
+            'orders_clients_edit' => true,
+            'orders_clients_payments' => true,
             'can_price' => true,
             'price_create_item' => true,
             'price_deactivate_item' => true,

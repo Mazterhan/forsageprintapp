@@ -17,6 +17,7 @@ class OrderFactory extends Factory
 
         return [
             'customer_name' => fake()->company(),
+            'created_by' => User::factory(),
             'last_edited_by' => User::factory(),
             'items' => [
                 [

@@ -182,6 +182,7 @@
                             analyticsShowCharts: @js($roleOldBool('analytics_show_charts')),
                             analyticsShowTables: @js($roleOldBool('analytics_show_tables')),
                             analyticsFinanceAccess: @js($roleOldBool('analytics_finance_access')),
+                            analyticsOrdersAccess: @js($roleOldBool('analytics_orders_access')),
                             ordersCalculation: @js($roleOldBool('orders_calculation')),
                             ordersCalcSave: @js($roleOldBool('orders_calc_save')),
                             ordersCalcPurchaseVisible: @js($roleOldBool('orders_calc_purchase_visible')),
@@ -190,7 +191,14 @@
                             ordersListPurchaseVisible: @js($roleOldBool('orders_list_purchase_visible')),
                             ordersListEdit: @js($roleOldBool('orders_list_edit')),
                             ordersEdit: @js($roleOldBool('orders_edit')),
+                            ordersAccess: @js($roleOldBool('orders_access')),
+                            ordersScopeAll: @js(old('orders_scope', $role?->orders_scope ?? 'own') === 'all'),
+                            ordersUpdate: @js($roleOldBool('orders_update')),
+                            ordersPayments: @js($roleOldBool('orders_payments')),
                             ordersClientsManage: @js($roleOldBool('orders_clients_manage')),
+                            ordersClientsCreate: @js($roleOldBool('orders_clients_create')),
+                            ordersClientsEdit: @js($roleOldBool('orders_clients_edit')),
+                            ordersClientsPayments: @js($roleOldBool('orders_clients_payments')),
                             priceCreateItem: @js($roleOldBool('price_create_item')),
                             priceDeactivateItem: @js($roleOldBool('price_deactivate_item')),
                             priceDeleteItem: @js($roleOldBool('price_delete_item')),
@@ -207,6 +215,7 @@
                                     analyticsShowCharts = false;
                                     analyticsShowTables = false;
                                     analyticsFinanceAccess = false;
+                                    analyticsOrdersAccess = false;
                                 }
                             });
                             $watch('canOrders', (v) => {
@@ -219,7 +228,14 @@
                                     ordersListPurchaseVisible = false;
                                     ordersListEdit = false;
                                     ordersEdit = false;
+                                    ordersAccess = false;
+                                    ordersScopeAll = false;
+                                    ordersUpdate = false;
+                                    ordersPayments = false;
                                     ordersClientsManage = false;
+                                    ordersClientsCreate = false;
+                                    ordersClientsEdit = false;
+                                    ordersClientsPayments = false;
                                 }
                             });
                             $watch('ordersCalculation', (v) => {
@@ -234,6 +250,24 @@
                                     ordersListPurchaseVisible = false;
                                     ordersListEdit = false;
                                     ordersEdit = false;
+                                    ordersAccess = false;
+                                    ordersScopeAll = false;
+                                    ordersUpdate = false;
+                                    ordersPayments = false;
+                                }
+                            });
+                            $watch('ordersAccess', (v) => {
+                                if (!v) {
+                                    ordersScopeAll = false;
+                                    ordersUpdate = false;
+                                    ordersPayments = false;
+                                }
+                            });
+                            $watch('ordersClientsManage', (v) => {
+                                if (!v) {
+                                    ordersClientsCreate = false;
+                                    ordersClientsEdit = false;
+                                    ordersClientsPayments = false;
                                 }
                             });
                             $watch('canPrice', (v) => {
@@ -290,38 +324,52 @@
                                     </label>
                                 </div>
                                 <div x-show="canAnalytics" x-cloak class="permission-panel space-y-3 sub-setting-level-1">
-                                    <div class="flex items-center justify-between gap-3">
-                                        <div class="text-sm text-gray-800">Відображення KPI</div>
-                                        <label class="permission-switch">
-                                            <input type="hidden" name="analytics_show_kpi" value="0">
-                                            <input type="checkbox" name="analytics_show_kpi" value="1" x-model="analyticsShowKpi">
-                                            <span class="switch-track"></span><span class="switch-knob"></span>
-                                            <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
-                                        </label>
+                                    <div class="rounded-md border border-gray-300 bg-white p-3">
+                                        <div class="mb-3 text-sm font-semibold text-gray-800">Заявки</div>
+                                        <div class="space-y-3">
+                                            <div class="flex items-center justify-between gap-3">
+                                                <div class="text-sm text-gray-800">Відображення KPI</div>
+                                                <label class="permission-switch">
+                                                    <input type="hidden" name="analytics_show_kpi" value="0">
+                                                    <input type="checkbox" name="analytics_show_kpi" value="1" x-model="analyticsShowKpi">
+                                                    <span class="switch-track"></span><span class="switch-knob"></span>
+                                                    <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                </label>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-3">
+                                                <div class="text-sm text-gray-800">Відображення графіків</div>
+                                                <label class="permission-switch">
+                                                    <input type="hidden" name="analytics_show_charts" value="0">
+                                                    <input type="checkbox" name="analytics_show_charts" value="1" x-model="analyticsShowCharts">
+                                                    <span class="switch-track"></span><span class="switch-knob"></span>
+                                                    <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                </label>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-3">
+                                                <div class="text-sm text-gray-800">Відображення таблиць</div>
+                                                <label class="permission-switch">
+                                                    <input type="hidden" name="analytics_show_tables" value="0">
+                                                    <input type="checkbox" name="analytics_show_tables" value="1" x-model="analyticsShowTables">
+                                                    <span class="switch-track"></span><span class="switch-knob"></span>
+                                                    <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                </label>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-3">
+                                                <div class="text-sm text-gray-800">Доступність фінансової аналітики</div>
+                                                <label class="permission-switch">
+                                                    <input type="hidden" name="analytics_finance_access" value="0">
+                                                    <input type="checkbox" name="analytics_finance_access" value="1" x-model="analyticsFinanceAccess">
+                                                    <span class="switch-track"></span><span class="switch-knob"></span>
+                                                    <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                </label>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="flex items-center justify-between gap-3">
-                                        <div class="text-sm text-gray-800">Відображення графіків</div>
+                                    <div class="flex items-center justify-between gap-3 rounded-md border border-gray-300 bg-white p-3" data-help="Керує видимістю вкладки «Замовлення» на сторінці аналітики та доступом до всього її вмісту.">
+                                        <div class="text-sm font-semibold text-gray-800">Замовлення</div>
                                         <label class="permission-switch">
-                                            <input type="hidden" name="analytics_show_charts" value="0">
-                                            <input type="checkbox" name="analytics_show_charts" value="1" x-model="analyticsShowCharts">
-                                            <span class="switch-track"></span><span class="switch-knob"></span>
-                                            <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
-                                        </label>
-                                    </div>
-                                    <div class="flex items-center justify-between gap-3">
-                                        <div class="text-sm text-gray-800">Відображення таблиць</div>
-                                        <label class="permission-switch">
-                                            <input type="hidden" name="analytics_show_tables" value="0">
-                                            <input type="checkbox" name="analytics_show_tables" value="1" x-model="analyticsShowTables">
-                                            <span class="switch-track"></span><span class="switch-knob"></span>
-                                            <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
-                                        </label>
-                                    </div>
-                                    <div class="flex items-center justify-between gap-3">
-                                        <div class="text-sm text-gray-800">Доступність фінансової аналітики</div>
-                                        <label class="permission-switch">
-                                            <input type="hidden" name="analytics_finance_access" value="0">
-                                            <input type="checkbox" name="analytics_finance_access" value="1" x-model="analyticsFinanceAccess">
+                                            <input type="hidden" name="analytics_orders_access" value="0">
+                                            <input type="checkbox" name="analytics_orders_access" value="1" x-model="analyticsOrdersAccess">
                                             <span class="switch-track"></span><span class="switch-knob"></span>
                                             <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
                                         </label>
@@ -425,15 +473,88 @@
                                                 </label>
                                             </div>
                                         </div>
+
+                                        <div class="border-t border-gray-200 pt-3">
+                                            <div class="flex items-center justify-between gap-3">
+                                                <div class="text-sm font-medium text-gray-800">Доступність замовлень</div>
+                                                <label class="permission-switch">
+                                                    <input type="hidden" name="orders_access" value="0">
+                                                    <input type="checkbox" name="orders_access" value="1" x-model="ordersAccess">
+                                                    <span class="switch-track"></span><span class="switch-knob"></span>
+                                                    <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                </label>
+                                            </div>
+                                            <div x-show="ordersAccess" x-cloak class="mt-3 space-y-3 sub-setting-level-2">
+                                                <div class="flex items-center justify-between gap-3">
+                                                    <div class="text-sm text-gray-800">Бачить замовлення</div>
+                                                    <div>
+                                                        <input type="hidden" name="orders_scope" :value="ordersScopeAll ? 'all' : 'own'">
+                                                        <button
+                                                            type="button"
+                                                            class="permission-button-toggle"
+                                                            @click="ordersScopeAll = !ordersScopeAll"
+                                                            x-text="ordersScopeAll ? 'Всі' : 'Свої'"
+                                                        ></button>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center justify-between gap-3">
+                                                    <div class="text-sm text-gray-800">Редагування замовлення</div>
+                                                    <label class="permission-switch">
+                                                        <input type="hidden" name="orders_update" value="0">
+                                                        <input type="checkbox" name="orders_update" value="1" x-model="ordersUpdate">
+                                                        <span class="switch-track"></span><span class="switch-knob"></span>
+                                                        <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                    </label>
+                                                </div>
+                                                <div class="flex items-center justify-between gap-3">
+                                                    <div class="text-sm text-gray-800">Платежі</div>
+                                                    <label class="permission-switch">
+                                                        <input type="hidden" name="orders_payments" value="0">
+                                                        <input type="checkbox" name="orders_payments" value="1" x-model="ordersPayments">
+                                                        <span class="switch-track"></span><span class="switch-knob"></span>
+                                                        <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="flex items-center justify-between gap-3">
-                                        <div class="text-sm text-gray-800">Керування замовниками</div>
+                                        <div class="text-sm text-gray-800">Замовники</div>
                                         <label class="permission-switch">
                                             <input type="hidden" name="orders_clients_manage" value="0">
                                             <input type="checkbox" name="orders_clients_manage" value="1" x-model="ordersClientsManage">
                                             <span class="switch-track"></span><span class="switch-knob"></span>
                                             <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
                                         </label>
+                                    </div>
+                                    <div x-show="ordersClientsManage" x-cloak class="space-y-3 sub-setting-level-2">
+                                        <div class="flex items-center justify-between gap-3">
+                                            <div class="text-sm text-gray-800">Додати</div>
+                                            <label class="permission-switch">
+                                                <input type="hidden" name="orders_clients_create" value="0">
+                                                <input type="checkbox" name="orders_clients_create" value="1" x-model="ordersClientsCreate">
+                                                <span class="switch-track"></span><span class="switch-knob"></span>
+                                                <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                            </label>
+                                        </div>
+                                        <div class="flex items-center justify-between gap-3">
+                                            <div class="text-sm text-gray-800">Редагувати</div>
+                                            <label class="permission-switch">
+                                                <input type="hidden" name="orders_clients_edit" value="0">
+                                                <input type="checkbox" name="orders_clients_edit" value="1" x-model="ordersClientsEdit">
+                                                <span class="switch-track"></span><span class="switch-knob"></span>
+                                                <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                            </label>
+                                        </div>
+                                        <div class="flex items-center justify-between gap-3">
+                                            <div class="text-sm text-gray-800">Платежі</div>
+                                            <label class="permission-switch">
+                                                <input type="hidden" name="orders_clients_payments" value="0">
+                                                <input type="checkbox" name="orders_clients_payments" value="1" x-model="ordersClientsPayments">
+                                                <span class="switch-track"></span><span class="switch-knob"></span>
+                                                <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -586,7 +707,13 @@
                 'Бачить заявки': 'Визначає область видимості заявок: лише створені/доступні цьому користувачу або всі активні заявки.',
                 'Редагування заявок': 'Дозволяє відкривати заявку для редагування з її сторінки перегляду.',
                 'Редагування списку': 'Дозволяє вмикати режим керування списком заявок, зокрема операції над вибраними заявками.',
-                'Керування замовниками': 'Дозволяє працювати зі сторінками довідника замовників.',
+                'Доступність замовлень': 'Керує видимістю кнопки створення замовлення, таблиці замовлень та доступом до карток замовлень.',
+                'Бачить замовлення': 'Визначає область видимості замовлень: усі замовлення або лише створені поточним користувачем.',
+                'Редагування замовлення': 'Дозволяє редагувати замовлення та переглядати історію його змін.',
+                'Замовники': 'Дозволяє відкривати список і картки замовників без права змінювати дані.',
+                'Додати': 'Дозволяє створювати нових замовників.',
+                'Редагувати': 'Дозволяє редагувати та деактивувати замовників.',
+                'Платежі': 'Дозволяє працювати з платежами у відповідному розділі замовлення або картки замовника.',
                 'Прайс': 'Керує доступом до розділу прайсу і всіх вкладених дій з позиціями.',
                 'Доступ до закупівельної ціни': 'Дозволяє бачити закупівельну ціну, націнку та пов’язані фінансові поля у прайсі.',
                 'Доступ до картки існуючої позиції': 'Дозволяє відкривати детальну картку позиції прайсу.',
@@ -604,7 +731,7 @@
             rows.forEach((row) => {
                 const label = row.querySelector(':scope > div:first-child');
                 const text = label ? label.textContent.trim() : '';
-                const description = descriptions[text];
+                const description = row.dataset.help || descriptions[text];
                 if (!description) {
                     return;
                 }

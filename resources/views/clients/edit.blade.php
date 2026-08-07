@@ -3,6 +3,10 @@
 
     @php
         $readOnly = $readOnly ?? false;
+        $clientPermissions = $clientPermissions ?? [];
+        $canEditClient = (bool) ($clientPermissions['edit'] ?? false);
+        $canManageClientPayments = (bool) ($clientPermissions['payments'] ?? false);
+        $canAccessClientOrders = (bool) ($clientPermissions['orders'] ?? false);
         $clientOverpaymentTotal = (float) $client->payments
             ->where('payment_type', 'prepayment')
             ->sum('amount_uah') - (float) $client->payments
@@ -14,7 +18,14 @@
             'contacts' => ['contact_name', 'phones', 'emails', 'messengers', 'source'],
             'delivery' => ['delivery_address', 'delivery_notes', 'delivery_addresses'],
         ];
-        $allowedSections = ['main', 'orders', 'payments', 'contacts', 'delivery', 'service'];
+        $allowedSections = array_values(array_filter([
+            'main',
+            $canAccessClientOrders ? 'orders' : null,
+            $canManageClientPayments ? 'payments' : null,
+            'contacts',
+            'delivery',
+            'service',
+        ]));
         $initialSection = in_array($requestedSection ?? null, $allowedSections, true)
             ? $requestedSection
             : 'main';
@@ -24,14 +35,14 @@
                 break;
             }
         }
-        $menuItems = [
+        $menuItems = array_values(array_filter([
             ['key' => 'main', 'label' => 'Основні дані'],
-            ['key' => 'orders', 'label' => 'Замовлення'],
-            ['key' => 'payments', 'label' => 'Платежі'],
+            $canAccessClientOrders ? ['key' => 'orders', 'label' => 'Замовлення'] : null,
+            $canManageClientPayments ? ['key' => 'payments', 'label' => 'Платежі'] : null,
             ['key' => 'contacts', 'label' => 'Контакти'],
             ['key' => 'delivery', 'label' => 'Доставка'],
             ['key' => 'service', 'label' => 'Службові поля'],
-        ];
+        ]));
         $formatOrderMoney = static function ($value): string {
             $formatted = number_format((float) $value, 2, '.', ' ');
             return preg_replace('/\.0+$/', '', $formatted) ?? $formatted;
@@ -70,12 +81,13 @@
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                     {{ __('Картка клієнта. :name', ['name' => $client->name]) }}
                 </h2>
-                @if($clientOverpaymentTotal > 0)
+                @if($canManageClientPayments && $clientOverpaymentTotal > 0)
                     <div data-client-overpayment-total class="mt-1 text-sm font-semibold text-blue-700">
                         Переплата: {{ $formatOrderMoney($clientOverpaymentTotal) }}
                     </div>
                 @endif
             </div>
+            @if($canEditClient)
             <div class="flex flex-wrap items-center justify-end gap-3">
                 @if($readOnly)
                     <a
@@ -97,6 +109,7 @@
                     </button>
                 </form>
             </div>
+            @endif
         </div>
     </x-slot>
 
@@ -131,9 +144,9 @@
         <div
             x-data="clientCard({
                 initialSection: @js($initialSection),
-                paymentStoreUrl: @js(route('orders.clients.payments.store', $client)),
-                paymentOrdersUrl: @js(route('orders.clients.payments.orders', $client)),
-                ratesUrl: @js(route('orders.payments.exchange-rates')),
+                paymentStoreUrl: @js($canManageClientPayments ? route('orders.clients.payments.store', $client) : ''),
+                paymentOrdersUrl: @js($canManageClientPayments ? route('orders.clients.payments.orders', $client) : ''),
+                ratesUrl: @js($canManageClientPayments ? route('orders.payments.exchange-rates') : ''),
                 today: @js(now('Europe/Kiev')->format('Y-m-d')),
                 currentTime: @js(now('Europe/Kiev')->format('H:i')),
                 overpaymentTotal: @js((int) $clientOverpaymentTotal),
@@ -184,6 +197,7 @@
                                 @include('clients.partials.form', ['client' => $client, 'sectioned' => true])
                             </fieldset>
 
+                            @if($canManageClientPayments)
                             <div
                                 x-show="activeSection === 'payments'"
                                 x-cloak
@@ -291,7 +305,9 @@
                                     </table>
                                 </div>
                             </div>
+                            @endif
 
+                            @if($canAccessClientOrders)
                             <div
                                 x-show="activeSection === 'orders'"
                                 x-cloak
@@ -356,6 +372,7 @@
                                 </div>
                                 <div class="mt-4">{{ $clientOrders->links() }}</div>
                             </div>
+                            @endif
 
                             @unless($readOnly)
                                 <div
@@ -373,6 +390,7 @@
                 </div>
             </div>
 
+            @if($canManageClientPayments)
             <div
                 x-show="showPaymentModal"
                 x-cloak
@@ -548,6 +566,7 @@
 
                 </div>
             </div>
+            @endif
         </div>
     </div>
 

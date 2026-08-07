@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\ClientPayment;
 use App\Models\Order;
+use App\Services\PermissionService;
 use App\Services\PrivatBankExchangeRateService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -16,8 +17,14 @@ use RuntimeException;
 
 class ClientPaymentController extends Controller
 {
-    public function rates(PrivatBankExchangeRateService $exchangeRates): JsonResponse
+    public function rates(Request $request, PrivatBankExchangeRateService $exchangeRates, PermissionService $permissions): JsonResponse
     {
+        abort_unless(
+            $permissions->can($request->user(), 'orders_payments')
+            || $permissions->can($request->user(), 'orders_clients_payments'),
+            403
+        );
+
         try {
             $payload = $exchangeRates->currentSaleRates();
         } catch (RuntimeException $exception) {
@@ -33,8 +40,10 @@ class ClientPaymentController extends Controller
         ]);
     }
 
-    public function orders(Client $client): JsonResponse
+    public function orders(Request $request, Client $client, PermissionService $permissions): JsonResponse
     {
+        abort_unless($permissions->can($request->user(), 'orders_clients_payments'), 403);
+
         $paymentTotals = DB::table('client_payments')
             ->selectRaw('order_id, SUM(amount_uah) as total')
             ->whereNotNull('order_id')
@@ -71,9 +80,16 @@ class ClientPaymentController extends Controller
         ]);
     }
 
-    public function store(Request $request, Client $client, PrivatBankExchangeRateService $exchangeRates): JsonResponse
+    public function store(
+        Request $request,
+        Client $client,
+        PrivatBankExchangeRateService $exchangeRates,
+        PermissionService $permissions
+    ): JsonResponse
     {
+        $this->authorizePaymentContext($request, $permissions);
         [$data, $order] = $this->validatedPaymentData($request, $client, $exchangeRates);
+        $this->authorizeOrderContextScope($request, $permissions, $order);
 
         $payment = DB::transaction(function () use ($request, $client, $data, $order): ClientPayment {
             $this->ensureValidOverpaymentBalance($client, $data);
@@ -100,13 +116,26 @@ class ClientPaymentController extends Controller
         ]);
     }
 
-    public function update(Request $request, Client $client, ClientPayment $clientPayment, PrivatBankExchangeRateService $exchangeRates): JsonResponse
+    public function update(
+        Request $request,
+        Client $client,
+        ClientPayment $clientPayment,
+        PrivatBankExchangeRateService $exchangeRates,
+        PermissionService $permissions
+    ): JsonResponse
     {
+        $this->authorizePaymentContext($request, $permissions);
         abort_unless((int) $clientPayment->client_id === (int) $client->id, 404);
+
+        if ($request->input('return_context') === 'order') {
+            abort_unless($clientPayment->order_id !== null, 403);
+            $this->authorizeOrderContextScope($request, $permissions, $clientPayment->order);
+        }
 
         $clientPayment->loadMissing('order');
         $previousOrder = $clientPayment->order;
         [$data, $order] = $this->validatedPaymentData($request, $client, $exchangeRates, $clientPayment);
+        $this->authorizeOrderContextScope($request, $permissions, $order);
         $data['is_from_overpayment'] = $clientPayment->is_from_overpayment;
         if ($data['is_from_overpayment'] && ! in_array($data['payment_type'], ['order', 'writeoff'], true)) {
             throw ValidationException::withMessages([
@@ -187,6 +216,31 @@ class ClientPaymentController extends Controller
         ]);
     }
 
+    private function authorizePaymentContext(Request $request, PermissionService $permissions): void
+    {
+        $permission = $request->input('return_context') === 'order'
+            ? 'orders_payments'
+            : 'orders_clients_payments';
+
+        abort_unless($permissions->can($request->user(), $permission), 403);
+    }
+
+    private function authorizeOrderContextScope(
+        Request $request,
+        PermissionService $permissions,
+        ?Order $order
+    ): void {
+        if ($request->input('return_context') !== 'order' || ! $order) {
+            return;
+        }
+
+        abort_unless($permissions->can($request->user(), 'orders_access'), 403);
+
+        if ($permissions->orderScope($request->user()) === 'own') {
+            abort_unless((int) $order->created_by === (int) $request->user()?->id, 403);
+        }
+    }
+
     /**
      * @return array{0: array<string, mixed>, 1: ?Order}
      */
@@ -209,6 +263,12 @@ class ClientPaymentController extends Controller
             'comment' => ['nullable', 'string', 'max:2000'],
             'return_context' => ['nullable', 'string', 'in:client,order'],
         ]);
+
+        if (($validated['return_context'] ?? null) === 'order' && $validated['payment_type'] !== 'order') {
+            throw ValidationException::withMessages([
+                'payment_type' => 'У картці замовлення можна керувати лише платежами, прив’язаними до цього замовлення.',
+            ]);
+        }
 
         $order = null;
         if ($validated['payment_type'] === 'order') {

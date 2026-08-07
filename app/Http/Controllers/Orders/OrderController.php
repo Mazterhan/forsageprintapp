@@ -22,6 +22,7 @@ class OrderController extends Controller
 {
     public function index(Request $request, PermissionService $permissions)
     {
+        $canAccessOrders = $permissions->can($request->user(), 'orders_access');
         $sort = (string) $request->query('sort', 'date');
         $direction = strtolower((string) $request->query('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
         $perPageRaw = strtolower((string) $request->query('per_page', '20'));
@@ -48,6 +49,12 @@ class OrderController extends Controller
             ->select('orders.*')
             ->addSelect(DB::raw('COALESCE(order_payment_totals.total, 0) as linked_payments_total'))
             ->with('lastEditedBy:id,name');
+
+        if (! $canAccessOrders) {
+            $query->whereRaw('1 = 0');
+        } elseif ($permissions->orderScope($request->user()) === 'own') {
+            $query->where('orders.created_by', $request->user()?->id);
+        }
 
         if ($sort === 'date') {
             $query->orderBy('orders.updated_at', $direction);
@@ -80,13 +87,16 @@ class OrderController extends Controller
             'ordersPermissions' => [
                 'calculation' => $permissions->can($request->user(), 'orders_calculation'),
                 'proposals' => $permissions->can($request->user(), 'orders_proposals'),
+                'access' => $canAccessOrders,
                 'clients' => $permissions->can($request->user(), 'orders_clients_manage'),
             ],
         ]);
     }
 
-    public function create()
+    public function create(Request $request, PermissionService $permissions)
     {
+        abort_unless($permissions->can($request->user(), 'orders_access'), 403);
+
         $clients = Client::query()
             ->where('status', 'active')
             ->orderBy('name')
@@ -97,8 +107,10 @@ class OrderController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, PermissionService $permissions): JsonResponse
     {
+        abort_unless($permissions->can($request->user(), 'orders_access'), 403);
+
         $data = $request->validate([
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'customer_name' => ['required', 'string', 'max:255'],
@@ -163,6 +175,7 @@ class OrderController extends Controller
             $order = Order::query()->create([
                 'customer_name' => $client->name,
                 'client_id' => $client->id,
+                'created_by' => $request->user()?->id,
                 'last_edited_by' => $request->user()?->id,
                 'items' => $normalizedItems,
                 'payments_total' => 0,
@@ -186,17 +199,26 @@ class OrderController extends Controller
         ]);
     }
 
-    public function show(Order $order)
+    public function show(Request $request, Order $order, PermissionService $permissions)
     {
+        $this->authorizeOrderAccess($request, $permissions, $order);
+        $canUpdateOrder = $permissions->can($request->user(), 'orders_update');
+        $canManageOrderPayments = $permissions->can($request->user(), 'orders_payments');
+
         $order->load([
             'client:id,public_id,name',
             'lastEditedBy:id,name',
-            'payments' => fn ($query) => $query->latest('paid_at'),
-            'payments.createdBy:id,name',
-            'payments.histories.user:id,name',
         ]);
 
-        $paymentModalData = $order->payments->map(function ($payment) use ($order): array {
+        if ($canManageOrderPayments) {
+            $order->load([
+                'payments' => fn ($query) => $query->latest('paid_at'),
+                'payments.createdBy:id,name',
+                'payments.histories.user:id,name',
+            ]);
+        }
+
+        $paymentModalData = $canManageOrderPayments ? $order->payments->map(function ($payment) use ($order): array {
             return [
                 'id' => $payment->public_id,
                 'amount' => $payment->amount,
@@ -218,8 +240,8 @@ class OrderController extends Controller
                     'changes' => $history->changes,
                 ])->values()->all(),
             ];
-        })->values();
-        $clientOverpaymentTotal = $order->client_id
+        })->values() : collect();
+        $clientOverpaymentTotal = $canManageOrderPayments && $order->client_id
             ? (int) ClientPayment::query()
                 ->where('client_id', $order->client_id)
                 ->where('payment_type', 'prepayment')
@@ -229,19 +251,27 @@ class OrderController extends Controller
                     ->where('is_from_overpayment', true)
                     ->sum('amount_uah')
             : 0;
-        $orderPaymentsTotal = (float) $order->payments->sum('amount_uah');
+        $orderPaymentsTotal = (float) $order->payments()->sum('amount_uah');
         $canAddOrderPayment = $orderPaymentsTotal <= 0 || $orderPaymentsTotal < (float) $order->total_cost;
 
         return view('orders.show', [
             'order' => $order,
             'paymentModalData' => $paymentModalData,
             'clientOverpaymentTotal' => max(0, $clientOverpaymentTotal),
+            'orderPaymentsTotal' => $orderPaymentsTotal,
             'canAddOrderPayment' => $canAddOrderPayment,
+            'orderPermissions' => [
+                'update' => $canUpdateOrder,
+                'payments' => $canManageOrderPayments,
+            ],
         ]);
     }
 
-    public function history(Order $order): JsonResponse
+    public function history(Request $request, Order $order, PermissionService $permissions): JsonResponse
     {
+        $this->authorizeOrderAccess($request, $permissions, $order);
+        abort_unless($permissions->can($request->user(), 'orders_update'), 403);
+
         $histories = $order->histories()
             ->with('user:id,name')
             ->orderByDesc('created_at')
@@ -257,8 +287,11 @@ class OrderController extends Controller
         ]);
     }
 
-    public function edit(Order $order)
+    public function edit(Request $request, Order $order, PermissionService $permissions)
     {
+        $this->authorizeOrderAccess($request, $permissions, $order);
+        abort_unless($permissions->can($request->user(), 'orders_update'), 403);
+
         $order->ensureItemIds();
 
         $clients = Client::query()
@@ -278,8 +311,11 @@ class OrderController extends Controller
         ]);
     }
 
-    public function update(Request $request, Order $order): JsonResponse
+    public function update(Request $request, Order $order, PermissionService $permissions): JsonResponse
     {
+        $this->authorizeOrderAccess($request, $permissions, $order);
+        abort_unless($permissions->can($request->user(), 'orders_update'), 403);
+
         $order->ensureItemIds();
 
         $data = $request->validate([
@@ -368,6 +404,15 @@ class OrderController extends Controller
             'order_number' => $order->order_number,
             'redirect_url' => route('orders.show', $order),
         ]);
+    }
+
+    private function authorizeOrderAccess(Request $request, PermissionService $permissions, Order $order): void
+    {
+        abort_unless($permissions->can($request->user(), 'orders_access'), 403);
+
+        if ($permissions->orderScope($request->user()) === 'own') {
+            abort_unless((int) $order->created_by === (int) $request->user()?->id, 403);
+        }
     }
 
     private function findClientByName(string $name, bool $lockForUpdate = false): ?Client

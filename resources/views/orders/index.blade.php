@@ -50,9 +50,11 @@
                         {{ __('Збережені заявки') }}
                     </a>
                 @endif
-                <a href="{{ route('orders.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                    {{ __('Створити замовлення') }}
-                </a>
+                @if($ordersPermissions['access'] ?? false)
+                    <a href="{{ route('orders.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                        {{ __('Створити замовлення') }}
+                    </a>
+                @endif
             </div>
             <div class="flex items-center gap-2">
                 @if($ordersPermissions['clients'] ?? false)
@@ -91,6 +93,7 @@
         }
     </style>
 
+    @if($ordersPermissions['access'] ?? false)
     <div class="py-12">
         <div class="max-w-[1700px] mx-auto px-6 sm:px-8 lg:px-12">
             <div class="mb-4 flex items-center gap-2">
@@ -173,6 +176,7 @@
             </div>
         </div>
     </div>
+    @endif
 
     <script>
         window.changeOrdersPerPage = function (value) {

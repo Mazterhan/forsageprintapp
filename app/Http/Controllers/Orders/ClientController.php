@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateClientRequest;
 use App\Models\Client;
 use App\Models\OrderProposal;
 use App\Models\User;
+use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
@@ -16,8 +17,11 @@ use Illuminate\Support\Str;
 
 class ClientController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, PermissionService $permissions)
     {
+        $user = $request->user();
+        $canAccessOrders = $permissions->can($user, 'orders_access');
+        $orderScope = $permissions->orderScope($user);
         $sort = (string) $request->query('sort', 'name');
         $direction = strtolower((string) $request->query('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
         $sortMap = [
@@ -44,6 +48,12 @@ class ClientController extends Controller
             ->selectRaw('SUM(CASE WHEN COALESCE(client_order_payment_totals.total, 0) > 0 AND COALESCE(client_order_payment_totals.total, 0) < orders.total_cost THEN 1 ELSE 0 END) as partially_paid_orders_count')
             ->selectRaw('SUM(CASE WHEN COALESCE(client_order_payment_totals.total, 0) > 0 AND COALESCE(client_order_payment_totals.total, 0) = orders.total_cost THEN 1 ELSE 0 END) as fully_paid_orders_count')
             ->selectRaw('SUM(CASE WHEN COALESCE(client_order_payment_totals.total, 0) > orders.total_cost THEN 1 ELSE 0 END) as overpaid_orders_count');
+
+        if (! $canAccessOrders) {
+            $orderStats->whereRaw('1 = 0');
+        } elseif ($orderScope === 'own') {
+            $orderStats->where('orders.created_by', $user?->id);
+        }
 
         $query = Client::query()
             ->leftJoin('users as client_managers', 'client_managers.id', '=', 'clients.manager_id')
@@ -125,6 +135,9 @@ class ClientController extends Controller
                 'vip' => $vip ?? '',
                 'manager_id' => $managerId ?? '',
             ],
+            'clientPermissions' => [
+                'create' => $permissions->can($user, 'orders_clients_create'),
+            ],
         ]);
     }
 
@@ -161,28 +174,42 @@ class ClientController extends Controller
         return redirect()->route('orders.clients.edit', $client)->with('status', 'Замовника створено.');
     }
 
-    public function show(Request $request, Client $client)
+    public function show(Request $request, Client $client, PermissionService $permissions)
     {
-        return $this->renderCard($request, $client, true);
+        return $this->renderCard($request, $client, true, $permissions);
     }
 
-    public function edit(Request $request, Client $client)
+    public function edit(Request $request, Client $client, PermissionService $permissions)
     {
-        return $this->renderCard($request, $client, false);
+        return $this->renderCard($request, $client, false, $permissions);
     }
 
-    private function renderCard(Request $request, Client $client, bool $readOnly)
+    private function renderCard(Request $request, Client $client, bool $readOnly, PermissionService $permissions)
     {
+        $user = $request->user();
+        $clientPermissions = [
+            'edit' => $permissions->can($user, 'orders_clients_edit'),
+            'payments' => $permissions->can($user, 'orders_clients_payments'),
+            'orders' => $permissions->can($user, 'orders_access'),
+        ];
+
         $client->load([
             'manager',
             'createdBy',
             'updatedBy',
-            'payments' => fn ($query) => $query->latest('paid_at'),
-            'payments.order:id,public_id,order_number,amount_due',
-            'payments.createdBy:id,name',
-            'payments.updatedBy:id,name',
-            'payments.histories.user:id,name',
         ]);
+
+        if ($clientPermissions['payments']) {
+            $client->load([
+                'payments' => fn ($query) => $query->latest('paid_at'),
+                'payments.order:id,public_id,order_number,amount_due',
+                'payments.createdBy:id,name',
+                'payments.updatedBy:id,name',
+                'payments.histories.user:id,name',
+            ]);
+        } else {
+            $client->setRelation('payments', collect());
+        }
 
         $managers = User::query()
             ->where('is_active', true)
@@ -239,6 +266,12 @@ class ClientController extends Controller
             ->addSelect(DB::raw('COALESCE(card_order_payment_totals.total, 0) as linked_payments_total'))
             ->with('lastEditedBy:id,name');
 
+        if (! $clientPermissions['orders']) {
+            $clientOrdersQuery->whereRaw('1 = 0');
+        } elseif ($permissions->orderScope($user) === 'own') {
+            $clientOrdersQuery->where('orders.created_by', $user?->id);
+        }
+
         if ($orderSort === 'date') {
             $clientOrdersQuery->orderBy('orders.updated_at', $orderDirection);
         } elseif ($orderSort === 'payment') {
@@ -269,6 +302,7 @@ class ClientController extends Controller
             'clientOrders' => $clientOrders,
             'orderSort' => $orderSort,
             'orderDirection' => $orderDirection,
+            'clientPermissions' => $clientPermissions,
         ]);
     }
 

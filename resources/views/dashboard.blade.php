@@ -2,7 +2,7 @@
     @section('title', __('Аналітика'))
 
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Аналітика</h2>
+        @include('dashboard.partials.header-tabs', ['activeTab' => $activeTab ?? 'proposals'])
     </x-slot>
 
     @php
@@ -387,6 +387,7 @@
             <div class="dashboard-shell">
                 <aside class="dashboard-filters dashboard-panel bg-white border border-gray-200 rounded-lg shadow-sm p-4 h-fit">
                     <form method="GET" action="{{ route('dashboard') }}" class="space-y-4">
+                        <input type="hidden" name="tab" value="proposals">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Період</label>
                             <select id="dashboardPeriodSelect" name="period" class="w-full border-gray-300 rounded-md shadow-sm text-sm">
@@ -451,7 +452,7 @@
                             <button type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm font-semibold text-white hover:bg-gray-700">
                                 Застосувати
                             </button>
-                            <a href="{{ route('dashboard') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                            <a href="{{ route('dashboard', ['tab' => 'proposals']) }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
                                 Скинути
                             </a>
                         </div>

@@ -10,7 +10,10 @@
         $formatOrderDate = static fn ($date): string => $date
             ? $date->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i')
             : '—';
-        $orderPaymentsTotal = (float) $order->payments->sum('amount_uah');
+        $orderPermissions = $orderPermissions ?? [];
+        $canUpdateOrder = (bool) ($orderPermissions['update'] ?? false);
+        $canManageOrderPayments = (bool) ($orderPermissions['payments'] ?? false);
+        $orderPaymentsTotal = (float) ($orderPaymentsTotal ?? 0);
         $orderTotalCost = (float) $order->total_cost;
         $orderAmountDue = $orderTotalCost - $orderPaymentsTotal;
         if ($orderPaymentsTotal <= 0) {
@@ -44,9 +47,11 @@
                             {{ __('Замовлення :number', ['number' => $order->order_number]) }}
                         </h2>
                     </div>
-                    <a href="{{ route('orders.edit', $order) }}" class="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
-                        Редагувати
-                    </a>
+                    @if($canUpdateOrder)
+                        <a href="{{ route('orders.edit', $order) }}" class="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                            Редагувати
+                        </a>
+                    @endif
                 </div>
             </div>
 
@@ -62,16 +67,18 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6M8 15h8M8 18h5" />
                     </svg>
                 </button>
-                <button
-                    x-data
-                    type="button"
-                    @click="$dispatch('open-order-payments')"
-                    @disabled(! $order->client_id)
-                    title="{{ $order->client_id ? 'Відкрити платежі замовлення' : 'Для замовлення не вказано клієнта' }}"
-                    class="inline-flex h-[38px] items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                    Платежі
-                </button>
+                @if($canManageOrderPayments)
+                    <button
+                        x-data
+                        type="button"
+                        @click="$dispatch('open-order-payments')"
+                        @disabled(! $order->client_id)
+                        title="{{ $order->client_id ? 'Відкрити платежі замовлення' : 'Для замовлення не вказано клієнта' }}"
+                        class="inline-flex h-[38px] items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        Платежі
+                    </button>
+                @endif
             </div>
         </div>
     </x-slot>
@@ -79,9 +86,9 @@
     <div class="py-8">
         <div
             x-data="orderPaymentPopup({
-                storeUrl: @js($order->client ? route('orders.clients.payments.store', $order->client) : ''),
-                ratesUrl: @js(route('orders.payments.exchange-rates')),
-                historyUrl: @js(route('orders.history', $order)),
+                storeUrl: @js($canManageOrderPayments && $order->client ? route('orders.clients.payments.store', $order->client) : ''),
+                ratesUrl: @js($canManageOrderPayments ? route('orders.payments.exchange-rates') : ''),
+                historyUrl: @js($canUpdateOrder ? route('orders.history', $order) : ''),
                 orderPublicId: @js($order->public_id),
                 orderNumber: @js($order->order_number),
                 today: @js(now('Europe/Kiev')->format('Y-m-d')),
@@ -154,6 +161,7 @@
                 @endif
             </div>
 
+            @if($canUpdateOrder)
             <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                 <button
                     type="button"
@@ -181,7 +189,9 @@
                     <div x-show="historyLoaded && !historyLoading && !historyError" x-html="historyHtml"></div>
                 </div>
             </div>
+            @endif
 
+            @if($canManageOrderPayments)
             <div x-show="showModal" x-cloak class="fixed inset-0 z-[14000] !mt-0 flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/50" @click="closeModal()"></div>
                 <div class="relative max-h-[94vh] w-[1100px] max-w-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-6 shadow-2xl">
@@ -329,6 +339,7 @@
                     </div>
                 </div>
             </div>
+            @endif
         </div>
     </div>
 

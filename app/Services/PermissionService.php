@@ -13,6 +13,7 @@ class PermissionService
         'analytics_show_charts' => 'analytics_show_charts',
         'analytics_show_tables' => 'analytics_show_tables',
         'analytics_finance_access' => 'analytics_finance_access',
+        'analytics_orders_access' => 'analytics_orders_access',
         'orders' => 'can_orders',
         'orders_calculation' => 'orders_calculation',
         'orders_calc_save' => 'orders_calc_save',
@@ -21,7 +22,13 @@ class PermissionService
         'orders_list_purchase_visible' => 'orders_list_purchase_visible',
         'orders_edit' => 'orders_edit',
         'orders_list_edit' => 'orders_list_edit',
+        'orders_access' => 'orders_access',
+        'orders_update' => 'orders_update',
+        'orders_payments' => 'orders_payments',
         'orders_clients_manage' => 'orders_clients_manage',
+        'orders_clients_create' => 'orders_clients_create',
+        'orders_clients_edit' => 'orders_clients_edit',
+        'orders_clients_payments' => 'orders_clients_payments',
         'price' => 'can_price',
         'price_create_item' => 'price_create_item',
         'price_deactivate_item' => 'price_deactivate_item',
@@ -40,6 +47,7 @@ class PermissionService
         'analytics_show_charts' => ['analytics'],
         'analytics_show_tables' => ['analytics'],
         'analytics_finance_access' => ['analytics'],
+        'analytics_orders_access' => ['analytics'],
         'orders_calculation' => ['orders'],
         'orders_calc_save' => ['orders_calculation'],
         'orders_calc_purchase_visible' => ['orders_calculation'],
@@ -47,7 +55,13 @@ class PermissionService
         'orders_list_purchase_visible' => ['orders_proposals'],
         'orders_edit' => ['orders_proposals'],
         'orders_list_edit' => ['orders_proposals'],
+        'orders_access' => ['orders_proposals'],
+        'orders_update' => ['orders_access'],
+        'orders_payments' => ['orders_access'],
         'orders_clients_manage' => ['orders'],
+        'orders_clients_create' => ['orders_clients_manage'],
+        'orders_clients_edit' => ['orders_clients_manage'],
+        'orders_clients_payments' => ['orders_clients_manage'],
         'price_create_item' => ['price'],
         'price_deactivate_item' => ['price'],
         'price_delete_item' => ['price'],
@@ -111,6 +125,24 @@ class PermissionService
         }
 
         return (string) ($role->orders_list_scope ?? 'own') === 'all' ? 'all' : 'own';
+    }
+
+    public function orderScope(?User $user): string
+    {
+        if (! $user) {
+            return 'own';
+        }
+
+        if ($this->isAdmin($user)) {
+            return 'all';
+        }
+
+        $role = $this->roleFor($user);
+        if (! $role || ! $this->can($user, 'orders_access')) {
+            return 'own';
+        }
+
+        return (string) ($role->orders_scope ?? 'own') === 'all' ? 'all' : 'own';
     }
 
     private function roleFor(User $user): ?Role

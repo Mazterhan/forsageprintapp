@@ -110,16 +110,34 @@ Route::middleware(['auth', 'permission:orders|orders_clients_manage'])
     ->name('orders.')
     ->group(function () {
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
+        Route::get('/clients/{client}', [ClientController::class, 'show'])->whereUuid('client')->name('clients.show');
+    });
+
+Route::middleware(['auth', 'permission:orders|orders_clients_create'])
+    ->prefix('orders')
+    ->name('orders.')
+    ->group(function () {
         Route::get('/clients/create', [ClientController::class, 'create'])->name('clients.create');
         Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
+    });
+
+Route::middleware(['auth', 'permission:orders|orders_clients_edit'])
+    ->prefix('orders')
+    ->name('orders.')
+    ->group(function () {
+        Route::get('/clients/{client}/edit', [ClientController::class, 'edit'])->whereUuid('client')->name('clients.edit');
+        Route::patch('/clients/{client}', [ClientController::class, 'update'])->whereUuid('client')->name('clients.update');
+        Route::patch('/clients/{client}/deactivate', [ClientController::class, 'deactivate'])->whereUuid('client')->name('clients.deactivate');
+    });
+
+Route::middleware(['auth', 'permission:orders'])
+    ->prefix('orders')
+    ->name('orders.')
+    ->group(function () {
         Route::get('/payments/exchange-rates', [ClientPaymentController::class, 'rates'])->name('payments.exchange-rates');
-        Route::get('/clients/{client}/payments/orders', [ClientPaymentController::class, 'orders'])->name('clients.payments.orders');
-        Route::post('/clients/{client}/payments', [ClientPaymentController::class, 'store'])->name('clients.payments.store');
-        Route::patch('/clients/{client}/payments/{clientPayment}', [ClientPaymentController::class, 'update'])->name('clients.payments.update');
-        Route::get('/clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
-        Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
-        Route::patch('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
-        Route::patch('/clients/{client}/deactivate', [ClientController::class, 'deactivate'])->name('clients.deactivate');
+        Route::get('/clients/{client}/payments/orders', [ClientPaymentController::class, 'orders'])->whereUuid('client')->name('clients.payments.orders');
+        Route::post('/clients/{client}/payments', [ClientPaymentController::class, 'store'])->whereUuid('client')->name('clients.payments.store');
+        Route::patch('/clients/{client}/payments/{clientPayment}', [ClientPaymentController::class, 'update'])->whereUuid(['client', 'clientPayment'])->name('clients.payments.update');
     });
 
 Route::middleware(['auth', 'permission:price'])

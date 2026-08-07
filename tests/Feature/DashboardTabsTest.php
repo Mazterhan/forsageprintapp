@@ -1,0 +1,159 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Client;
+use App\Models\ClientPayment;
+use App\Models\Order;
+use App\Models\OrderProposal;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\CreatesRoles;
+use Tests\TestCase;
+
+class DashboardTabsTest extends TestCase
+{
+    use CreatesRoles;
+    use RefreshDatabase;
+
+    public function test_dashboard_defaults_to_proposals_tab_and_keeps_its_filters_scoped(): void
+    {
+        $user = $this->analyticsUser();
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Аналітика')
+            ->assertSee('Заявки')
+            ->assertSee('Замовлення')
+            ->assertSee('value="proposals"', false)
+            ->assertSee('aria-selected="true"', false)
+            ->assertSee('<input type="hidden" name="tab" value="proposals">', false)
+            ->assertSee(route('dashboard', ['tab' => 'proposals']), false)
+            ->assertSee('Кількість заявок');
+    }
+
+    public function test_orders_tab_calculates_live_payment_statuses_without_rendering_proposals(): void
+    {
+        $user = $this->analyticsUser();
+        $client = Client::factory()->create(['name' => 'Клієнт аналітики']);
+        $otherClient = Client::factory()->create(['name' => 'Інший клієнт']);
+        $orders = collect(range(0, 3))->map(fn (int $index): Order => Order::factory()->create([
+            'client_id' => $index === 0 ? $otherClient->id : $client->id,
+            'customer_name' => $index === 0 ? $otherClient->name : $client->name,
+            'last_edited_by' => $user->id,
+            'total_cost' => 1000,
+            'amount_due' => 1000,
+        ]));
+
+        foreach ([1 => 200, 2 => 1000, 3 => 1200] as $orderIndex => $amount) {
+            ClientPayment::query()->create([
+                'client_id' => $client->id,
+                'order_id' => $orders[$orderIndex]->id,
+                'amount' => $amount,
+                'amount_uah' => $amount,
+                'currency' => 'UAH',
+                'payment_type' => 'order',
+                'paid_at' => now(),
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+            ]);
+        }
+
+        $proposal = OrderProposal::factory()->forUser($user)->create([
+            'proposal_number' => 'P-HIDDEN-IN-ORDERS',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->get(route('dashboard', ['tab' => 'orders', 'period' => 'all']));
+
+        $response
+            ->assertOk()
+            ->assertSee('<input type="hidden" name="tab" value="orders">', false)
+            ->assertSee('Кількість замовлень')
+            ->assertSee('Вартість замовлень (грн)')
+            ->assertSee('4 000.00')
+            ->assertSee('2 400.00')
+            ->assertSee('1 600.00')
+            ->assertSee('Не сплачено')
+            ->assertSee('Частково сплачено')
+            ->assertSee('Сплачено')
+            ->assertSee('Є переплата')
+            ->assertSee('Зведення за статусами оплати')
+            ->assertSee('Замовлення у вибраному періоді')
+            ->assertDontSee($proposal->proposal_number);
+
+        foreach ($orders as $order) {
+            $response->assertSee($order->order_number);
+        }
+    }
+
+    public function test_orders_tab_client_filter_does_not_reuse_proposal_tab_state(): void
+    {
+        $user = $this->analyticsUser();
+        $firstClient = Client::factory()->create(['name' => 'Перший клієнт']);
+        $secondClient = Client::factory()->create(['name' => 'Другий клієнт']);
+        $firstOrder = Order::factory()->create([
+            'client_id' => $firstClient->id,
+            'customer_name' => $firstClient->name,
+            'last_edited_by' => $user->id,
+        ]);
+        $secondOrder = Order::factory()->create([
+            'client_id' => $secondClient->id,
+            'customer_name' => $secondClient->name,
+            'last_edited_by' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('dashboard', [
+                'tab' => 'orders',
+                'period' => 'all',
+                'client_id' => [$firstClient->id],
+            ]))
+            ->assertOk()
+            ->assertSee($firstOrder->order_number)
+            ->assertDontSee($secondOrder->order_number)
+            ->assertSee(route('dashboard', ['tab' => 'orders']), false);
+
+        $this->actingAs($user)
+            ->get(route('dashboard', ['tab' => 'unsupported']))
+            ->assertOk()
+            ->assertSee('Кількість заявок')
+            ->assertDontSee('Кількість замовлень');
+    }
+
+    public function test_orders_analytics_tab_and_its_content_require_a_separate_permission(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_analytics' => true,
+            'analytics_show_kpi' => true,
+            'analytics_show_charts' => true,
+            'analytics_show_tables' => true,
+            'analytics_finance_access' => true,
+            'analytics_orders_access' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Заявки')
+            ->assertDontSee('value="orders"', false);
+
+        $this->actingAs($user)
+            ->get(route('dashboard', ['tab' => 'orders']))
+            ->assertForbidden();
+    }
+
+    private function analyticsUser()
+    {
+        return $this->createUserWithRole([
+            'can_analytics' => true,
+            'analytics_show_kpi' => true,
+            'analytics_show_charts' => true,
+            'analytics_show_tables' => true,
+            'analytics_finance_access' => true,
+            'can_orders' => true,
+            'orders_proposals' => true,
+            'orders_list_scope' => 'all',
+        ]);
+    }
+}

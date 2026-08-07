@@ -12,9 +12,11 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('Замовники') }}
             </h2>
-            <a href="{{ route('orders.clients.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                {{ __('Додати замовника') }}
-            </a>
+            @if((bool) ($clientPermissions['create'] ?? false))
+                <a href="{{ route('orders.clients.create') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                    {{ __('Додати замовника') }}
+                </a>
+            @endif
         </div>
     </x-slot>
 

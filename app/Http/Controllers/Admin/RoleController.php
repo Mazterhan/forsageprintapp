@@ -26,33 +26,7 @@ class RoleController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $booleanFields = [
-            'can_analytics',
-            'analytics_show_kpi',
-            'analytics_show_charts',
-            'analytics_show_tables',
-            'analytics_finance_access',
-            'can_orders',
-            'orders_calculation',
-            'orders_calc_save',
-            'orders_calc_purchase_visible',
-            'orders_proposals',
-            'orders_list_purchase_visible',
-            'orders_edit',
-            'orders_list_edit',
-            'orders_clients_manage',
-            'can_price',
-            'price_create_item',
-            'price_deactivate_item',
-            'price_delete_item',
-            'price_purchase_access',
-            'price_card_access',
-            'price_card_edit',
-            'price_card_history',
-            'can_admin',
-            'admin_reference_manage',
-            'admin_users_org_manage',
-        ];
+        $booleanFields = $this->booleanFields();
 
         $data = $this->validatedRoleData($request, $booleanFields);
 
@@ -96,6 +70,7 @@ class RoleController extends Controller
             'analytics_show_charts',
             'analytics_show_tables',
             'analytics_finance_access',
+            'analytics_orders_access',
             'can_orders',
             'orders_calculation',
             'orders_calc_save',
@@ -104,7 +79,13 @@ class RoleController extends Controller
             'orders_list_purchase_visible',
             'orders_edit',
             'orders_list_edit',
+            'orders_access',
+            'orders_update',
+            'orders_payments',
             'orders_clients_manage',
+            'orders_clients_create',
+            'orders_clients_edit',
+            'orders_clients_payments',
             'can_price',
             'price_create_item',
             'price_deactivate_item',
@@ -128,6 +109,7 @@ class RoleController extends Controller
                 }
             }],
             'orders_list_scope' => ['nullable', 'in:own,all'],
+            'orders_scope' => ['nullable', 'in:own,all'],
         ];
 
         foreach ($booleanFields as $field) {
@@ -146,7 +128,7 @@ class RoleController extends Controller
         }
 
         if (!$data['can_analytics']) {
-            foreach (['analytics_show_kpi', 'analytics_show_charts', 'analytics_show_tables', 'analytics_finance_access'] as $field) {
+            foreach (['analytics_show_kpi', 'analytics_show_charts', 'analytics_show_tables', 'analytics_finance_access', 'analytics_orders_access'] as $field) {
                 $data[$field] = false;
             }
         }
@@ -160,7 +142,13 @@ class RoleController extends Controller
                 'orders_list_purchase_visible',
                 'orders_edit',
                 'orders_list_edit',
+                'orders_access',
+                'orders_update',
+                'orders_payments',
                 'orders_clients_manage',
+                'orders_clients_create',
+                'orders_clients_edit',
+                'orders_clients_payments',
             ] as $field) {
                 $data[$field] = false;
             }
@@ -176,6 +164,22 @@ class RoleController extends Controller
             $data['orders_list_purchase_visible'] = false;
             $data['orders_edit'] = false;
             $data['orders_list_edit'] = false;
+            $data['orders_access'] = false;
+            $data['orders_scope'] = 'own';
+            $data['orders_update'] = false;
+            $data['orders_payments'] = false;
+        }
+
+        if (! $data['orders_access']) {
+            $data['orders_scope'] = 'own';
+            $data['orders_update'] = false;
+            $data['orders_payments'] = false;
+        }
+
+        if (! $data['orders_clients_manage']) {
+            $data['orders_clients_create'] = false;
+            $data['orders_clients_edit'] = false;
+            $data['orders_clients_payments'] = false;
         }
 
         if (!$data['can_price']) {
@@ -205,6 +209,7 @@ class RoleController extends Controller
         }
 
         $data['orders_list_scope'] = ($data['orders_list_scope'] ?? 'own') === 'all' ? 'all' : 'own';
+        $data['orders_scope'] = ($data['orders_scope'] ?? 'own') === 'all' ? 'all' : 'own';
 
         return $data;
     }

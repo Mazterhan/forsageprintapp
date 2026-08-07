@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Models\Order;
 use App\Models\OrderProposal;
 use App\Services\PermissionService;
 use Carbon\Carbon;
@@ -20,6 +21,19 @@ class DashboardController extends Controller
             return response()->view('errors.403', [
                 'message' => 'У вас немає доступу до сторінки аналітики. Зверніться до адміністратора для отримання відповідного рівня доступу.',
             ], 403);
+        }
+
+        $canViewOrdersAnalytics = $permissions->can($user, 'analytics_orders_access');
+
+        $activeTab = (string) $request->query('tab', 'proposals');
+        if (! in_array($activeTab, ['proposals', 'orders'], true)) {
+            $activeTab = 'proposals';
+        }
+
+        if ($activeTab === 'orders') {
+            abort_unless($canViewOrdersAnalytics, 403, 'У вас немає доступу до аналітики замовлень.');
+
+            return $this->ordersAnalytics($request, $permissions);
         }
 
         $timezone = 'Europe/Kiev';
@@ -546,6 +560,7 @@ class DashboardController extends Controller
             ->values();
 
         return view('dashboard', [
+            'activeTab' => $activeTab,
             'filters' => [
                 'period' => $period,
                 'from' => $from ? $from->format('Y-m-d') : '',
@@ -601,7 +616,180 @@ class DashboardController extends Controller
                 'show_charts' => $permissions->can($user, 'analytics_show_charts'),
                 'show_tables' => $permissions->can($user, 'analytics_show_tables'),
                 'show_finance' => $permissions->can($user, 'analytics_finance_access'),
+                'show_orders_tab' => $canViewOrdersAnalytics,
                 'can_open_proposal' => $permissions->can($user, 'orders_proposals'),
+            ],
+        ]);
+    }
+
+    private function ordersAnalytics(Request $request, PermissionService $permissions)
+    {
+        $user = $request->user();
+        $timezone = 'Europe/Kiev';
+        $now = now($timezone);
+        $period = (string) $request->query('period', 'mtd');
+        if (! in_array($period, ['all', 'ytd', 'mtd', 'wtd', 'custom'], true)) {
+            $period = 'mtd';
+        }
+
+        $from = null;
+        $to = null;
+        $periodError = null;
+
+        if ($period !== 'all') {
+            if ($period === 'ytd') {
+                $from = $now->copy()->startOfYear()->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'wtd') {
+                $from = $now->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'custom') {
+                $fromInput = trim((string) $request->query('from', ''));
+                $toInput = trim((string) $request->query('to', ''));
+
+                if ($fromInput !== '' && $toInput !== '') {
+                    try {
+                        $from = Carbon::createFromFormat('Y-m-d', $fromInput, $timezone)->startOfDay();
+                        $to = Carbon::createFromFormat('Y-m-d', $toInput, $timezone)->endOfDay();
+                    } catch (\Throwable) {
+                        $periodError = 'Некоректно вказано період. Вкажіть дати у форматі РРРР-ММ-ДД.';
+                    }
+                } else {
+                    $periodError = 'Для кастомного періоду потрібно вказати обидві дати: "Від" і "До".';
+                }
+
+                if ($from && $to && $from->gt($to)) {
+                    $periodError = 'Дата "Від" не може бути пізніше дати "До".';
+                }
+
+                if ($periodError) {
+                    $period = 'mtd';
+                    $from = $now->copy()->startOfMonth()->startOfDay();
+                    $to = $now->copy()->endOfDay();
+                }
+            } else {
+                $from = $now->copy()->startOfMonth()->startOfDay();
+                $to = $now->copy()->endOfDay();
+            }
+        }
+
+        $selectedClientIds = collect((array) $request->query('client_id', []))
+            ->filter(static fn ($value) => is_numeric($value))
+            ->map(static fn ($value) => (int) $value)
+            ->unique()
+            ->values()
+            ->all();
+
+        $clients = Client::query()
+            ->whereHas('orders')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $paymentTotals = DB::table('client_payments')
+            ->selectRaw('order_id, SUM(amount_uah) as total')
+            ->whereNotNull('order_id')
+            ->groupBy('order_id');
+
+        $ordersQuery = Order::query()
+            ->leftJoinSub($paymentTotals, 'dashboard_order_payment_totals', function ($join): void {
+                $join->on('dashboard_order_payment_totals.order_id', '=', 'orders.id');
+            })
+            ->select('orders.*')
+            ->addSelect(DB::raw('COALESCE(dashboard_order_payment_totals.total, 0) as linked_payments_total'))
+            ->with(['client:id,name', 'lastEditedBy:id,name']);
+
+        if ($from && $to) {
+            $ordersQuery->whereBetween('orders.updated_at', [$from->copy()->utc(), $to->copy()->utc()]);
+        }
+        if ($selectedClientIds !== []) {
+            $ordersQuery->whereIn('orders.client_id', $selectedClientIds);
+        }
+
+        $orders = $ordersQuery->latest('orders.updated_at')->get();
+        $statusDefinitions = [
+            'unpaid' => ['label' => 'Не сплачено', 'className' => 'border-red-300 bg-rose-100 text-red-800'],
+            'partial' => ['label' => 'Частково сплачено', 'className' => 'border-orange-500 bg-yellow-100 text-orange-800'],
+            'paid' => ['label' => 'Сплачено', 'className' => 'border-green-300 bg-green-100 text-green-800'],
+            'overpaid' => ['label' => 'Є переплата', 'className' => 'border-blue-400 bg-teal-100 text-blue-800'],
+        ];
+        $statusStats = collect($statusDefinitions)->map(fn (array $definition, string $key): array => [
+            'key' => $key,
+            ...$definition,
+            'count' => 0,
+            'total_cost' => 0.0,
+            'payments_total' => 0.0,
+            'amount_due' => 0.0,
+        ])->all();
+
+        $analyticsOrders = $orders->map(function (Order $order) use (&$statusStats): array {
+            $totalCost = (float) $order->total_cost;
+            $paymentsTotal = (float) $order->linked_payments_total;
+            $amountDue = $totalCost - $paymentsTotal;
+
+            $status = match (true) {
+                $paymentsTotal <= 0 => 'unpaid',
+                $paymentsTotal < $totalCost => 'partial',
+                abs($paymentsTotal - $totalCost) < 0.005 => 'paid',
+                default => 'overpaid',
+            };
+
+            $statusStats[$status]['count']++;
+            $statusStats[$status]['total_cost'] += $totalCost;
+            $statusStats[$status]['payments_total'] += $paymentsTotal;
+            $statusStats[$status]['amount_due'] += $amountDue;
+
+            return [
+                'public_id' => $order->public_id,
+                'number' => $order->order_number,
+                'client_key' => $order->client_id
+                    ? 'id:'.$order->client_id
+                    : 'name:'.mb_strtolower(trim((string) $order->customer_name), 'UTF-8'),
+                'customer' => $order->client?->name ?: ($order->customer_name ?: '—'),
+                'user' => $order->lastEditedBy?->name ?? '—',
+                'updated_at' => $order->updated_at,
+                'total_cost' => $totalCost,
+                'payments_total' => $paymentsTotal,
+                'amount_due' => $amountDue,
+                'status' => $status,
+                'status_label' => $statusStats[$status]['label'],
+                'status_class' => $statusStats[$status]['className'],
+            ];
+        });
+
+        $orderCount = $analyticsOrders->count();
+        $totalCost = $analyticsOrders->sum('total_cost');
+        $paymentsTotal = $analyticsOrders->sum('payments_total');
+
+        return view('dashboard-orders', [
+            'activeTab' => 'orders',
+            'filters' => [
+                'period' => $period,
+                'from' => $from?->format('Y-m-d') ?? '',
+                'to' => $to?->format('Y-m-d') ?? '',
+                'client_id' => $selectedClientIds,
+            ],
+            'periodError' => $periodError,
+            'clients' => $clients,
+            'kpi' => [
+                'order_count' => $orderCount,
+                'total_cost' => round($totalCost, 2),
+                'payments_total' => round($paymentsTotal, 2),
+                'amount_due' => round($totalCost - $paymentsTotal, 2),
+                'average_check' => $orderCount > 0 ? round($totalCost / $orderCount, 2) : 0,
+                'unique_clients' => $analyticsOrders
+                    ->pluck('client_key')
+                    ->filter(fn (string $key): bool => $key !== 'name:')
+                    ->unique()
+                    ->count(),
+            ],
+            'statusStats' => array_values($statusStats),
+            'analyticsOrders' => $analyticsOrders->take(100)->values(),
+            'dashboardPermissions' => [
+                'show_kpi' => $permissions->can($user, 'analytics_show_kpi'),
+                'show_tables' => $permissions->can($user, 'analytics_show_tables'),
+                'show_finance' => $permissions->can($user, 'analytics_finance_access'),
+                'show_orders_tab' => $permissions->can($user, 'analytics_orders_access'),
+                'can_open_order' => $permissions->can($user, 'orders'),
             ],
         ]);
     }

@@ -17,6 +17,7 @@ class Order extends Model
         'order_number',
         'customer_name',
         'client_id',
+        'created_by',
         'last_edited_by',
         'items',
         'payments_total',
@@ -27,6 +28,7 @@ class Order extends Model
     protected $casts = [
         'last_edited_by' => 'integer',
         'client_id' => 'integer',
+        'created_by' => 'integer',
         'items' => 'array',
         'payments_total' => 'decimal:2',
         'amount_due' => 'decimal:2',
@@ -64,6 +66,11 @@ class Order extends Model
     public function lastEditedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'last_edited_by');
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function client(): BelongsTo
