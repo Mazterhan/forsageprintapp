@@ -137,9 +137,11 @@ class OrderIndexTest extends TestCase
             ->assertViewHas('clients', function ($clients): bool {
                 return $clients->pluck('name')->all() === ['Активний замовник'];
             })
-            ->assertSee('Статус оплати')
-            ->assertSee('Вивантажити замовлення у PDF')
-            ->assertSee('Платежі')
+            ->assertSee('Створити замовлення для')
+            ->assertSee('Оберіть замовника')
+            ->assertDontSee('id="order-payment-status"', false)
+            ->assertDontSee('Вивантажити замовлення у PDF')
+            ->assertDontSee('>Платежі<', false)
             ->assertSee('Номенклатура')
             ->assertSee('Кількість')
             ->assertSee('Вартість за одн.')
@@ -148,10 +150,16 @@ class OrderIndexTest extends TestCase
             ->assertSee('Сума до сплати')
             ->assertSee(route('orders.store'), false)
             ->assertSee('Створити замовлення')
+            ->assertSee('Замовлення буде створено з введеними даними. Підтверджуєте створення замовлення?')
+            ->assertSee('Замовлення буде збережено з внесеними змінами. Підтверджуєте збереження змін?')
+            ->assertSee('window.confirm(message)', false)
             ->assertDontSee('Вартість загальна (грн)')
             ->assertSee('x-show="hasNomenclatureItem()"', false)
             ->assertSee('maxlength="500"', false)
+            ->assertSee("quantity: source.quantity ? String(source.quantity) : '1'", false)
+            ->assertDontSee("|| String(item.quantity || '').trim() !== ''", false)
             ->assertSee('@resize.window.debounce.100ms="resizeAllNomenclatureFields()"', false);
+        $this->assertSame(2, substr_count($response->getContent(), 'fixed inset-0 z-[12000] !mt-0'));
 
         $this->actingAs($forbiddenUser)
             ->get(route('orders.create'))
@@ -325,11 +333,54 @@ class OrderIndexTest extends TestCase
             ->assertOk()
             ->assertDontSee('Час останнього автоматичного збереження:')
             ->assertSee('Історія змін замовлення')
-            ->assertSee('Автор зміни')
-            ->assertSee('Редагування')
-            ->assertSee('Номенклатура')
-            ->assertSee('Старе значення')
-            ->assertSee('Нове значення');
+            ->assertSee('historyUrl:', false)
+            ->assertSee('toggleOrderHistory()', false)
+            ->assertDontSee('Старе значення')
+            ->assertViewHas('order', fn (Order $loadedOrder): bool => ! $loadedOrder->relationLoaded('histories'));
+
+        $historyResponse = $this->actingAs($user)
+            ->getJson(route('orders.history', $order))
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('count', 1);
+        $historyHtml = (string) $historyResponse->json('html');
+        $this->assertStringContainsString('Автор зміни', $historyHtml);
+        $this->assertStringContainsString('Редагування', $historyHtml);
+        $this->assertStringContainsString('Номенклатура', $historyHtml);
+        $this->assertStringContainsString('Старе значення', $historyHtml);
+        $this->assertStringContainsString('Нове значення', $historyHtml);
+    }
+
+    public function test_order_history_row_fill_alternates_by_displayed_change_time(): void
+    {
+        $user = $this->createUserWithRole(['can_orders' => true]);
+        $order = Order::factory()->create();
+        $historyRows = [
+            ['Перша зміна цього часу', now('Europe/Kiev')->setDate(2026, 8, 7)->setTime(17, 47, 10)->utc()],
+            ['Друга зміна цього часу', now('Europe/Kiev')->setDate(2026, 8, 7)->setTime(17, 47, 50)->utc()],
+            ['Зміна другої групи', now('Europe/Kiev')->setDate(2026, 8, 6)->setTime(21, 22)->utc()],
+            ['Зміна третьої групи', now('Europe/Kiev')->setDate(2026, 8, 6)->setTime(16, 3)->utc()],
+        ];
+
+        foreach ($historyRows as [$description, $createdAt]) {
+            $order->histories()->create([
+                'user_id' => $user->id,
+                'operation_type' => 'item_updated',
+                'description' => $description,
+                'before_value' => ['value' => 'Було'],
+                'after_value' => ['value' => 'Стало'],
+                'created_at' => $createdAt,
+            ]);
+        }
+
+        $response = $this->actingAs($user)
+            ->getJson(route('orders.history', $order))
+            ->assertOk();
+        $historyHtml = (string) $response->json('html');
+
+        $this->assertSame(2, preg_match_all('/data-history-time="07\.08\.2026 17:47"\s+data-history-stripe="0"/', $historyHtml));
+        $this->assertSame(1, preg_match_all('/data-history-time="06\.08\.2026 21:22"\s+data-history-stripe="1"/', $historyHtml));
+        $this->assertSame(1, preg_match_all('/data-history-time="06\.08\.2026 16:03"\s+data-history-stripe="0"/', $historyHtml));
     }
 
     public function test_order_can_be_edited_in_place_and_item_changes_are_recorded(): void
@@ -426,13 +477,23 @@ class OrderIndexTest extends TestCase
         $this->actingAs($user)
             ->get(route('orders.show', $order))
             ->assertOk()
-            ->assertSee('Створення')
-            ->assertSee('Редагування')
-            ->assertSee('Видалення')
-            ->assertSee('Номенклатура: Нова позиція')
-            ->assertSee('Кількість: 1')
-            ->assertDontSee($newItem['item_id'])
-            ->assertSee($user->name);
+            ->assertSee('Історія змін замовлення')
+            ->assertDontSee('Видалення')
+            ->assertViewHas('order', fn (Order $loadedOrder): bool => ! $loadedOrder->relationLoaded('histories'));
+
+        $historyResponse = $this->actingAs($user)
+            ->getJson(route('orders.history', $order))
+            ->assertOk()
+            ->assertJsonPath('ok', true);
+        $historyHtml = (string) $historyResponse->json('html');
+        $this->assertStringContainsString('Створення', $historyHtml);
+        $this->assertStringContainsString('Редагування', $historyHtml);
+        $this->assertStringContainsString('Видалення', $historyHtml);
+        $this->assertStringContainsString('Номенклатура: Нова позиція', $historyHtml);
+        $this->assertStringContainsString('Кількість: 1', $historyHtml);
+        $this->assertStringNotContainsString($newItem['item_id'], $historyHtml);
+        $this->assertStringContainsString(e($user->name), $historyHtml);
+        $this->assertStringContainsString('bg-white', $historyHtml);
     }
 
     public function test_editing_legacy_items_without_ids_is_recorded_as_an_update_only(): void

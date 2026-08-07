@@ -191,7 +191,6 @@ class OrderController extends Controller
         $order->load([
             'client:id,public_id,name',
             'lastEditedBy:id,name',
-            'histories.user:id,name',
             'payments' => fn ($query) => $query->latest('paid_at'),
             'payments.createdBy:id,name',
             'payments.histories.user:id,name',
@@ -238,6 +237,23 @@ class OrderController extends Controller
             'paymentModalData' => $paymentModalData,
             'clientOverpaymentTotal' => max(0, $clientOverpaymentTotal),
             'canAddOrderPayment' => $canAddOrderPayment,
+        ]);
+    }
+
+    public function history(Order $order): JsonResponse
+    {
+        $histories = $order->histories()
+            ->with('user:id,name')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
+
+        return response()->json([
+            'ok' => true,
+            'count' => $histories->count(),
+            'html' => view('orders.partials.history-table', [
+                'histories' => $histories,
+            ])->render(),
         ]);
     }
 

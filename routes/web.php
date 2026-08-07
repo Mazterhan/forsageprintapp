@@ -64,6 +64,7 @@ Route::middleware(['auth', 'permission:orders'])
         Route::get('/create', [OrderController::class, 'create'])->name('create');
         Route::get('/{order}/edit', [OrderController::class, 'edit'])->whereUuid('order')->name('edit');
         Route::patch('/{order}', [OrderController::class, 'update'])->whereUuid('order')->name('update');
+        Route::get('/{order}/history', [OrderController::class, 'history'])->whereUuid('order')->name('history');
         Route::get('/{order}', [OrderController::class, 'show'])->whereUuid('order')->name('show');
     });
 

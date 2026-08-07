@@ -9,12 +9,12 @@ use RuntimeException;
 
 class PrivatBankExchangeRateService
 {
-    private const CACHE_KEY = 'payments.privatbank.buy-rates.v1';
+    private const CACHE_KEY = 'payments.privatbank.sale-rates.v1';
 
     /**
      * @return array{rates: array<string, float>, fetched_at: string, source: string, type: string}
      */
-    public function currentBuyRates(): array
+    public function currentSaleRates(): array
     {
         return Cache::remember(self::CACHE_KEY, now()->addMinutes(20), function (): array {
             $response = Http::acceptJson()
@@ -30,20 +30,20 @@ class PrivatBankExchangeRateService
                 ->filter(fn ($row): bool => is_array($row)
                     && in_array($row['ccy'] ?? null, ['USD', 'EUR'], true)
                     && ($row['base_ccy'] ?? null) === 'UAH'
-                    && is_numeric($row['buy'] ?? null)
-                    && (float) $row['buy'] > 0)
-                ->mapWithKeys(fn (array $row): array => [$row['ccy'] => (float) $row['buy']])
+                    && is_numeric($row['sale'] ?? null)
+                    && (float) $row['sale'] > 0)
+                ->mapWithKeys(fn (array $row): array => [$row['ccy'] => (float) $row['sale']])
                 ->all();
 
             if (! isset($rates['USD'], $rates['EUR'])) {
-                throw new RuntimeException('ПриватБанк не повернув курс BUY для USD та EUR.');
+                throw new RuntimeException('ПриватБанк не повернув курс SALE для USD та EUR.');
             }
 
             return [
                 'rates' => $rates,
                 'fetched_at' => now()->utc()->toIso8601String(),
                 'source' => 'PrivatBank',
-                'type' => 'BUY',
+                'type' => 'SALE',
             ];
         });
     }
@@ -51,11 +51,11 @@ class PrivatBankExchangeRateService
     /** @return array{rate: float, fetched_at: Carbon, source: string, type: string} */
     public function quote(string $currency): array
     {
-        $payload = $this->currentBuyRates();
+        $payload = $this->currentSaleRates();
         $rate = $payload['rates'][$currency] ?? null;
 
         if (! is_numeric($rate) || (float) $rate <= 0) {
-            throw new RuntimeException("Курс BUY для {$currency} наразі недоступний.");
+            throw new RuntimeException("Курс SALE для {$currency} наразі недоступний.");
         }
 
         return [

@@ -22,7 +22,7 @@ class ClientPaymentTest extends TestCase
     {
         parent::setUp();
 
-        Cache::forget('payments.privatbank.buy-rates.v1');
+        Cache::forget('payments.privatbank.sale-rates.v1');
         Http::fake([
             'api.privatbank.ua/*' => Http::response([
                 ['ccy' => 'EUR', 'base_ccy' => 'UAH', 'buy' => '45.50000', 'sale' => '46.50000'],
@@ -50,18 +50,21 @@ class ClientPaymentTest extends TestCase
             ->assertSee('Внести платіж')
             ->assertSee('Відобразити код платежу')
             ->assertSee('x-show="showPaymentCodes"', false)
-            ->assertSee('Переплата')
             ->assertSee('Оплата замовлення')
+            ->assertSee('Внесення переплати')
+            ->assertSeeInOrder(['Оплата замовлення', 'Внесення переплати'])
+            ->assertSee("paymentType: 'order'", false)
             ->assertSee('type="date"', false)
             ->assertSee(':max="today"', false)
             ->assertSee('type="time"', false)
             ->assertSee('w-[1100px]', false)
+            ->assertSee('fixed inset-0 z-[14000] !mt-0', false)
             ->assertSee('md:grid-cols-4', false)
             ->assertSee('data-payment-form-panel', false)
             ->assertSee('rounded-lg border border-gray-200 bg-gray-50 p-5', false)
             ->assertSee('Дані платежу')
             ->assertSee('Сума списання (ГРН)')
-            ->assertSee('BUY:', false)
+            ->assertSee('SALE:', false)
             ->assertSee('ratesUrl:', false)
             ->assertSee('window.confirm', false)
             ->assertSee('Сума поповнення переплати')
@@ -73,6 +76,7 @@ class ClientPaymentTest extends TestCase
             ->assertSee("cache: 'no-store'", false)
             ->assertSee('paymentOrdersUrl:', false)
             ->assertSee('paymentStoreUrl:', false)
+            ->assertSee('Сума до сплати: ${amountDue} ГРН', false)
             ->assertDontSee('data-client-overpayment-total', false);
 
         $newOrder = Order::factory()->create(['client_id' => $client->id]);
@@ -136,7 +140,7 @@ class ClientPaymentTest extends TestCase
         $this->assertDatabaseCount('client_payments', 1);
     }
 
-    public function test_privatbank_buy_rates_are_cached_and_currency_payment_saves_uah_snapshot(): void
+    public function test_privatbank_sale_rates_are_cached_and_currency_payment_saves_uah_snapshot(): void
     {
         $user = $this->createUserWithRole([
             'can_orders' => true,
@@ -147,10 +151,10 @@ class ClientPaymentTest extends TestCase
         $this->actingAs($user)
             ->getJson(route('orders.payments.exchange-rates'))
             ->assertOk()
-            ->assertJsonPath('rates.USD', 40.25)
-            ->assertJsonPath('rates.EUR', 45.5)
+            ->assertJsonPath('rates.USD', 41.25)
+            ->assertJsonPath('rates.EUR', 46.5)
             ->assertJsonPath('source', 'PrivatBank')
-            ->assertJsonPath('type', 'BUY');
+            ->assertJsonPath('type', 'SALE');
 
         $this->actingAs($user)
             ->getJson(route('orders.payments.exchange-rates'))
@@ -171,15 +175,15 @@ class ClientPaymentTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('ok', true)
-            ->assertJsonPath('notification', fn ($value): bool => str_contains($value, 'Курс BUY ПриватБанку')
+            ->assertJsonPath('notification', fn ($value): bool => str_contains($value, 'Курс SALE ПриватБанку')
                 && str_contains($value, 'Сума поповнення переплати'));
 
         $payment = ClientPayment::query()->sole();
         $this->assertSame(3, $payment->amount);
         $this->assertSame(125, $payment->amount_uah);
-        $this->assertSame(121, $payment->calculated_amount_uah);
-        $this->assertSame('40.250000', $payment->exchange_rate);
-        $this->assertSame('BUY', $payment->exchange_rate_type);
+        $this->assertSame(124, $payment->calculated_amount_uah);
+        $this->assertSame('41.250000', $payment->exchange_rate);
+        $this->assertSame('SALE', $payment->exchange_rate_type);
         $this->assertSame('PrivatBank', $payment->exchange_rate_source);
         $this->assertNotNull($payment->exchange_rate_fetched_at);
         $this->assertStringContainsString('Автоматично розрахована сума', $payment->comment);
@@ -284,9 +288,14 @@ class ClientPaymentTest extends TestCase
             ->assertSee('Переплата: 1 000')
             ->assertSee('@click="openOverpaymentPayment()"', false)
             ->assertSee('Списати з переплати')
-            ->assertSee('Внесення платежу з переплати')
+            ->assertSee('Платіж з переплати')
+            ->assertSee('Платіж за замовлення')
+            ->assertSee('Просте списання')
+            ->assertSee("setPaymentType('writeoff')", false)
+            ->assertSee('Щонайменше 20 букв або цифр')
             ->assertSee('Сума операції')
             ->assertSee('Валюта операції')
+            ->assertSee('<option value="UAH">UAH</option>', false)
             ->assertSee('x-show="!paymentForm.fromOverpayment"', false);
 
         $this->actingAs($user)
@@ -354,6 +363,69 @@ class ClientPaymentTest extends TestCase
         $this->assertSame(1000, $overpayment->fresh()->amount);
     }
 
+    public function test_simple_overpayment_writeoff_requires_descriptive_comment_and_no_order(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_orders' => true,
+            'orders_clients_manage' => true,
+        ]);
+        $client = Client::factory()->create(['name' => 'Клієнт із переплатою']);
+        ClientPayment::query()->create([
+            'client_id' => $client->id,
+            'amount' => 1000,
+            'currency' => 'UAH',
+            'payment_type' => 'prepayment',
+            'paid_at' => now(),
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+        $payload = [
+            'amount' => 250,
+            'currency' => 'UAH',
+            'payment_date' => now('Europe/Kiev')->toDateString(),
+            'payment_time' => '11:15',
+            'payment_type' => 'writeoff',
+            'payment_source' => 'overpayment',
+            'order_public_id' => null,
+        ];
+
+        $this->actingAs($user)
+            ->postJson(route('orders.clients.payments.store', $client), [
+                ...$payload,
+                'comment' => 'Короткий текст!!! 123',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('comment');
+
+        $this->actingAs($user)
+            ->postJson(route('orders.clients.payments.store', $client), [
+                ...$payload,
+                'comment' => 'Списання на господарські потреби офісу',
+            ])
+            ->assertOk();
+
+        $writeoff = ClientPayment::query()->where('payment_type', 'writeoff')->sole();
+        $this->assertNull($writeoff->order_id);
+        $this->assertTrue($writeoff->is_from_overpayment);
+        $this->assertSame(250, $writeoff->amount_uah);
+
+        $this->actingAs($user)
+            ->get(route('orders.clients.show', ['client' => $client, 'section' => 'payments']))
+            ->assertOk()
+            ->assertSee('Переплата: 750')
+            ->assertSee('Просте списання')
+            ->assertSee('з переплати');
+
+        $this->actingAs($user)
+            ->postJson(route('orders.clients.payments.store', $client), [
+                ...$payload,
+                'payment_source' => 'direct',
+                'comment' => 'Достатньо довгий опис операції списання',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('payment_type');
+    }
+
     public function test_order_payment_popup_creates_shared_payment_and_returns_to_same_order(): void
     {
         $user = $this->createUserWithRole([
@@ -370,6 +442,8 @@ class ClientPaymentTest extends TestCase
             ->assertSee('Сума операції')
             ->assertSee('Валюта операції')
             ->assertSee('Платежі замовлення ${orderNumber}', false)
+            ->assertSee('<option value="UAH">UAH</option>', false)
+            ->assertSee('fixed inset-0 z-[14000] !mt-0', false)
             ->assertSee('Історія платежів замовлення')
             ->assertSee('type="date"', false)
             ->assertSee(':max="today"', false)
@@ -429,9 +503,9 @@ class ClientPaymentTest extends TestCase
         $client = Client::factory()->create();
         $order = Order::factory()->create([
             'client_id' => $client->id,
-            'total_cost' => 858,
+            'total_cost' => 878,
             'payments_total' => 0,
-            'amount_due' => 858,
+            'amount_due' => 878,
         ]);
         $basePayload = [
             'payment_date' => now('Europe/Kiev')->toDateString(),
@@ -453,14 +527,14 @@ class ClientPaymentTest extends TestCase
             ->postJson(route('orders.clients.payments.store', $client), [
                 ...$basePayload,
                 'amount' => 10,
-                'amount_uah' => 403,
+                'amount_uah' => 413,
                 'currency' => 'USD',
             ])
             ->assertOk();
 
         $order->refresh();
-        $this->assertSame('403.00', $order->payments_total);
-        $this->assertSame('455.00', $order->amount_due);
+        $this->assertSame('413.00', $order->payments_total);
+        $this->assertSame('465.00', $order->amount_due);
         $this->actingAs($user)
             ->get(route('orders.show', $order))
             ->assertOk()
@@ -472,13 +546,13 @@ class ClientPaymentTest extends TestCase
             ->postJson(route('orders.clients.payments.store', $client), [
                 ...$basePayload,
                 'amount' => 10,
-                'amount_uah' => 455,
+                'amount_uah' => 465,
                 'currency' => 'EUR',
             ])
             ->assertOk();
 
         $order->refresh();
-        $this->assertSame('858.00', $order->payments_total);
+        $this->assertSame('878.00', $order->payments_total);
         $this->assertSame('0.00', $order->amount_due);
         $this->actingAs($user)
             ->get(route('orders.show', $order))
@@ -491,21 +565,21 @@ class ClientPaymentTest extends TestCase
             ->patchJson(route('orders.clients.payments.update', [$client, $secondPayment]), [
                 ...$basePayload,
                 'amount' => 20,
-                'amount_uah' => 910,
+                'amount_uah' => 930,
                 'currency' => 'EUR',
             ])
             ->assertOk();
 
         $order->refresh();
-        $this->assertSame('1313.00', $order->payments_total);
-        $this->assertSame('-455.00', $order->amount_due);
+        $this->assertSame('1343.00', $order->payments_total);
+        $this->assertSame('-465.00', $order->amount_due);
         $this->actingAs($user)
             ->get(route('orders.show', $order))
             ->assertOk()
             ->assertSee('Є переплата')
             ->assertSee('border-blue-400 bg-teal-100 text-blue-800', false)
             ->assertSee('text-blue-700', false)
-            ->assertSee('-455');
+            ->assertSee('-465');
     }
 
     public function test_order_payment_requires_an_order_owned_by_the_same_client(): void
@@ -584,8 +658,8 @@ class ClientPaymentTest extends TestCase
             ->getJson(route('orders.clients.payments.orders', $client))
             ->assertOk()
             ->assertJsonCount(2, 'orders')
-            ->assertJsonFragment(['id' => $orders[0]->public_id, 'number' => $orders[0]->order_number])
-            ->assertJsonFragment(['id' => $orders[1]->public_id, 'number' => $orders[1]->order_number])
+            ->assertJsonFragment(['id' => $orders[0]->public_id, 'number' => $orders[0]->order_number, 'amountDue' => 1000])
+            ->assertJsonFragment(['id' => $orders[1]->public_id, 'number' => $orders[1]->order_number, 'amountDue' => 600])
             ->assertJsonMissing(['id' => $orders[2]->public_id])
             ->assertJsonMissing(['id' => $orders[3]->public_id]);
 
@@ -640,7 +714,7 @@ class ClientPaymentTest extends TestCase
         $this->actingAs($editor)
             ->patchJson(route('orders.clients.payments.update', [$client, $payment]), [
                 'amount' => 250,
-                'amount_uah' => 11375,
+                'amount_uah' => 11625,
                 'currency' => 'EUR',
                 'payment_date' => now('Europe/Kiev')->toDateString(),
                 'payment_time' => '14:45',
@@ -660,7 +734,7 @@ class ClientPaymentTest extends TestCase
         $history = $payment->histories()->with('user')->sole();
         $this->assertSame($editor->id, $history->user_id);
         $this->assertSame(
-            ['Сума операції', 'Валюта', 'Курс BUY ПриватБанку', 'Тип курсу', 'Джерело курсу', 'Час отримання курсу', 'Автоматично розрахована сума (ГРН)', 'Сума списання (ГРН)', 'Дата та час', 'Тип платежу', 'Номер замовлення', 'Коментар'],
+            ['Сума операції', 'Валюта', 'Курс SALE ПриватБанку', 'Тип курсу', 'Джерело курсу', 'Час отримання курсу', 'Автоматично розрахована сума (ГРН)', 'Сума списання (ГРН)', 'Дата та час', 'Тип платежу', 'Номер замовлення', 'Коментар'],
             collect($history->changes)->pluck('label')->all()
         );
 

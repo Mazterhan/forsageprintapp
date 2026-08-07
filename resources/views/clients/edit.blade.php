@@ -247,7 +247,15 @@
                                                         {{ $payment->paid_at->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i') }}
                                                     </td>
                                                     <td class="px-3 py-2 font-medium">
-                                                        <div>{{ $payment->payment_type === 'order' ? ($payment->order?->order_number ?? '—') : 'Переплата' }}</div>
+                                                        <div>
+                                                            @if($payment->payment_type === 'order')
+                                                                {{ $payment->order?->order_number ?? '—' }}
+                                                            @elseif($payment->payment_type === 'writeoff')
+                                                                Просте списання
+                                                            @else
+                                                                Переплата
+                                                            @endif
+                                                        </div>
                                                         @if($payment->is_from_overpayment)
                                                             <div class="mt-0.5 text-xs font-semibold text-blue-600">з переплати</div>
                                                         @endif
@@ -368,7 +376,7 @@
             <div
                 x-show="showPaymentModal"
                 x-cloak
-                class="fixed inset-0 z-[14000] flex items-center justify-center p-4"
+                class="fixed inset-0 z-[14000] !mt-0 flex items-center justify-center p-4"
             >
                 <div class="absolute inset-0 bg-black/50" @click="closePaymentModal()"></div>
                 <div class="relative max-h-[92vh] w-[1100px] max-w-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-6 shadow-2xl">
@@ -376,7 +384,7 @@
                         <div>
                             <h3
                                 class="text-lg font-semibold text-gray-900"
-                                x-text="isEditingPayment ? 'Редагування платежу' : (paymentForm.fromOverpayment ? 'Внесення платежу з переплати' : 'Внесення платежу')"
+                                x-text="isEditingPayment ? 'Редагування платежу' : (paymentForm.fromOverpayment ? 'Платіж з переплати' : 'Внесення платежу')"
                             ></h3>
                             <p class="mt-1 text-sm text-gray-500">{{ $client->name }}</p>
                         </div>
@@ -396,7 +404,7 @@
                         <div>
                             <label for="client-payment-currency" class="block text-sm font-medium text-gray-700">Валюта операції</label>
                             <select id="client-payment-currency" x-model="paymentForm.currency" @change="paymentCurrencyChanged()" :disabled="paymentForm.fromOverpayment" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100">
-                                <option value="UAH">грн</option>
+                                <option value="UAH">UAH</option>
                                 <option value="USD" :disabled="!paymentRates.USD" x-text="paymentRateOption('USD')"></option>
                                 <option value="EUR" :disabled="!paymentRates.EUR" x-text="paymentRateOption('EUR')"></option>
                             </select>
@@ -406,7 +414,7 @@
                         <div x-show="isForeignPaymentCurrency()" x-cloak>
                             <label for="client-payment-amount-uah" class="block text-sm font-medium text-gray-700">Сума списання (ГРН)</label>
                             <input id="client-payment-amount-uah" x-model="paymentForm.amountUah" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
-                            <p class="mt-1 text-xs text-gray-500" x-text="paymentForm.exchangeRate ? `BUY: ${formatPaymentRate(paymentForm.exchangeRate)} грн/${paymentForm.currency}` : ''"></p>
+                            <p class="mt-1 text-xs text-gray-500" x-text="paymentForm.exchangeRate ? `SALE: ${formatPaymentRate(paymentForm.exchangeRate)} грн/${paymentForm.currency}` : ''"></p>
                         </div>
                         <div>
                             <label for="client-payment-date" class="block text-sm font-medium text-gray-700">Дата</label>
@@ -418,16 +426,8 @@
                         </div>
                     </div>
 
-                    <div x-show="!paymentForm.fromOverpayment" x-cloak class="mt-5">
+                    <div x-show="!paymentForm.fromOverpayment" x-cloak class="mt-5 grid grid-cols-1 items-end gap-4 md:grid-cols-2">
                         <div class="grid grid-cols-2 rounded-lg bg-gray-100 p-1">
-                            <button
-                                type="button"
-                                @click="setPaymentType('prepayment')"
-                                :class="paymentForm.paymentType === 'prepayment' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600'"
-                                class="rounded-md px-4 py-2 text-sm font-semibold transition"
-                            >
-                                Переплата
-                            </button>
                             <button
                                 type="button"
                                 @click="setPaymentType('order')"
@@ -436,29 +436,80 @@
                             >
                                 Оплата замовлення
                             </button>
+                            <button
+                                type="button"
+                                @click="setPaymentType('prepayment')"
+                                :class="paymentForm.paymentType === 'prepayment' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600'"
+                                class="rounded-md px-4 py-2 text-sm font-semibold transition"
+                            >
+                                Внесення переплати
+                            </button>
+                        </div>
+
+                        <div x-show="paymentForm.paymentType === 'order'" x-cloak>
+                            <label for="client-payment-order" class="block text-sm font-medium text-gray-700">Номер замовлення <span class="text-red-600">*</span></label>
+                            <select
+                                id="client-payment-order"
+                                x-model="paymentForm.orderPublicId"
+                                :required="!paymentForm.fromOverpayment && paymentForm.paymentType === 'order'"
+                                @focus="loadPaymentOrders()"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            >
+                                <option value="" x-text="isLoadingPaymentOrders ? 'Завантаження...' : 'Оберіть замовлення'"></option>
+                                <template x-for="order in availablePaymentOrders" :key="order.id">
+                                    <option :value="order.id" :disabled="Boolean(order.unavailable)" x-text="paymentOrderOption(order)"></option>
+                                </template>
+                            </select>
+                            <p x-show="!isLoadingPaymentOrders && paymentOrdersLoaded && availablePaymentOrders.length === 0" x-cloak class="mt-1 text-xs text-amber-700">У цього клієнта ще немає прив'язаних замовлень.</p>
                         </div>
                     </div>
 
-                    <div x-show="paymentForm.paymentType === 'order'" x-cloak class="mt-4">
-                        <label for="client-payment-order" class="block text-sm font-medium text-gray-700">Номер замовлення <span class="text-red-600">*</span></label>
-                        <select
-                            id="client-payment-order"
-                            x-model="paymentForm.orderPublicId"
-                            :required="paymentForm.paymentType === 'order'"
-                            @focus="loadPaymentOrders()"
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        >
-                            <option value="" x-text="isLoadingPaymentOrders ? 'Завантаження...' : 'Оберіть замовлення'"></option>
-                            <template x-for="order in availablePaymentOrders" :key="order.id">
-                                <option :value="order.id" :disabled="Boolean(order.unavailable)" x-text="order.number"></option>
-                            </template>
-                        </select>
-                        <p x-show="!isLoadingPaymentOrders && paymentOrdersLoaded && availablePaymentOrders.length === 0" x-cloak class="mt-1 text-xs text-amber-700">У цього клієнта ще немає прив'язаних замовлень.</p>
+                    <div x-show="paymentForm.fromOverpayment" x-cloak class="mt-5 grid grid-cols-1 items-end gap-4 md:grid-cols-2">
+                        <div class="grid grid-cols-2 rounded-lg bg-gray-100 p-1">
+                            <button
+                                type="button"
+                                @click="setPaymentType('order')"
+                                :class="paymentForm.paymentType === 'order' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600'"
+                                class="rounded-md px-4 py-2 text-sm font-semibold transition"
+                            >
+                                Платіж за замовлення
+                            </button>
+                            <button
+                                type="button"
+                                @click="setPaymentType('writeoff')"
+                                :class="paymentForm.paymentType === 'writeoff' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600'"
+                                class="rounded-md px-4 py-2 text-sm font-semibold transition"
+                            >
+                                Просте списання
+                            </button>
+                        </div>
+
+                        <div x-show="paymentForm.paymentType === 'order'" x-cloak>
+                            <label for="client-overpayment-order" class="block text-sm font-medium text-gray-700">Номер замовлення <span class="text-red-600">*</span></label>
+                            <select
+                                id="client-overpayment-order"
+                                x-model="paymentForm.orderPublicId"
+                                :required="paymentForm.paymentType === 'order'"
+                                @focus="loadPaymentOrders()"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            >
+                                <option value="" x-text="isLoadingPaymentOrders ? 'Завантаження...' : 'Оберіть замовлення'"></option>
+                                <template x-for="order in availablePaymentOrders" :key="order.id">
+                                    <option :value="order.id" :disabled="Boolean(order.unavailable)" x-text="paymentOrderOption(order)"></option>
+                                </template>
+                            </select>
+                            <p x-show="!isLoadingPaymentOrders && paymentOrdersLoaded && availablePaymentOrders.length === 0" x-cloak class="mt-1 text-xs text-amber-700">У цього клієнта ще немає прив'язаних замовлень.</p>
+                        </div>
                     </div>
 
                     <div class="mt-4">
-                        <label for="client-payment-comment" class="block text-sm font-medium text-gray-700">Коментар</label>
-                        <textarea id="client-payment-comment" x-model="paymentForm.comment" rows="3" maxlength="2000" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Додаткові відомості про платіж"></textarea>
+                        <label for="client-payment-comment" class="block text-sm font-medium text-gray-700">
+                            Коментар <span x-show="paymentForm.paymentType === 'writeoff'" x-cloak class="text-red-600">*</span>
+                        </label>
+                        <textarea id="client-payment-comment" x-model="paymentForm.comment" :required="paymentForm.paymentType === 'writeoff'" rows="3" maxlength="2000" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Додаткові відомості про платіж"></textarea>
+                        <p x-show="paymentForm.paymentType === 'writeoff'" x-cloak class="mt-1 text-xs" :class="countPaymentCommentCharacters() >= 20 ? 'text-green-700' : 'text-amber-700'">
+                            Щонайменше 20 букв або цифр: <span x-text="countPaymentCommentCharacters()"></span>/20
+                        </p>
                     </div>
 
                         <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-4">
@@ -510,10 +561,11 @@
                 exchangeRate: null,
                 date: config.today || '',
                 time: config.currentTime || '',
-                paymentType: 'prepayment',
+                paymentType: 'order',
                 fromOverpayment: false,
                 orderPublicId: '',
                 orderNumber: '',
+                orderAmountDue: null,
                 comment: '',
                 updateUrl: '',
             });
@@ -584,6 +636,7 @@
                         fromOverpayment: Boolean(payment.fromOverpayment),
                         orderPublicId: payment.orderPublicId || '',
                         orderNumber: payment.orderNumber || '',
+                        orderAmountDue: payment.orderAmountDue ?? null,
                         comment: payment.comment || '',
                         updateUrl: payment.updateUrl || '',
                     };
@@ -604,11 +657,23 @@
 
                 setPaymentType(type) {
                     this.paymentForm.paymentType = type;
-                    if (type === 'prepayment') {
+                    if (type !== 'order') {
                         this.paymentForm.orderPublicId = '';
                     } else {
                         this.loadPaymentOrders();
                     }
+                },
+
+                countPaymentCommentCharacters() {
+                    return (String(this.paymentForm.comment || '').match(/[\p{L}\p{N}]/gu) || []).length;
+                },
+
+                paymentOrderOption(order) {
+                    const amountDue = new Intl.NumberFormat('uk-UA', {
+                        maximumFractionDigits: 0,
+                    }).format(Number(order?.amountDue) || 0);
+
+                    return `${order?.number || '—'} — Сума до сплати: ${amountDue} ГРН`;
                 },
 
                 async loadPaymentOrders() {
@@ -635,6 +700,7 @@
                             this.availablePaymentOrders.push({
                                 id: this.paymentForm.orderPublicId,
                                 number: this.paymentForm.orderNumber || 'Поточне замовлення',
+                                amountDue: this.paymentForm.orderAmountDue ?? 0,
                                 unavailable: true,
                             });
                         }
@@ -672,6 +738,9 @@
                     if (this.paymentForm.paymentType === 'order' && !this.paymentForm.orderPublicId) {
                         return 'Оберіть номер замовлення.';
                     }
+                    if (this.paymentForm.paymentType === 'writeoff' && this.countPaymentCommentCharacters() < 20) {
+                        return 'Для простого списання коментар має містити щонайменше 20 букв або цифр.';
+                    }
                     if (this.paymentForm.fromOverpayment && !this.isEditingPayment && Number.parseInt(amount, 10) > this.overpaymentTotal) {
                         return 'Сума списання перевищує доступну переплату клієнта.';
                     }
@@ -693,7 +762,7 @@
                         ? 'Сума поповнення переплати'
                         : 'Сума списання';
                     const conversionDetails = this.isForeignPaymentCurrency()
-                        ? `\nКурс BUY ПриватБанку: ${this.formatPaymentRate(this.paymentForm.exchangeRate)} грн/${this.paymentForm.currency}.\n${amountUahLabel}: ${this.paymentForm.amountUah} грн.`
+                        ? `\nКурс SALE ПриватБанку: ${this.formatPaymentRate(this.paymentForm.exchangeRate)} грн/${this.paymentForm.currency}.\n${amountUahLabel}: ${this.paymentForm.amountUah} грн.`
                         : '';
                     const overpaymentWarning = this.paymentForm.fromOverpayment
                         ? '\nСума платежу буде списана з переплати клієнта.'
@@ -757,7 +826,7 @@
 
                 paymentRateOption(currency) {
                     return this.paymentRates[currency]
-                        ? `${currency} — BUY ${this.formatPaymentRate(this.paymentRates[currency])} грн`
+                        ? `${currency} — ${this.formatPaymentRate(this.paymentRates[currency])} грн`
                         : `${currency} — курс недоступний`;
                 },
 

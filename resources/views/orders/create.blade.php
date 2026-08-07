@@ -4,7 +4,7 @@
         $isEdit = $order !== null;
         $pageTitle = $isEdit
             ? __('Редагування замовлення :number', ['number' => $order->order_number])
-            : __('Створити замовлення');
+            : __('Створити замовлення для');
         $saveUrl = $isEdit ? route('orders.update', $order) : route('orders.store');
         $backUrl = $isEdit ? route('orders.show', $order) : route('orders.index');
 
@@ -25,10 +25,78 @@
     @section('title', $pageTitle)
 
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ $pageTitle }}
-            </h2>
+        <div class="flex flex-wrap items-center gap-4">
+            @if ($isEdit)
+                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                    {{ $pageTitle }}
+                </h2>
+            @else
+                <div
+                    id="order-create-client-picker"
+                    x-data="orderCreateForm({ clients: @js($clients) })"
+                    class="flex min-w-0 flex-1 flex-wrap items-center gap-4"
+                >
+                    <h2 class="shrink-0 font-semibold text-xl text-gray-800 leading-tight">
+                        {{ $pageTitle }}
+                    </h2>
+
+                    <div
+                        class="relative z-[10000] w-full min-w-[280px] max-w-[520px] flex-1 overflow-visible"
+                        @click.outside="showClientDropdown = false; clientDropdownActiveIndex = -1"
+                    >
+                        <input type="hidden" name="client_id" :value="selectedClientId">
+                        <div class="relative overflow-hidden rounded-md">
+                            <input
+                                id="order-customer-name"
+                                name="customer_name"
+                                x-model="selectedClientQuery"
+                                @input="onClientInputChanged(); showClientDropdown = true"
+                                @focus="showClientDropdown = true; syncClientDropdownActiveIndex()"
+                                @keydown.arrow-down.prevent="moveClientDropdown(1)"
+                                @keydown.arrow-up.prevent="moveClientDropdown(-1)"
+                                @keydown.enter.prevent="selectActiveClient()"
+                                @keydown.escape="showClientDropdown = false; clientDropdownActiveIndex = -1"
+                                @blur="handleClientInputBlur()"
+                                type="text"
+                                autocomplete="off"
+                                class="block w-full rounded-md border-gray-300 pr-10 text-left shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                placeholder="Оберіть замовника"
+                            >
+                            <button
+                                type="button"
+                                @click="showClientDropdown = !showClientDropdown; if (showClientDropdown) syncClientDropdownActiveIndex()"
+                                class="absolute inset-y-0 right-0 z-10 flex w-10 items-center justify-center rounded-r-md border border-gray-300 bg-white text-gray-500 hover:text-gray-700"
+                                aria-label="Відкрити список замовників"
+                            >
+                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div
+                            x-show="showClientDropdown"
+                            x-transition
+                            x-cloak
+                            class="absolute z-[10001] mt-1 max-h-64 w-full overflow-auto rounded-md border border-gray-300 bg-white text-left shadow-lg"
+                        >
+                            <template x-if="getFilteredClients().length === 0">
+                                <div class="px-3 py-2 text-sm text-gray-500">Нічого не знайдено</div>
+                            </template>
+                            <template x-for="(client, clientIndex) in getFilteredClients()" :key="`client-option-${client.id}`">
+                                <button
+                                    type="button"
+                                    @mousedown.prevent="selectClient(client)"
+                                    class="flex w-full justify-start px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                    :class="clientDropdownActiveIndex === clientIndex ? 'bg-indigo-50 text-indigo-800' : ''"
+                                    x-text="client.name"
+                                ></button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <a href="{{ $backUrl }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
                 {{ $isEdit ? __('Повернутись до замовлення') : __('Повернутись до замовлень') }}
             </a>
@@ -51,10 +119,11 @@
             @resize.window.debounce.100ms="resizeAllNomenclatureFields()"
             class="max-w-[1700px] mx-auto space-y-5 px-6 sm:px-8 lg:px-12"
         >
-            <div
-                class="relative overflow-visible rounded-lg border border-gray-300 p-4 shadow-sm"
-                style="background-color: #FCEEDF;"
-            >
+            @if ($isEdit)
+                <div
+                    class="relative overflow-visible rounded-lg border border-gray-300 p-4 shadow-sm"
+                    style="background-color: #FCEEDF;"
+                >
                 <div class="flex flex-wrap items-end gap-4">
                     <div class="min-w-[320px] flex-1">
                         <div
@@ -144,7 +213,8 @@
                         </button>
                     </div>
                 </div>
-            </div>
+                </div>
+            @endif
 
             <div class="overflow-hidden rounded-lg bg-white shadow-sm">
                 <div class="p-6">
@@ -259,7 +329,7 @@
             <div
                 x-show="showWarningModal"
                 x-cloak
-                class="fixed inset-0 z-[12000] flex items-center justify-center p-4"
+                class="fixed inset-0 z-[12000] !mt-0 flex items-center justify-center p-4"
             >
                 <div class="absolute inset-0 bg-black/40" @click="showWarningModal = false"></div>
                 <div class="relative w-[430px] max-w-full rounded-lg border border-gray-300 p-6 shadow-xl" style="background-color: #E0E0E0;">
@@ -279,7 +349,7 @@
             <div
                 x-show="showCreateClientModal"
                 x-cloak
-                class="fixed inset-0 z-[12000] flex items-center justify-center p-4"
+                class="fixed inset-0 z-[12000] !mt-0 flex items-center justify-center p-4"
             >
                 <div class="absolute inset-0 bg-black/40" @click="showCreateClientModal = false"></div>
                 <div class="relative w-[500px] max-w-full rounded-lg border border-gray-300 p-6 shadow-xl" style="background-color: #E0E0E0;">
@@ -347,7 +417,7 @@
                         uid: source.item_id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
                         itemId: source.item_id || '',
                         nomenclature: source.nomenclature || '',
-                        quantity: source.quantity ? String(source.quantity) : '',
+                        quantity: source.quantity ? String(source.quantity) : '1',
                         unitCost: source.unit_cost ? String(source.unit_cost) : '',
                     };
                 },
@@ -436,7 +506,6 @@
 
                 hasAnyOrderItemValue(item) {
                     return String(item.nomenclature || '').trim() !== ''
-                        || String(item.quantity || '').trim() !== ''
                         || String(item.unitCost || '').trim() !== '';
                 },
 
@@ -452,6 +521,12 @@
                 requestSaveOrder() {
                     if (this.isSaving) {
                         return;
+                    }
+
+                    if (!this.isEdit) {
+                        const clientPicker = document.getElementById('order-create-client-picker');
+                        this.selectedClientId = clientPicker?.querySelector('input[name="client_id"]')?.value || '';
+                        this.selectedClientQuery = clientPicker?.querySelector('input[name="customer_name"]')?.value || '';
                     }
 
                     const customerName = String(this.selectedClientQuery || '').trim();
@@ -483,12 +558,32 @@
                         return;
                     }
 
-                    this.saveOrder(false);
+                    this.saveOrderWithConfirmation(false);
                 },
 
                 confirmCreateClientAndSave() {
+                    if (!this.confirmOrderSave()) {
+                        return;
+                    }
+
                     this.showCreateClientModal = false;
                     this.saveOrder(true);
+                },
+
+                saveOrderWithConfirmation(createClient) {
+                    if (!this.confirmOrderSave()) {
+                        return;
+                    }
+
+                    this.saveOrder(createClient);
+                },
+
+                confirmOrderSave() {
+                    const message = this.isEdit
+                        ? 'Замовлення буде збережено з внесеними змінами. Підтверджуєте збереження змін?'
+                        : 'Замовлення буде створено з введеними даними. Підтверджуєте створення замовлення?';
+
+                    return window.confirm(message);
                 },
 
                 async saveOrder(createClient) {

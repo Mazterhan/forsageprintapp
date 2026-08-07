@@ -19,7 +19,7 @@ class ClientPaymentController extends Controller
     public function rates(PrivatBankExchangeRateService $exchangeRates): JsonResponse
     {
         try {
-            $payload = $exchangeRates->currentBuyRates();
+            $payload = $exchangeRates->currentSaleRates();
         } catch (RuntimeException $exception) {
             return response()->json([
                 'ok' => false,
@@ -52,10 +52,16 @@ class ClientPaymentController extends Controller
                     });
             })
             ->latest('created_at')
-            ->get(['orders.public_id', 'orders.order_number'])
+            ->get([
+                'orders.public_id',
+                'orders.order_number',
+                'orders.total_cost',
+                DB::raw('COALESCE(selectable_order_payment_totals.total, 0) as linked_payments_total'),
+            ])
             ->map(fn (Order $order): array => [
                 'id' => $order->public_id,
                 'number' => $order->order_number,
+                'amountDue' => max(0, (int) round((float) $order->total_cost - (float) $order->linked_payments_total)),
             ])
             ->values();
 
@@ -102,9 +108,9 @@ class ClientPaymentController extends Controller
         $previousOrder = $clientPayment->order;
         [$data, $order] = $this->validatedPaymentData($request, $client, $exchangeRates, $clientPayment);
         $data['is_from_overpayment'] = $clientPayment->is_from_overpayment;
-        if ($data['is_from_overpayment'] && $data['payment_type'] !== 'order') {
+        if ($data['is_from_overpayment'] && ! in_array($data['payment_type'], ['order', 'writeoff'], true)) {
             throw ValidationException::withMessages([
-                'payment_type' => 'Списання з переплати має бути прив’язане до замовлення.',
+                'payment_type' => 'Оберіть внесення платежу за замовлення або просте списання.',
             ]);
         }
         if ($data['is_from_overpayment'] && $data['currency'] !== 'UAH') {
@@ -133,7 +139,7 @@ class ClientPaymentController extends Controller
             $fieldLabels = [
                 'amount' => 'Сума операції',
                 'currency' => 'Валюта',
-                'exchange_rate' => 'Курс BUY ПриватБанку',
+                'exchange_rate' => 'Курс SALE ПриватБанку',
                 'exchange_rate_type' => 'Тип курсу',
                 'exchange_rate_source' => 'Джерело курсу',
                 'exchange_rate_fetched_at' => 'Час отримання курсу',
@@ -197,7 +203,7 @@ class ClientPaymentController extends Controller
             'currency' => ['required', 'string', 'in:UAH,USD,EUR'],
             'payment_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$today],
             'payment_time' => ['required', 'date_format:H:i'],
-            'payment_type' => ['required', 'string', 'in:prepayment,order'],
+            'payment_type' => ['required', 'string', 'in:prepayment,order,writeoff'],
             'payment_source' => ['nullable', 'string', 'in:direct,overpayment'],
             'order_public_id' => ['nullable', 'required_if:payment_type,order', 'uuid'],
             'comment' => ['nullable', 'string', 'max:2000'],
@@ -217,9 +223,15 @@ class ClientPaymentController extends Controller
         }
 
         $isFromOverpayment = ($validated['payment_source'] ?? 'direct') === 'overpayment';
-        if ($isFromOverpayment && $validated['payment_type'] !== 'order') {
+        if ($isFromOverpayment && ! in_array($validated['payment_type'], ['order', 'writeoff'], true)) {
             throw ValidationException::withMessages([
-                'payment_type' => 'Списання з переплати має бути прив’язане до замовлення.',
+                'payment_type' => 'Оберіть внесення платежу за замовлення або просте списання.',
+            ]);
+        }
+
+        if ($validated['payment_type'] === 'writeoff' && ! $isFromOverpayment) {
+            throw ValidationException::withMessages([
+                'payment_type' => 'Просте списання доступне лише для списання з переплати.',
             ]);
         }
 
@@ -280,6 +292,14 @@ class ClientPaymentController extends Controller
         )->utc();
 
         $comment = filled($validated['comment'] ?? null) ? trim($validated['comment']) : null;
+        if ($validated['payment_type'] === 'writeoff') {
+            preg_match_all('/[\p{L}\p{N}]/u', (string) $comment, $commentCharacters);
+            if (count($commentCharacters[0] ?? []) < 20) {
+                throw ValidationException::withMessages([
+                    'comment' => 'Для простого списання коментар має містити щонайменше 20 букв або цифр.',
+                ]);
+            }
+        }
         if ($currency !== 'UAH' && $amountUah !== $calculatedAmountUah) {
             $note = $this->manualConversionComment(
                 $currency,
@@ -323,7 +343,11 @@ class ClientPaymentController extends Controller
             'calculated_amount_uah' => $payment->calculated_amount_uah ?? '—',
             'amount_uah' => (int) $payment->amount_uah,
             'paid_at' => $payment->paid_at->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i'),
-            'payment_type' => $payment->payment_type === 'order' ? 'Оплата замовлення' : 'Переплата',
+            'payment_type' => match ($payment->payment_type) {
+                'order' => 'Оплата замовлення',
+                'writeoff' => 'Просте списання',
+                default => 'Переплата',
+            },
             'order' => $payment->order?->order_number ?? '—',
             'comment' => $payment->comment ?: '—',
         ];
@@ -428,7 +452,7 @@ class ClientPaymentController extends Controller
             : now('Europe/Kiev')->format('d.m.Y H:i');
 
         return sprintf(
-            'Курс BUY ПриватБанку на %s становив %s грн/%s. Автоматично розрахована сума у полі «Сума списання (ГРН)» за %d %s була %s грн. Користувачем встановлено суму %s грн.',
+            'Курс SALE ПриватБанку на %s становив %s грн/%s. Автоматично розрахована сума у полі «Сума списання (ГРН)» за %d %s була %s грн. Користувачем встановлено суму %s грн.',
             $rateDate,
             number_format($rate, 6, ',', ' '),
             $currency,
@@ -450,7 +474,7 @@ class ClientPaymentController extends Controller
             : 'Сума списання';
 
         return sprintf(
-            'Валютний платіж збережено. Курс BUY ПриватБанку: %s грн/%s. Сума операції: %d %s. %s: %s грн.',
+            'Валютний платіж збережено. Курс SALE ПриватБанку: %s грн/%s. Сума операції: %d %s. %s: %s грн.',
             number_format((float) $payment->exchange_rate, 6, ',', ' '),
             $payment->currency,
             (int) $payment->amount,

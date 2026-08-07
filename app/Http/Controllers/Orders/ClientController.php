@@ -178,7 +178,7 @@ class ClientController extends Controller
             'createdBy',
             'updatedBy',
             'payments' => fn ($query) => $query->latest('paid_at'),
-            'payments.order:id,public_id,order_number',
+            'payments.order:id,public_id,order_number,amount_due',
             'payments.createdBy:id,name',
             'payments.updatedBy:id,name',
             'payments.histories.user:id,name',
@@ -206,6 +206,7 @@ class ClientController extends Controller
                 'fromOverpayment' => $payment->is_from_overpayment,
                 'orderPublicId' => $payment->order?->public_id,
                 'orderNumber' => $payment->order?->order_number,
+                'orderAmountDue' => $payment->order ? (int) round((float) $payment->order->amount_due) : null,
                 'comment' => $payment->comment ?? '',
                 'updateUrl' => route('orders.clients.payments.update', [$client, $payment]),
                 'histories' => $payment->histories->map(fn ($history): array => [

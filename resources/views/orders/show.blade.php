@@ -3,8 +3,6 @@
 
     @php
         $items = is_array($order->items) ? $order->items : [];
-        $histories = $order->histories;
-        $wasEdited = $histories->isNotEmpty();
         $formatOrderMoney = static function ($value): string {
             $formatted = number_format((float) $value, 2, '.', ' ');
             return preg_replace('/\.0+$/', '', $formatted) ?? $formatted;
@@ -12,36 +10,6 @@
         $formatOrderDate = static fn ($date): string => $date
             ? $date->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i')
             : '—';
-        $formatHistoryValue = static function ($value) use ($formatOrderMoney): string {
-            if ($value === null || $value === '' || $value === []) {
-                return '—';
-            }
-
-            if (is_array($value)) {
-                if (array_keys($value) === ['value']) {
-                    return $value['value'] === null || $value['value'] === '' ? '—' : (string) $value['value'];
-                }
-
-                if (array_key_exists('nomenclature', $value)) {
-                    return implode("\n", [
-                        'Номенклатура: '.($value['nomenclature'] ?: '—'),
-                        'Кількість: '.$formatOrderMoney($value['quantity'] ?? 0),
-                        'Вартість за одн.: '.$formatOrderMoney($value['unit_cost'] ?? 0),
-                        'Сума: '.$formatOrderMoney($value['sum'] ?? 0),
-                    ]);
-                }
-
-                return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '—';
-            }
-
-            return (string) $value;
-        };
-        $operationLabels = [
-            'item_created' => 'Створення',
-            'item_updated' => 'Редагування',
-            'item_deleted' => 'Видалення',
-            'order_updated' => 'Редагування',
-        ];
         $orderPaymentsTotal = (float) $order->payments->sum('amount_uah');
         $orderTotalCost = (float) $order->total_cost;
         $orderAmountDue = $orderTotalCost - $orderPaymentsTotal;
@@ -113,6 +81,7 @@
             x-data="orderPaymentPopup({
                 storeUrl: @js($order->client ? route('orders.clients.payments.store', $order->client) : ''),
                 ratesUrl: @js(route('orders.payments.exchange-rates')),
+                historyUrl: @js(route('orders.history', $order)),
                 orderPublicId: @js($order->public_id),
                 orderNumber: @js($order->order_number),
                 today: @js(now('Europe/Kiev')->format('Y-m-d')),
@@ -185,46 +154,35 @@
                 @endif
             </div>
 
-            @if($wasEdited)
-                <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
-                    <div class="px-4 py-3 bg-gray-50 border-b font-semibold text-gray-800">
-                        Історія змін замовлення
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full table-fixed text-sm border-b border-gray-200">
-                            <thead style="background-color: #D3D4D4;">
-                                <tr>
-                                    <th class="w-[150px] px-3 py-2 border text-left">Час</th>
-                                    <th class="w-[180px] px-3 py-2 border text-left">Користувач</th>
-                                    <th class="w-[180px] px-3 py-2 border text-left">Тип операції</th>
-                                    <th class="w-[220px] px-3 py-2 border text-left">Що змінено</th>
-                                    <th class="px-3 py-2 border text-left">Було</th>
-                                    <th class="px-3 py-2 border text-left">Стало</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($histories as $history)
-                                    <tr>
-                                        <td class="px-3 py-2 border align-top">{{ $formatOrderDate($history->created_at) }}</td>
-                                        <td class="px-3 py-2 border align-top">{{ $history->user?->name ?? '—' }}</td>
-                                        <td class="px-3 py-2 border align-top">{{ $operationLabels[$history->operation_type] ?? $history->operation_type }}</td>
-                                        <td class="px-3 py-2 border align-top">
-                                            {{ $history->description ?: ($history->field_name ?: 'Позиція') }}
-                                            @if($history->item_index)
-                                                <span class="text-gray-500">#{{ $history->item_index }}</span>
-                                            @endif
-                                        </td>
-                                        <td class="px-3 py-2 border align-top whitespace-pre-wrap break-words">{{ $formatHistoryValue($history->before_value) }}</td>
-                                        <td class="px-3 py-2 border align-top whitespace-pre-wrap break-words">{{ $formatHistoryValue($history->after_value) }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            @endif
+            <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                <button
+                    type="button"
+                    @click="toggleOrderHistory()"
+                    class="flex w-full items-center justify-between gap-3 border-b border-transparent bg-gray-50 px-4 py-3 text-left font-semibold text-gray-800 transition hover:bg-gray-100"
+                    :class="historyOpen ? 'border-gray-200' : 'border-transparent'"
+                    :aria-expanded="historyOpen"
+                >
+                    <span>Історія змін замовлення</span>
+                    <svg class="h-5 w-5 text-gray-500 transition-transform" :class="historyOpen ? 'rotate-180' : ''" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                    </svg>
+                </button>
 
-            <div x-show="showModal" x-cloak class="fixed inset-0 z-[14000] flex items-center justify-center p-4">
+                <div x-show="historyOpen" x-cloak>
+                    <div x-show="historyLoading" class="px-4 py-8 text-center text-sm text-gray-500">
+                        Завантаження історії змін…
+                    </div>
+                    <div x-show="historyError" x-cloak class="px-4 py-6 text-center">
+                        <p class="text-sm text-red-700" x-text="historyError"></p>
+                        <button type="button" @click="loadOrderHistory()" class="mt-3 rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
+                            Спробувати ще раз
+                        </button>
+                    </div>
+                    <div x-show="historyLoaded && !historyLoading && !historyError" x-html="historyHtml"></div>
+                </div>
+            </div>
+
+            <div x-show="showModal" x-cloak class="fixed inset-0 z-[14000] !mt-0 flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/50" @click="closeModal()"></div>
                 <div class="relative max-h-[94vh] w-[1100px] max-w-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-6 shadow-2xl">
                     <div class="flex items-start justify-between gap-4">
@@ -256,7 +214,7 @@
                             <div>
                                 <label for="order-payment-currency" class="block text-sm font-medium text-gray-700">Валюта операції</label>
                                 <select id="order-payment-currency" x-model="form.currency" @change="currencyChanged()" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    <option value="UAH">грн</option>
+                                    <option value="UAH">UAH</option>
                                     <option value="USD" :disabled="!rates.USD" x-text="rateOption('USD')"></option>
                                     <option value="EUR" :disabled="!rates.EUR" x-text="rateOption('EUR')"></option>
                                 </select>
@@ -266,7 +224,7 @@
                             <div x-show="isForeignCurrency()" x-cloak>
                                 <label for="order-payment-amount-uah" class="block text-sm font-medium text-gray-700">Сума списання (ГРН)</label>
                                 <input id="order-payment-amount-uah" x-model="form.amountUah" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
-                                <p class="mt-1 text-xs text-gray-500" x-text="form.exchangeRate ? `BUY: ${formatRate(form.exchangeRate)} грн/${form.currency}` : ''"></p>
+                                <p class="mt-1 text-xs text-gray-500" x-text="form.exchangeRate ? `SALE: ${formatRate(form.exchangeRate)} грн/${form.currency}` : ''"></p>
                             </div>
                             <div>
                                 <label for="order-payment-date" class="block text-sm font-medium text-gray-700">Дата</label>
@@ -392,6 +350,7 @@
             return {
                 storeUrl: config.storeUrl || '',
                 ratesUrl: config.ratesUrl || '',
+                historyUrl: config.historyUrl || '',
                 orderPublicId: config.orderPublicId || '',
                 orderNumber: config.orderNumber || '',
                 payments: Array.isArray(config.payments) ? config.payments : [],
@@ -406,6 +365,11 @@
                 ratesFetchedAt: '',
                 ratesLoading: false,
                 ratesError: '',
+                historyOpen: false,
+                historyLoaded: false,
+                historyLoading: false,
+                historyError: '',
+                historyHtml: '',
                 form: emptyForm(),
                 activeHistories: [],
 
@@ -513,7 +477,7 @@
                     }
 
                     const conversionDetails = this.isForeignCurrency()
-                        ? `\nКурс BUY ПриватБанку: ${this.formatRate(this.form.exchangeRate)} грн/${this.form.currency}.\nСума списання: ${this.form.amountUah} грн.`
+                        ? `\nКурс SALE ПриватБанку: ${this.formatRate(this.form.exchangeRate)} грн/${this.form.currency}.\nСума списання: ${this.form.amountUah} грн.`
                         : '';
                     const overpaymentWarning = this.form.fromOverpayment
                         ? '\nСума платежу буде списана з переплати клієнта.'
@@ -578,7 +542,7 @@
 
                 rateOption(currency) {
                     return this.rates[currency]
-                        ? `${currency} — BUY ${this.formatRate(this.rates[currency])} грн`
+                        ? `${currency} — ${this.formatRate(this.rates[currency])} грн`
                         : `${currency} — курс недоступний`;
                 },
 
@@ -633,6 +597,40 @@
                         this.ratesError = error?.message || 'Не вдалося завантажити курс валют.';
                     } finally {
                         this.ratesLoading = false;
+                    }
+                },
+
+                toggleOrderHistory() {
+                    this.historyOpen = !this.historyOpen;
+                    if (this.historyOpen && !this.historyLoaded) {
+                        this.loadOrderHistory();
+                    }
+                },
+
+                async loadOrderHistory() {
+                    if (this.historyLoading || !this.historyUrl) {
+                        return;
+                    }
+
+                    this.historyLoading = true;
+                    this.historyError = '';
+                    try {
+                        const response = await fetch(this.historyUrl, {
+                            method: 'GET',
+                            headers: { 'Accept': 'application/json' },
+                            cache: 'no-store',
+                        });
+                        const payload = await response.json();
+                        if (!response.ok || !payload?.ok) {
+                            throw new Error(payload?.message || 'Не вдалося завантажити історію змін замовлення.');
+                        }
+
+                        this.historyHtml = payload.html || '';
+                        this.historyLoaded = true;
+                    } catch (error) {
+                        this.historyError = error?.message || 'Не вдалося завантажити історію змін замовлення.';
+                    } finally {
+                        this.historyLoading = false;
                     }
                 },
             };
