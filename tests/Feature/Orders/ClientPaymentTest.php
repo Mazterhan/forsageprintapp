@@ -619,7 +619,7 @@ class ClientPaymentTest extends TestCase
             ->assertSee('applyOrderAmountSuggestion()', false)
             ->assertSee('Math.ceil(this.orderAmountDue / rate)', false)
             ->assertSee('При внесені платежу, дельта переплати за замовлення буде зарахована у переплату Клієнта')
-            ->assertSee('Значення суми операції більше за наявну переплату')
+            ->assertSee('Значення суми операції не може бути більшим за залишкову суму до сплати по замовленню')
             ->assertSee('isSaving || isOverpaymentSpendAmountInvalid()', false);
         $this->actingAs($user)
             ->get(route('orders.show', $order))

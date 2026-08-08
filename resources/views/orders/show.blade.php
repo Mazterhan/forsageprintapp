@@ -288,7 +288,7 @@
                         </div>
                         @if($canSpendOrderOverpayment)
                         <p x-show="!isEditing && overpaymentTotal > 0 && isOverpaymentSpendAmountInvalid()" x-cloak class="mt-2 text-right text-sm font-semibold text-blue-600">
-                            Значення суми операції більше за наявну переплату
+                            Значення суми операції не може бути більшим за залишкову суму до сплати по замовленню
                         </p>
                         @endif
                     </div>
