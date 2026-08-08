@@ -81,6 +81,8 @@ class OrderClientPermissionTest extends TestCase
             ->assertDontSee($otherOrder->order_number);
         $this->actingAs($owner)->get(route('orders.show', $ownOrder))->assertOk();
         $this->actingAs($owner)->get(route('orders.show', $otherOrder))->assertForbidden();
+        $this->actingAs($owner)->get(route('orders.pdf', $ownOrder))->assertOk();
+        $this->actingAs($owner)->get(route('orders.pdf', $otherOrder))->assertForbidden();
 
         $this->actingAs($owner)
             ->get(route('orders.clients.show', ['client' => $client, 'section' => 'orders']))

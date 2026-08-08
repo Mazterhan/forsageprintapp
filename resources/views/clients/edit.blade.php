@@ -423,7 +423,7 @@
                         </div>
                     </div>
 
-                    <div x-show="paymentError" x-text="paymentError" class="mt-4 rounded-md bg-red-100 px-4 py-3 text-sm text-red-700"></div>
+                    <div x-show="paymentError || overpaymentBatchError()" x-text="paymentError || overpaymentBatchError()" class="mt-4 rounded-md bg-red-100 px-4 py-3 text-sm text-red-700"></div>
 
                     <div data-payment-form-panel class="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-5">
                         <h4 class="font-semibold text-gray-800">Дані платежу</h4>
@@ -433,8 +433,9 @@
                     <div class="mt-4 grid grid-cols-1 gap-4" :class="isForeignPaymentCurrency() ? 'md:grid-cols-5' : 'md:grid-cols-4'">
                         <div>
                             <label for="client-payment-amount" class="block text-sm font-medium text-gray-700">Сума операції</label>
-                            <input id="client-payment-amount" x-model="paymentForm.amount" @input="paymentAmountChanged()" type="text" inputmode="numeric" autocomplete="off" :class="isOverpaymentOrderAmountInvalid() ? 'border-red-500 text-red-700 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'" class="mt-1 block w-full rounded-md shadow-sm" placeholder="0">
-                            <p x-show="isOverpaymentOrderAmountInvalid()" x-cloak class="mt-1 text-xs font-semibold text-red-600">Значення суми операції більше за наявну переплату</p>
+                            <input id="client-payment-amount" x-model="paymentForm.amount" @input="paymentAmountChanged()" type="text" inputmode="numeric" autocomplete="off" :readonly="isOverpaymentBatchMode()" :class="(isOverpaymentOrderAmountInvalid() || isOverpaymentBatchAmountInvalid()) ? 'border-red-500 bg-red-50 text-red-700 focus:border-red-500 focus:ring-red-500' : (isOverpaymentBatchMode() ? 'border-gray-300 bg-gray-100 text-gray-800' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500')" class="mt-1 block w-full rounded-md shadow-sm" placeholder="0">
+                            <p x-show="isOverpaymentOrderAmountInvalid() && !isOverpaymentBatchMode()" x-cloak class="mt-1 text-xs font-semibold text-red-600">Значення суми операції більше за наявну переплату</p>
+                            <p x-show="isOverpaymentBatchAmountInvalid()" x-cloak class="mt-1 text-xs font-semibold text-blue-700" x-text="`Максимально допустима загальна сума: ${formatPaymentAmount(overpaymentTotal)} грн`"></p>
                         </div>
                         <div>
                             <label for="client-payment-currency" class="block text-sm font-medium text-gray-700">Валюта операції</label>
@@ -520,22 +521,38 @@
                             </button>
                         </div>
 
-                        <div x-show="paymentForm.paymentType === 'order'" x-cloak>
+                        <div x-show="paymentForm.paymentType === 'order' && !isEditingPayment" x-cloak class="relative" @click.outside="overpaymentOrdersOpen = false">
                             <label for="client-overpayment-order" class="block text-sm font-medium text-gray-700">Номер замовлення <span class="text-red-600">*</span></label>
-                            <select
+                            <button
+                                type="button"
                                 id="client-overpayment-order"
-                                x-model="paymentForm.orderPublicId"
-                                @change="paymentOrderChanged()"
-                                :required="paymentForm.paymentType === 'order'"
-                                @focus="loadPaymentOrders()"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                @click="overpaymentOrdersOpen = !overpaymentOrdersOpen; loadPaymentOrders()"
+                                class="mt-1 flex w-full items-center justify-between gap-3 rounded-md border border-gray-300 bg-white px-3 py-2 text-left shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                             >
+                                <span class="truncate" x-text="isLoadingPaymentOrders ? 'Завантаження...' : (selectedOverpaymentOrderIds.length ? `Обрано замовлень: ${selectedOverpaymentOrderIds.length}` : 'Оберіть замовлення')"></span>
+                                <svg class="h-4 w-4 shrink-0 text-gray-500 transition" :class="overpaymentOrdersOpen ? 'rotate-180' : ''" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" /></svg>
+                            </button>
+                            <div x-show="overpaymentOrdersOpen" x-cloak class="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-xl">
+                                <p x-show="isLoadingPaymentOrders" class="px-3 py-2 text-sm text-gray-500">Завантаження...</p>
+                                <template x-for="order in availablePaymentOrders" :key="order.id">
+                                    <label class="flex cursor-pointer items-start gap-3 px-3 py-2 text-sm hover:bg-indigo-50" :class="order.unavailable ? 'cursor-not-allowed opacity-50' : ''">
+                                        <input type="checkbox" class="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" :disabled="Boolean(order.unavailable)" :checked="selectedOverpaymentOrderIds.includes(order.id)" @change="toggleOverpaymentOrder(order.id)">
+                                        <span x-text="paymentOrderOption(order)"></span>
+                                    </label>
+                                </template>
+                                <p x-show="!isLoadingPaymentOrders && paymentOrdersLoaded && availablePaymentOrders.length === 0" class="px-3 py-2 text-sm text-amber-700">Немає неоплачених або частково оплачених замовлень.</p>
+                            </div>
+                            <p x-show="!isLoadingPaymentOrders && paymentOrdersLoaded && availablePaymentOrders.length === 0" x-cloak class="mt-1 text-xs text-amber-700">У цього клієнта ще немає прив'язаних замовлень.</p>
+                        </div>
+
+                        <div x-show="paymentForm.paymentType === 'order' && isEditingPayment" x-cloak>
+                            <label for="client-overpayment-order-existing" class="block text-sm font-medium text-gray-700">Номер замовлення <span class="text-red-600">*</span></label>
+                            <select id="client-overpayment-order-existing" x-model="paymentForm.orderPublicId" @change="paymentOrderChanged()" required @focus="loadPaymentOrders()" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                 <option value="" x-text="isLoadingPaymentOrders ? 'Завантаження...' : 'Оберіть замовлення'"></option>
                                 <template x-for="order in availablePaymentOrders" :key="order.id">
                                     <option :value="order.id" :disabled="Boolean(order.unavailable)" x-text="paymentOrderOption(order)"></option>
                                 </template>
                             </select>
-                            <p x-show="!isLoadingPaymentOrders && paymentOrdersLoaded && availablePaymentOrders.length === 0" x-cloak class="mt-1 text-xs text-amber-700">У цього клієнта ще немає прив'язаних замовлень.</p>
                         </div>
                     </div>
 
@@ -562,7 +579,7 @@
 
                         <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-4">
                             <button type="button" @click="closePaymentModal()" :disabled="isSavingPayment" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50" x-text="isReadOnlyPayment ? 'Закрити' : 'Скасувати'"></button>
-                            <button x-show="!isReadOnlyPayment" x-cloak type="button" @click="submitPayment()" :disabled="isSavingPayment || isOverpaymentOrderAmountInvalid()" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+                            <button x-show="!isReadOnlyPayment" x-cloak type="button" @click="submitPayment()" :disabled="isSavingPayment || isOverpaymentOrderAmountInvalid() || isOverpaymentBatchInvalid()" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
                                 <span x-text="isSavingPayment ? 'Збереження...' : (isEditingPayment ? 'Зберегти зміни' : 'Додати платіж')"></span>
                             </button>
                         </div>
@@ -636,6 +653,8 @@
                 availablePaymentOrders: [],
                 paymentOrdersLoaded: false,
                 isLoadingPaymentOrders: false,
+                selectedOverpaymentOrderIds: [],
+                overpaymentOrdersOpen: false,
                 showPaymentModal: false,
                 isEditingPayment: false,
                 isReadOnlyPayment: false,
@@ -654,6 +673,8 @@
                     this.isReadOnlyPayment = false;
                     this.canEditViewedPayment = false;
                     this.paymentError = '';
+                    this.selectedOverpaymentOrderIds = [];
+                    this.overpaymentOrdersOpen = false;
                     this.paymentForm = emptyPayment();
                     this.activePaymentHistories = [];
                     this.showPaymentModal = true;
@@ -666,6 +687,8 @@
                     this.isReadOnlyPayment = false;
                     this.canEditViewedPayment = false;
                     this.paymentError = '';
+                    this.selectedOverpaymentOrderIds = [];
+                    this.overpaymentOrdersOpen = false;
                     this.paymentForm = {
                         ...emptyPayment(),
                         paymentType: 'order',
@@ -696,6 +719,8 @@
                     this.isReadOnlyPayment = true;
                     this.canEditViewedPayment = !Boolean(payment.isAutomatic);
                     this.paymentError = '';
+                    this.selectedOverpaymentOrderIds = [];
+                    this.overpaymentOrdersOpen = false;
                     this.paymentForm = {
                         paymentId: payment.id || '',
                         amount: String(payment.amount || ''),
@@ -738,21 +763,91 @@
                     if (!this.isSavingPayment) {
                         this.showPaymentModal = false;
                         this.paymentError = '';
+                        this.overpaymentOrdersOpen = false;
                     }
                 },
 
                 setPaymentType(type) {
                     this.paymentForm.paymentType = type;
                     if (type !== 'order') {
+                        this.selectedOverpaymentOrderIds = [];
+                        this.overpaymentOrdersOpen = false;
                         this.paymentForm.orderPublicId = '';
                         this.paymentForm.orderNumber = '';
                         this.paymentForm.orderAmountDue = null;
                         this.paymentForm.suggestedAmount = '';
                         this.paymentForm.suggestedAmountUah = '';
                         this.paymentForm.amountAutoFilled = false;
+                        if (this.paymentForm.fromOverpayment && !this.isEditingPayment) {
+                            this.paymentForm.amount = '';
+                            this.paymentForm.amountUah = '';
+                        }
                     } else {
                         this.loadPaymentOrders();
+                        this.syncOverpaymentBatchAmount();
                     }
+                },
+
+                isOverpaymentBatchMode() {
+                    return this.paymentForm.fromOverpayment
+                        && this.paymentForm.paymentType === 'order'
+                        && !this.isEditingPayment;
+                },
+
+                selectedOverpaymentOrders() {
+                    return this.availablePaymentOrders.filter((order) => this.selectedOverpaymentOrderIds.includes(order.id));
+                },
+
+                toggleOverpaymentOrder(orderId) {
+                    if (!this.isOverpaymentBatchMode()) {
+                        return;
+                    }
+
+                    if (this.selectedOverpaymentOrderIds.includes(orderId)) {
+                        this.selectedOverpaymentOrderIds = this.selectedOverpaymentOrderIds.filter((id) => id !== orderId);
+                    } else {
+                        this.selectedOverpaymentOrderIds = [...this.selectedOverpaymentOrderIds, orderId];
+                    }
+                    this.paymentError = '';
+                    this.syncOverpaymentBatchAmount();
+                },
+
+                overpaymentBatchTotal() {
+                    return this.selectedOverpaymentOrders().reduce(
+                        (total, order) => total + Math.max(0, Math.round(Number(order.amountDue) || 0)),
+                        0,
+                    );
+                },
+
+                syncOverpaymentBatchAmount() {
+                    if (!this.isOverpaymentBatchMode()) {
+                        return;
+                    }
+
+                    const total = this.overpaymentBatchTotal();
+                    this.paymentForm.amount = String(total);
+                    this.paymentForm.amountUah = String(total);
+                    this.paymentForm.calculatedAmountUah = String(total);
+                    this.paymentForm.suggestedAmount = String(total);
+                    this.paymentForm.suggestedAmountUah = String(total);
+                    this.paymentForm.amountAutoFilled = true;
+                },
+
+                isOverpaymentBatchAmountInvalid() {
+                    return this.isOverpaymentBatchMode()
+                        && this.selectedOverpaymentOrderIds.length > 0
+                        && this.overpaymentBatchTotal() > this.overpaymentTotal;
+                },
+
+                isOverpaymentBatchInvalid() {
+                    return this.isOverpaymentBatchMode()
+                        && (this.selectedOverpaymentOrderIds.length === 0 || this.isOverpaymentBatchAmountInvalid());
+                },
+
+                overpaymentBatchError() {
+                    return this.isOverpaymentBatchAmountInvalid()
+                        ? 'Загальна сума вибраних замовлень перевищує доступну переплату клієнта. Змініть перелік вибраних замовлень.'
+                        : '';
                 },
 
                 selectedPaymentOrder() {
@@ -839,7 +934,8 @@
                 },
 
                 isOverpaymentOrderAmountInvalid() {
-                    return this.paymentForm.fromOverpayment
+                    return !this.isOverpaymentBatchMode()
+                        && this.paymentForm.fromOverpayment
                         && this.paymentForm.paymentType === 'order'
                         && Number(this.paymentForm.orderAmountDue) > 0
                         && (Number.parseInt(String(this.paymentForm.amount || '0'), 10) || 0) > Number(this.paymentForm.orderAmountDue);
@@ -855,6 +951,10 @@
                     }).format(Number(order?.amountDue) || 0);
 
                     return `${order?.number || '—'} — Сума до сплати: ${amountDue} ГРН`;
+                },
+
+                formatPaymentAmount(amount) {
+                    return new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(Number(amount) || 0);
                 },
 
                 async loadPaymentOrders() {
@@ -878,6 +978,11 @@
 
                         const selectedOrderId = this.paymentForm.orderPublicId;
                         this.availablePaymentOrders = Array.isArray(payload.orders) ? payload.orders : [];
+                        if (this.isOverpaymentBatchMode()) {
+                            const availableIds = new Set(this.availablePaymentOrders.map((order) => order.id));
+                            this.selectedOverpaymentOrderIds = this.selectedOverpaymentOrderIds.filter((id) => availableIds.has(id));
+                            this.syncOverpaymentBatchAmount();
+                        }
                         if (this.isEditingPayment && selectedOrderId && !this.availablePaymentOrders.some((order) => order.id === selectedOrderId)) {
                             this.availablePaymentOrders.push({
                                 id: selectedOrderId,
@@ -899,6 +1004,13 @@
                 },
 
                 validatePayment() {
+                    if (this.isOverpaymentBatchMode() && this.selectedOverpaymentOrderIds.length === 0) {
+                        return 'Оберіть щонайменше одне замовлення.';
+                    }
+                    if (this.isOverpaymentBatchAmountInvalid()) {
+                        return this.overpaymentBatchError();
+                    }
+
                     const amount = String(this.paymentForm.amount || '').trim();
                     if (!/^\d+$/.test(amount) || Number.parseInt(amount, 10) <= 0) {
                         return 'Сума повинна бути цілим числом більше нуля.';
@@ -921,7 +1033,7 @@
                     if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(this.paymentForm.time || '')) {
                         return 'Вкажіть коректний час у форматі гг:хх.';
                     }
-                    if (this.paymentForm.paymentType === 'order' && !this.paymentForm.orderPublicId) {
+                    if (this.paymentForm.paymentType === 'order' && !this.isOverpaymentBatchMode() && !this.paymentForm.orderPublicId) {
                         return 'Оберіть номер замовлення.';
                     }
                     if (this.paymentForm.paymentType === 'writeoff' && this.countPaymentCommentCharacters() < 20) {
@@ -956,9 +1068,12 @@
                     const overpaymentWarning = this.paymentForm.fromOverpayment
                         ? '\nСума платежу буде списана з переплати клієнта.'
                         : '';
+                    const batchDetails = this.isOverpaymentBatchMode()
+                        ? `\nВибрано замовлень: ${this.selectedOverpaymentOrderIds.length}.\nЗагальна сума: ${this.formatPaymentAmount(this.overpaymentBatchTotal())} грн.`
+                        : '';
                     const confirmation = (this.isEditingPayment
                         ? 'Підтверджуєте, що всі зміни платежу внесено правильно?'
-                        : 'Підтверджуєте, що всі дані платежу внесено правильно?') + conversionDetails + overpaymentWarning;
+                        : 'Підтверджуєте, що всі дані платежу внесено правильно?') + batchDetails + conversionDetails + overpaymentWarning;
                     if (!window.confirm(confirmation)) {
                         return;
                     }
@@ -981,7 +1096,8 @@
                                 payment_time: this.paymentForm.time,
                                 payment_type: this.paymentForm.paymentType,
                                 payment_source: this.paymentForm.fromOverpayment ? 'overpayment' : 'direct',
-                                order_public_id: this.paymentForm.paymentType === 'order' ? this.paymentForm.orderPublicId : null,
+                                order_public_id: this.paymentForm.paymentType === 'order' && !this.isOverpaymentBatchMode() ? this.paymentForm.orderPublicId : null,
+                                order_public_ids: this.isOverpaymentBatchMode() ? this.selectedOverpaymentOrderIds : undefined,
                                 comment: String(this.paymentForm.comment || '').trim() || null,
                                 suggested_amount: Number.parseInt(String(this.paymentForm.suggestedAmount || ''), 10) || null,
                                 suggested_amount_uah: Number.parseInt(String(this.paymentForm.suggestedAmountUah || ''), 10) || null,

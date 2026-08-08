@@ -368,7 +368,13 @@ class ClientPaymentTest extends TestCase
             ->assertSee('Сума операції')
             ->assertSee('Валюта операції')
             ->assertSee('<option value="UAH">UAH</option>', false)
-            ->assertSee('x-show="!paymentForm.fromOverpayment"', false);
+            ->assertSee('x-show="!paymentForm.fromOverpayment"', false)
+            ->assertSee(':readonly="isOverpaymentBatchMode()"', false)
+            ->assertSee('type="checkbox"', false)
+            ->assertSee('selectedOverpaymentOrderIds', false)
+            ->assertSee('order_public_ids:', false)
+            ->assertSee('Максимально допустима загальна сума:', false)
+            ->assertSee('Загальна сума вибраних замовлень перевищує доступну переплату клієнта.', false);
 
         $this->actingAs($user)
             ->get(route('orders.show', $order))
@@ -496,6 +502,86 @@ class ClientPaymentTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('payment_type');
+    }
+
+    public function test_multiple_orders_are_paid_from_overpayment_as_separate_atomic_payments(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_orders' => true,
+            'orders_clients_manage' => true,
+        ]);
+        $client = Client::factory()->create();
+        $orders = collect([
+            Order::factory()->create(['client_id' => $client->id, 'total_cost' => 500, 'payments_total' => 0, 'amount_due' => 500]),
+            Order::factory()->create(['client_id' => $client->id, 'total_cost' => 700, 'payments_total' => 0, 'amount_due' => 700]),
+            Order::factory()->create(['client_id' => $client->id, 'total_cost' => 900, 'payments_total' => 0, 'amount_due' => 900]),
+        ]);
+        ClientPayment::query()->create([
+            'client_id' => $client->id,
+            'amount' => 2000,
+            'amount_uah' => 2000,
+            'currency' => 'UAH',
+            'payment_type' => 'prepayment',
+            'paid_at' => now(),
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+        $payload = [
+            // The server must not trust this browser-calculated total.
+            'amount' => 1,
+            'amount_uah' => 1,
+            'currency' => 'UAH',
+            'payment_date' => now('Europe/Kiev')->toDateString(),
+            'payment_time' => '13:45',
+            'payment_type' => 'order',
+            'payment_source' => 'overpayment',
+            'order_public_ids' => $orders->take(2)->pluck('public_id')->all(),
+            'comment' => 'Одночасна оплата двох замовлень',
+        ];
+
+        $response = $this->actingAs($user)
+            ->postJson(route('orders.clients.payments.store', $client), $payload)
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('payments_count', 2)
+            ->assertJsonPath('amount_total', 1200);
+
+        $this->assertCount(2, $response->json('payment_ids'));
+        foreach ($response->json('payment_ids') as $paymentId) {
+            $this->assertTrue(Str::isUuid($paymentId));
+        }
+        foreach ($orders->take(2) as $order) {
+            $this->assertDatabaseHas('client_payments', [
+                'client_id' => $client->id,
+                'order_id' => $order->id,
+                'amount' => (int) $order->total_cost,
+                'amount_uah' => (int) $order->total_cost,
+                'currency' => 'UAH',
+                'payment_type' => 'order',
+                'is_from_overpayment' => true,
+                'comment' => 'Одночасна оплата двох замовлень',
+            ]);
+            $this->assertSame((float) $order->total_cost, (float) $order->fresh()->payments_total);
+            $this->assertSame(0.0, (float) $order->fresh()->amount_due);
+        }
+        $this->assertDatabaseMissing('client_payments', [
+            'order_id' => $orders[2]->id,
+            'is_from_overpayment' => true,
+        ]);
+
+        $paymentCount = ClientPayment::query()->count();
+        $this->actingAs($user)
+            ->postJson(route('orders.clients.payments.store', $client), [
+                ...$payload,
+                'amount' => 900,
+                'amount_uah' => 900,
+                'order_public_ids' => [$orders[2]->public_id],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('order_public_ids');
+
+        $this->assertSame($paymentCount, ClientPayment::query()->count());
+        $this->assertSame(0.0, (float) $orders[2]->fresh()->payments_total);
     }
 
     public function test_order_payment_popup_creates_shared_payment_and_returns_to_same_order(): void

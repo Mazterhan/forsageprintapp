@@ -351,6 +351,64 @@ class OrderIndexTest extends TestCase
         $this->assertStringContainsString('Нове значення', $historyHtml);
     }
 
+    public function test_order_pdf_is_downloaded_with_order_items_and_payment_totals(): void
+    {
+        $user = $this->createUserWithRole(['can_orders' => true]);
+        $client = Client::factory()->create(['name' => 'Замовник PDF']);
+        $order = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'items' => [[
+                'nomenclature' => 'Друкована продукція для PDF',
+                'quantity' => 2,
+                'unit_cost' => 400,
+                'sum' => 800,
+            ]],
+            'total_cost' => 800,
+            'payments_total' => 300,
+            'amount_due' => 500,
+        ]);
+        ClientPayment::query()->create([
+            'client_id' => $client->id,
+            'order_id' => $order->id,
+            'amount' => 300,
+            'amount_uah' => 300,
+            'currency' => 'UAH',
+            'payment_type' => 'order',
+            'paid_at' => now(),
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $pdfUrl = route('orders.pdf', $order);
+        $this->actingAs($user)
+            ->get(route('orders.show', $order))
+            ->assertOk()
+            ->assertSee($pdfUrl, false)
+            ->assertSee('download', false)
+            ->assertSee('Вивантажити замовлення у PDF');
+
+        $response = $this->actingAs($user)->get($pdfUrl);
+        $response
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf')
+            ->assertDownload('zamovlennia-'.$order->order_number.'.pdf');
+
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
+
+        $pdfHtml = view('orders.pdf', [
+            'order' => $order->load('client:id,name'),
+            'items' => $order->items,
+            'paymentsTotal' => 300,
+            'amountDue' => 500,
+        ])->render();
+        $this->assertStringContainsString('ТОВ Форсаж-Прінт', $pdfHtml);
+        $this->assertStringContainsString('Замовник PDF', $pdfHtml);
+        $this->assertStringContainsString('Друкована продукція для PDF', $pdfHtml);
+        $this->assertStringContainsString('Загальна сума сплат', $pdfHtml);
+        $this->assertStringContainsString('500 грн', $pdfHtml);
+    }
+
     public function test_order_history_row_fill_alternates_by_displayed_change_time(): void
     {
         $user = $this->createUserWithRole(['can_orders' => true]);

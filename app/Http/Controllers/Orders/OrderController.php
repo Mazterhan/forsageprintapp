@@ -13,8 +13,10 @@ use App\Models\ProductCategory;
 use App\Models\ProductType;
 use App\Models\ProductTypeCategoryRule;
 use App\Services\PermissionService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -287,6 +289,24 @@ class OrderController extends Controller
                 'histories' => $histories,
             ])->render(),
         ]);
+    }
+
+    public function downloadPdf(Request $request, Order $order, PermissionService $permissions): Response
+    {
+        $this->authorizeOrderAccess($request, $permissions, $order);
+        $order->load('client:id,name');
+
+        $paymentsTotal = (int) $order->payments()->sum('amount_uah');
+        $totalCost = (int) round((float) $order->total_cost);
+
+        return Pdf::loadView('orders.pdf', [
+            'order' => $order,
+            'items' => is_array($order->items) ? $order->items : [],
+            'paymentsTotal' => $paymentsTotal,
+            'amountDue' => $totalCost - $paymentsTotal,
+        ])
+            ->setPaper('a4', 'portrait')
+            ->download('zamovlennia-'.$order->order_number.'.pdf');
     }
 
     public function edit(Request $request, Order $order, PermissionService $permissions)

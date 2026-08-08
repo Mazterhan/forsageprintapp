@@ -87,6 +87,11 @@ class ClientPaymentController extends Controller
         PermissionService $permissions
     ): JsonResponse {
         $this->authorizePaymentContext($request, $permissions);
+
+        if ($request->has('order_public_ids')) {
+            return $this->storeOverpaymentOrderBatch($request, $client);
+        }
+
         [$data, $order] = $this->validatedPaymentData($request, $client, $exchangeRates);
         $this->authorizeOrderContextScope($request, $permissions, $order);
 
@@ -124,6 +129,132 @@ class ClientPaymentController extends Controller
             'automatic_overpayment_amount' => $automaticOverpayment?->amount_uah,
             'redirect_url' => $this->redirectUrl($request, $client, $order),
             'notification' => $this->currencyNotification($payment),
+        ]);
+    }
+
+    private function storeOverpaymentOrderBatch(Request $request, Client $client): JsonResponse
+    {
+        $today = now('Europe/Kiev')->toDateString();
+        $validated = $request->validate([
+            'amount' => ['required', 'integer', 'min:1'],
+            'amount_uah' => ['nullable', 'integer', 'min:1'],
+            'currency' => ['required', 'string', 'in:UAH'],
+            'payment_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$today],
+            'payment_time' => ['required', 'date_format:H:i'],
+            'payment_type' => ['required', 'string', 'in:order'],
+            'payment_source' => ['required', 'string', 'in:overpayment'],
+            'order_public_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'order_public_ids.*' => ['required', 'uuid', 'distinct'],
+            'comment' => ['nullable', 'string', 'max:20000'],
+            'return_context' => ['nullable', 'string', 'in:client'],
+        ]);
+
+        $comment = $this->stripGeneratedPaymentCommentBlocks($validated['comment'] ?? null);
+        if (mb_strlen((string) $comment) > 2000) {
+            throw ValidationException::withMessages([
+                'comment' => 'Коментар користувача не може перевищувати 2000 символів.',
+            ]);
+        }
+
+        $paidAt = CarbonImmutable::createFromFormat(
+            '!Y-m-d H:i',
+            $validated['payment_date'].' '.$validated['payment_time'],
+            'Europe/Kiev'
+        )->utc();
+        $selectedPublicIds = array_values($validated['order_public_ids']);
+
+        [$payments, $total] = DB::transaction(function () use (
+            $request,
+            $client,
+            $selectedPublicIds,
+            $paidAt,
+            $comment
+        ): array {
+            Client::query()->whereKey($client->id)->lockForUpdate()->firstOrFail();
+
+            $orders = Order::query()
+                ->where('client_id', $client->id)
+                ->whereIn('public_id', $selectedPublicIds)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('public_id');
+
+            if ($orders->count() !== count($selectedPublicIds)) {
+                throw ValidationException::withMessages([
+                    'order_public_ids' => 'Один або декілька вибраних замовлень не належать цьому клієнту або вже недоступні.',
+                ]);
+            }
+
+            $paymentAmounts = [];
+            foreach ($selectedPublicIds as $publicId) {
+                /** @var Order $order */
+                $order = $orders->get($publicId);
+                $linkedPayments = (int) ClientPayment::query()
+                    ->where('order_id', $order->id)
+                    ->sum('amount_uah');
+                $amountDue = max(0, (int) round((float) $order->total_cost - $linkedPayments));
+
+                if ($amountDue <= 0) {
+                    throw ValidationException::withMessages([
+                        'order_public_ids' => sprintf(
+                            'Замовлення %s вже сплачене або має переплату. Оновіть перелік і повторіть вибір.',
+                            $order->order_number
+                        ),
+                    ]);
+                }
+
+                $paymentAmounts[$publicId] = $amountDue;
+            }
+
+            $total = array_sum($paymentAmounts);
+            if ($total > $this->availableOverpaymentBalance($client)) {
+                throw ValidationException::withMessages([
+                    'order_public_ids' => 'Загальна сума вибраних замовлень перевищує доступну переплату клієнта. Змініть перелік вибраних замовлень.',
+                ]);
+            }
+
+            $payments = collect();
+            foreach ($selectedPublicIds as $publicId) {
+                /** @var Order $order */
+                $order = $orders->get($publicId);
+                $amountDue = $paymentAmounts[$publicId];
+                $payment = ClientPayment::query()->create([
+                    'client_id' => $client->id,
+                    'order_id' => $order->id,
+                    'amount' => $amountDue,
+                    'amount_uah' => $amountDue,
+                    'calculated_amount_uah' => null,
+                    'currency' => 'UAH',
+                    'exchange_rate' => null,
+                    'exchange_rate_type' => null,
+                    'exchange_rate_source' => null,
+                    'exchange_rate_fetched_at' => null,
+                    'payment_type' => 'order',
+                    'is_from_overpayment' => true,
+                    'paid_at' => $paidAt,
+                    'comment' => $comment,
+                    'created_by' => $request->user()?->id,
+                    'updated_by' => $request->user()?->id,
+                ]);
+
+                $payments->push($payment);
+                $this->syncOrderPaymentTotals($order);
+            }
+
+            return [$payments, $total];
+        });
+
+        return response()->json([
+            'ok' => true,
+            'payment_ids' => $payments->pluck('public_id')->values(),
+            'payments_count' => $payments->count(),
+            'amount_total' => $total,
+            'redirect_url' => route('orders.clients.edit', [
+                'client' => $client,
+                'section' => 'payments',
+            ]),
+            'notification' => null,
         ]);
     }
 
@@ -629,6 +760,20 @@ class ClientPaymentController extends Controller
                 'amount' => 'Сума списання перевищує доступну переплату клієнта.',
             ]);
         }
+    }
+
+    private function availableOverpaymentBalance(Client $client): int
+    {
+        $prepaymentTotal = (int) ClientPayment::query()
+            ->where('client_id', $client->id)
+            ->where('payment_type', 'prepayment')
+            ->sum('amount_uah');
+        $usedOverpaymentTotal = (int) ClientPayment::query()
+            ->where('client_id', $client->id)
+            ->where('is_from_overpayment', true)
+            ->sum('amount_uah');
+
+        return max(0, $prepaymentTotal - $usedOverpaymentTotal);
     }
 
     private function ensureOrderCanAcceptNewPayment(?Order $order): void

@@ -47,17 +47,13 @@
                             {{ __('Замовлення :number', ['number' => $order->order_number]) }}
                         </h2>
                     </div>
-                    @if($canUpdateOrder)
-                        <a href="{{ route('orders.edit', $order) }}" class="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
-                            Редагувати
-                        </a>
-                    @endif
                 </div>
             </div>
 
             <div class="flex items-center gap-2">
-                <button
-                    type="button"
+                <a
+                    href="{{ route('orders.pdf', $order) }}"
+                    download
                     title="Вивантажити замовлення у PDF"
                     aria-label="Вивантажити замовлення у PDF"
                     class="inline-flex h-[38px] w-[42px] items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
@@ -66,7 +62,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
                         <path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6M8 15h8M8 18h5" />
                     </svg>
-                </button>
+                </a>
                 @if($canManageOrderPayments)
                     <button
                         x-data
@@ -78,6 +74,11 @@
                     >
                         Платежі
                     </button>
+                @endif
+                @if($canUpdateOrder)
+                    <a href="{{ route('orders.edit', $order) }}" class="inline-flex h-[38px] items-center rounded-md border border-transparent bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">
+                        Редагувати
+                    </a>
                 @endif
             </div>
         </div>

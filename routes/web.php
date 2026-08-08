@@ -65,6 +65,7 @@ Route::middleware(['auth', 'permission:orders'])
         Route::get('/{order}/edit', [OrderController::class, 'edit'])->whereUuid('order')->name('edit');
         Route::patch('/{order}', [OrderController::class, 'update'])->whereUuid('order')->name('update');
         Route::get('/{order}/history', [OrderController::class, 'history'])->whereUuid('order')->name('history');
+        Route::get('/{order}/pdf', [OrderController::class, 'downloadPdf'])->whereUuid('order')->name('pdf');
         Route::get('/{order}', [OrderController::class, 'show'])->whereUuid('order')->name('show');
     });
 
