@@ -13,6 +13,8 @@
         $orderPermissions = $orderPermissions ?? [];
         $canUpdateOrder = (bool) ($orderPermissions['update'] ?? false);
         $canManageOrderPayments = (bool) ($orderPermissions['payments'] ?? false);
+        $canSpendOrderOverpayment = (bool) ($orderPermissions['payments_overpayment'] ?? false);
+        $canEditOrderPayments = (bool) ($orderPermissions['payments_edit'] ?? false);
         $orderPaymentsTotal = (float) ($orderPaymentsTotal ?? 0);
         $orderTotalCost = (float) $order->total_cost;
         $orderAmountDue = $orderTotalCost - $orderPaymentsTotal;
@@ -56,12 +58,10 @@
                     download
                     title="Вивантажити замовлення у PDF"
                     aria-label="Вивантажити замовлення у PDF"
-                    class="inline-flex h-[38px] w-[42px] items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    class="inline-flex h-[38px] items-center justify-center gap-2 overflow-hidden rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                 >
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6M8 15h8M8 18h5" />
-                    </svg>
+                    <span>Завантажити</span>
+                    <img src="{{ asset('images/pdf-file-icon.png') }}" alt="PDF" width="20" height="20" style="display: block; width: 20px; height: 20px; object-fit: contain;">
                 </a>
                 @if($canManageOrderPayments)
                     <button
@@ -97,6 +97,8 @@
                 currentTime: @js(now('Europe/Kiev')->format('H:i')),
                 overpaymentTotal: @js($clientOverpaymentTotal),
                 canAddPayment: @js($canAddOrderPayment),
+                canSpendOverpayment: @js($canSpendOrderOverpayment),
+                canEditPayments: @js($canEditOrderPayments),
                 payments: @js($paymentModalData),
                 openOnLoad: @js(request()->boolean('payments')),
             })"
@@ -206,9 +208,11 @@
                             <p class="mt-1 text-sm text-gray-500">{{ $order->client?->name ?? $order->customer_name }}</p>
                         </div>
                         <div class="flex items-center gap-3">
-                            <button x-show="isReadOnlyPayment" x-cloak type="button" @click="enablePaymentEditing()" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                            @if($canEditOrderPayments)
+                            <button x-show="isReadOnlyPayment && canEditViewedPayment" x-cloak type="button" @click="enablePaymentEditing()" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
                                 Редагувати
                             </button>
+                            @endif
                             <button type="button" @click="closeModal()" class="text-2xl leading-none text-gray-400 hover:text-gray-700" aria-label="Закрити">&times;</button>
                         </div>
                     </div>
@@ -273,16 +277,20 @@
 
                         <div class="mt-4 flex justify-end gap-3">
                             <button x-show="isEditing" x-cloak type="button" @click="resetForm()" :disabled="isSaving" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50" x-text="isReadOnlyPayment ? 'Повернутися до платежів' : 'Скасувати редагування'"></button>
+                            @if($canSpendOrderOverpayment)
                             <button x-show="!isEditing && overpaymentTotal > 0" x-cloak type="button" @click="submitPayment(true)" :disabled="isSaving || isOverpaymentSpendAmountInvalid()" class="rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50">
                                 Списати з переплати
                             </button>
+                            @endif
                             <button x-show="!isReadOnlyPayment" x-cloak type="button" @click="submitPayment(isEditing ? null : false)" :disabled="isSaving" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
                                 <span x-text="isSaving ? 'Збереження...' : (isEditing ? 'Зберегти зміни' : 'Внести платіж')"></span>
                             </button>
                         </div>
+                        @if($canSpendOrderOverpayment)
                         <p x-show="!isEditing && overpaymentTotal > 0 && isOverpaymentSpendAmountInvalid()" x-cloak class="mt-2 text-right text-sm font-semibold text-blue-600">
                             Значення суми операції більше за наявну переплату
                         </p>
+                        @endif
                     </div>
 
                     <div x-show="!isEditing && !canAddPayment" x-cloak class="mt-5 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
@@ -403,10 +411,13 @@
                 payments: Array.isArray(config.payments) ? config.payments : [],
                 overpaymentTotal: Number(config.overpaymentTotal) || 0,
                 canAddPayment: Boolean(config.canAddPayment),
+                canSpendOverpayment: Boolean(config.canSpendOverpayment),
+                canEditPayments: Boolean(config.canEditPayments),
                 today: config.today || '',
                 showModal: false,
                 isEditing: false,
                 isReadOnlyPayment: false,
+                canEditViewedPayment: false,
                 isSaving: false,
                 paymentError: '',
                 rates: {},
@@ -444,6 +455,7 @@
                 resetForm() {
                     this.isEditing = false;
                     this.isReadOnlyPayment = false;
+                    this.canEditViewedPayment = false;
                     this.paymentError = '';
                     this.form = emptyForm();
                     this.activeHistories = [];
@@ -457,6 +469,7 @@
 
                     this.isEditing = true;
                     this.isReadOnlyPayment = true;
+                    this.canEditViewedPayment = Boolean(payment.canEdit);
                     this.paymentError = '';
                     this.form = {
                         paymentId: payment.id || '',
@@ -483,6 +496,10 @@
                 },
 
                 enablePaymentEditing() {
+                    if (!this.canEditViewedPayment) {
+                        return;
+                    }
+
                     this.isReadOnlyPayment = false;
                     this.$nextTick(() => {
                         window.setTimeout(() => this.$refs.paymentAmount?.focus({ preventScroll: true }), 100);
@@ -532,6 +549,10 @@
                     }
 
                     if (!this.isEditing && typeof fromOverpayment === 'boolean') {
+                        if (fromOverpayment && !this.canSpendOverpayment) {
+                            this.paymentError = 'Списання з переплати недоступне для вашої ролі.';
+                            return;
+                        }
                         this.form.fromOverpayment = fromOverpayment;
                     }
 

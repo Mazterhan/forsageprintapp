@@ -6,6 +6,8 @@
         $clientPermissions = $clientPermissions ?? [];
         $canEditClient = (bool) ($clientPermissions['edit'] ?? false);
         $canManageClientPayments = (bool) ($clientPermissions['payments'] ?? false);
+        $canManageClientOverpayments = (bool) ($clientPermissions['overpayments'] ?? false);
+        $canEditClientPayments = (bool) ($clientPermissions['payments_edit'] ?? false);
         $canAccessClientOrders = (bool) ($clientPermissions['orders'] ?? false);
         $clientOverpaymentTotal = (float) $client->payments
             ->where('payment_type', 'prepayment')
@@ -13,6 +15,9 @@
                 ->where('is_from_overpayment', true)
                 ->sum('amount_uah');
         $clientOverpaymentTotal = max(0, $clientOverpaymentTotal);
+        if (! $canManageClientOverpayments) {
+            $clientOverpaymentTotal = 0;
+        }
         $sectionFields = [
             'main' => ['name', 'type', 'status', 'category', 'is_vip', 'tags', 'notes', 'manager_id'],
             'contacts' => ['contact_name', 'phones', 'emails', 'messengers', 'source'],
@@ -81,7 +86,7 @@
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                     {{ __('Картка клієнта. :name', ['name' => $client->name]) }}
                 </h2>
-                @if($canManageClientPayments && $clientOverpaymentTotal > 0)
+                @if($canManageClientOverpayments && $clientOverpaymentTotal > 0)
                     <div data-client-overpayment-total class="mt-1 text-sm font-semibold text-blue-700">
                         Переплата: {{ $formatOrderMoney($clientOverpaymentTotal) }}
                     </div>
@@ -150,6 +155,8 @@
                 today: @js(now('Europe/Kiev')->format('Y-m-d')),
                 currentTime: @js(now('Europe/Kiev')->format('H:i')),
                 overpaymentTotal: @js((int) $clientOverpaymentTotal),
+                canManageOverpayments: @js($canManageClientOverpayments),
+                canEditPayments: @js($canEditClientPayments),
                 payments: @js($paymentModalData),
             })"
             @keydown.escape.window="closePaymentModal()"
@@ -219,7 +226,7 @@
                                         </button>
                                     </div>
                                     <div class="flex items-center gap-2">
-                                        @if($clientOverpaymentTotal > 0)
+                                        @if($canManageClientOverpayments && $clientOverpaymentTotal > 0)
                                             <button
                                                 type="button"
                                                 @click="openOverpaymentPayment()"
@@ -416,9 +423,11 @@
                             <p class="mt-1 text-sm text-gray-500">{{ $client->name }}</p>
                         </div>
                         <div class="flex items-center gap-3">
+                            @if($canEditClientPayments)
                             <button x-show="isReadOnlyPayment && canEditViewedPayment" x-cloak type="button" @click="enablePaymentEditing()" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
                                 Редагувати
                             </button>
+                            @endif
                             <button type="button" @click="closePaymentModal()" class="text-2xl leading-none text-gray-400 hover:text-gray-700" aria-label="Закрити">&times;</button>
                         </div>
                     </div>
@@ -475,8 +484,9 @@
                             <button
                                 type="button"
                                 @click="setPaymentType('prepayment')"
+                                :disabled="!canManageOverpayments"
                                 :class="paymentForm.paymentType === 'prepayment' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600'"
-                                class="rounded-md px-4 py-2 text-sm font-semibold transition"
+                                class="rounded-md px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 Внесення переплати
                             </button>
@@ -648,6 +658,8 @@
                 paymentRatesUrl: config.ratesUrl || '',
                 payments: Array.isArray(config.payments) ? config.payments : [],
                 overpaymentTotal: Number(config.overpaymentTotal) || 0,
+                canManageOverpayments: Boolean(config.canManageOverpayments),
+                canEditPayments: Boolean(config.canEditPayments),
                 today: config.today || '',
                 showPaymentCodes: false,
                 availablePaymentOrders: [],
@@ -683,6 +695,10 @@
                 },
 
                 openOverpaymentPayment() {
+                    if (!this.canManageOverpayments) {
+                        return;
+                    }
+
                     this.isEditingPayment = false;
                     this.isReadOnlyPayment = false;
                     this.canEditViewedPayment = false;
@@ -717,7 +733,7 @@
 
                     this.isEditingPayment = true;
                     this.isReadOnlyPayment = true;
-                    this.canEditViewedPayment = !Boolean(payment.isAutomatic);
+                    this.canEditViewedPayment = Boolean(payment.canEdit);
                     this.paymentError = '';
                     this.selectedOverpaymentOrderIds = [];
                     this.overpaymentOrdersOpen = false;
@@ -768,6 +784,10 @@
                 },
 
                 setPaymentType(type) {
+                    if (type === 'prepayment' && !this.canManageOverpayments) {
+                        return;
+                    }
+
                     this.paymentForm.paymentType = type;
                     if (type !== 'order') {
                         this.selectedOverpaymentOrderIds = [];

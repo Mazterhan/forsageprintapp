@@ -190,6 +190,8 @@ class ClientController extends Controller
         $clientPermissions = [
             'edit' => $permissions->can($user, 'orders_clients_edit'),
             'payments' => $permissions->can($user, 'orders_clients_payments'),
+            'overpayments' => $permissions->can($user, 'orders_clients_overpayments_manage'),
+            'payments_edit' => $permissions->can($user, 'orders_clients_payments_edit'),
             'orders' => $permissions->can($user, 'orders_access'),
         ];
 
@@ -217,7 +219,12 @@ class ClientController extends Controller
             ->orderBy('name')
             ->get();
 
-        $paymentModalData = $client->payments->map(function ($payment) use ($client): array {
+        $paymentModalData = $client->payments->map(function ($payment) use ($client, $clientPermissions): array {
+            $touchesOverpayment = $payment->payment_type === 'prepayment'
+                || $payment->is_from_overpayment
+                || $payment->is_automatic
+                || $payment->automaticOverpayment !== null;
+
             return [
                 'id' => $payment->public_id,
                 'amount' => $payment->amount,
@@ -233,6 +240,9 @@ class ClientController extends Controller
                 'paymentType' => $payment->payment_type,
                 'fromOverpayment' => $payment->is_from_overpayment,
                 'isAutomatic' => $payment->is_automatic,
+                'canEdit' => $clientPermissions['payments_edit']
+                    && ! $payment->is_automatic
+                    && (! $touchesOverpayment || $clientPermissions['overpayments']),
                 'automaticOverpaymentId' => $payment->automaticOverpayment?->public_id,
                 'orderPublicId' => $payment->order?->public_id,
                 'orderNumber' => $payment->order?->order_number,

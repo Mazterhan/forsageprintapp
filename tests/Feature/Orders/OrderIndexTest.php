@@ -386,7 +386,11 @@ class OrderIndexTest extends TestCase
             ->assertOk()
             ->assertSee($pdfUrl, false)
             ->assertSee('download', false)
+            ->assertSee(asset('images/pdf-file-icon.png'), false)
+            ->assertSee('Завантажити')
             ->assertSee('Вивантажити замовлення у PDF');
+
+        $this->assertFileExists(public_path('images/pdf-file-icon.png'));
 
         $response = $this->actingAs($user)->get($pdfUrl);
         $response
@@ -407,6 +411,8 @@ class OrderIndexTest extends TestCase
         $this->assertStringContainsString('Друкована продукція для PDF', $pdfHtml);
         $this->assertStringContainsString('Загальна сума сплат', $pdfHtml);
         $this->assertStringContainsString('500 грн', $pdfHtml);
+        $this->assertStringContainsString('background: #e5e7eb;', $pdfHtml);
+        $this->assertStringContainsString('border-bottom: 2px solid #000000;', $pdfHtml);
     }
 
     public function test_order_history_row_fill_alternates_by_displayed_change_time(): void

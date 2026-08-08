@@ -36,10 +36,14 @@ class RoleFactory extends Factory
             'orders_scope' => 'own',
             'orders_update' => false,
             'orders_payments' => false,
+            'orders_payments_overpayment' => false,
+            'orders_payments_edit' => false,
             'orders_clients_manage' => false,
             'orders_clients_create' => false,
             'orders_clients_edit' => false,
             'orders_clients_payments' => false,
+            'orders_clients_overpayments_manage' => false,
+            'orders_clients_payments_edit' => false,
             'can_price' => false,
             'price_create_item' => false,
             'price_deactivate_item' => false,
@@ -66,12 +70,16 @@ class RoleFactory extends Factory
             $permissions['orders_scope'] = $permissions['orders_scope'] ?? 'all';
             $permissions['orders_update'] = true;
             $permissions['orders_payments'] = true;
+            $permissions['orders_payments_overpayment'] = true;
+            $permissions['orders_payments_edit'] = true;
         }
 
         if (($permissions['orders_clients_manage'] ?? false)) {
             $permissions['orders_clients_create'] ??= true;
             $permissions['orders_clients_edit'] ??= true;
             $permissions['orders_clients_payments'] ??= true;
+            $permissions['orders_clients_overpayments_manage'] ??= true;
+            $permissions['orders_clients_payments_edit'] ??= true;
         }
 
         return $this->state(fn () => $permissions);
@@ -99,10 +107,14 @@ class RoleFactory extends Factory
             'orders_scope' => 'all',
             'orders_update' => true,
             'orders_payments' => true,
+            'orders_payments_overpayment' => true,
+            'orders_payments_edit' => true,
             'orders_clients_manage' => true,
             'orders_clients_create' => true,
             'orders_clients_edit' => true,
             'orders_clients_payments' => true,
+            'orders_clients_overpayments_manage' => true,
+            'orders_clients_payments_edit' => true,
             'can_price' => true,
             'price_create_item' => true,
             'price_deactivate_item' => true,

@@ -626,7 +626,7 @@ class ClientPaymentTest extends TestCase
             ->assertOk()
             ->assertSee('viewPayment(', false)
             ->assertSee('<fieldset :disabled="isReadOnlyPayment">', false)
-            ->assertSee('x-show="isReadOnlyPayment"', false)
+            ->assertSee('x-show="isReadOnlyPayment && canEditViewedPayment"', false)
             ->assertSee('Для внесеного платежу, дельта переплати за замовлення була зарахована до переплати Клієнта', false);
 
         $response = $this->actingAs($user)

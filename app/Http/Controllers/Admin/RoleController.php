@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class RoleController extends Controller
@@ -82,10 +82,14 @@ class RoleController extends Controller
             'orders_access',
             'orders_update',
             'orders_payments',
+            'orders_payments_overpayment',
+            'orders_payments_edit',
             'orders_clients_manage',
             'orders_clients_create',
             'orders_clients_edit',
             'orders_clients_payments',
+            'orders_clients_overpayments_manage',
+            'orders_clients_payments_edit',
             'can_price',
             'price_create_item',
             'price_deactivate_item',
@@ -127,13 +131,13 @@ class RoleController extends Controller
             $data[$field] = (bool) ($data[$field] ?? false);
         }
 
-        if (!$data['can_analytics']) {
+        if (! $data['can_analytics']) {
             foreach (['analytics_show_kpi', 'analytics_show_charts', 'analytics_show_tables', 'analytics_finance_access', 'analytics_orders_access'] as $field) {
                 $data[$field] = false;
             }
         }
 
-        if (!$data['can_orders']) {
+        if (! $data['can_orders']) {
             foreach ([
                 'orders_calculation',
                 'orders_calc_save',
@@ -145,21 +149,25 @@ class RoleController extends Controller
                 'orders_access',
                 'orders_update',
                 'orders_payments',
+                'orders_payments_overpayment',
+                'orders_payments_edit',
                 'orders_clients_manage',
                 'orders_clients_create',
                 'orders_clients_edit',
                 'orders_clients_payments',
+                'orders_clients_overpayments_manage',
+                'orders_clients_payments_edit',
             ] as $field) {
                 $data[$field] = false;
             }
         }
 
-        if (!$data['orders_calculation']) {
+        if (! $data['orders_calculation']) {
             $data['orders_calc_save'] = false;
             $data['orders_calc_purchase_visible'] = false;
         }
 
-        if (!$data['orders_proposals']) {
+        if (! $data['orders_proposals']) {
             $data['orders_list_scope'] = 'own';
             $data['orders_list_purchase_visible'] = false;
             $data['orders_edit'] = false;
@@ -168,21 +176,37 @@ class RoleController extends Controller
             $data['orders_scope'] = 'own';
             $data['orders_update'] = false;
             $data['orders_payments'] = false;
+            $data['orders_payments_overpayment'] = false;
+            $data['orders_payments_edit'] = false;
         }
 
         if (! $data['orders_access']) {
             $data['orders_scope'] = 'own';
             $data['orders_update'] = false;
             $data['orders_payments'] = false;
+            $data['orders_payments_overpayment'] = false;
+            $data['orders_payments_edit'] = false;
+        }
+
+        if (! $data['orders_payments']) {
+            $data['orders_payments_overpayment'] = false;
+            $data['orders_payments_edit'] = false;
         }
 
         if (! $data['orders_clients_manage']) {
             $data['orders_clients_create'] = false;
             $data['orders_clients_edit'] = false;
             $data['orders_clients_payments'] = false;
+            $data['orders_clients_overpayments_manage'] = false;
+            $data['orders_clients_payments_edit'] = false;
         }
 
-        if (!$data['can_price']) {
+        if (! $data['orders_clients_payments']) {
+            $data['orders_clients_overpayments_manage'] = false;
+            $data['orders_clients_payments_edit'] = false;
+        }
+
+        if (! $data['can_price']) {
             foreach ([
                 'price_create_item',
                 'price_deactivate_item',
@@ -196,14 +220,14 @@ class RoleController extends Controller
             }
         }
 
-        if (!$data['price_card_access']) {
+        if (! $data['price_card_access']) {
             $data['price_card_edit'] = false;
             $data['price_card_history'] = false;
             $data['price_deactivate_item'] = false;
             $data['price_delete_item'] = false;
         }
 
-        if (!$data['can_admin']) {
+        if (! $data['can_admin']) {
             $data['admin_reference_manage'] = false;
             $data['admin_users_org_manage'] = false;
         }

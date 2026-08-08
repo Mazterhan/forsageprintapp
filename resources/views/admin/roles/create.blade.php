@@ -195,10 +195,14 @@
                             ordersScopeAll: @js(old('orders_scope', $role?->orders_scope ?? 'own') === 'all'),
                             ordersUpdate: @js($roleOldBool('orders_update')),
                             ordersPayments: @js($roleOldBool('orders_payments')),
+                            ordersPaymentsOverpayment: @js($roleOldBool('orders_payments_overpayment')),
+                            ordersPaymentsEdit: @js($roleOldBool('orders_payments_edit')),
                             ordersClientsManage: @js($roleOldBool('orders_clients_manage')),
                             ordersClientsCreate: @js($roleOldBool('orders_clients_create')),
                             ordersClientsEdit: @js($roleOldBool('orders_clients_edit')),
                             ordersClientsPayments: @js($roleOldBool('orders_clients_payments')),
+                            ordersClientsOverpaymentsManage: @js($roleOldBool('orders_clients_overpayments_manage')),
+                            ordersClientsPaymentsEdit: @js($roleOldBool('orders_clients_payments_edit')),
                             priceCreateItem: @js($roleOldBool('price_create_item')),
                             priceDeactivateItem: @js($roleOldBool('price_deactivate_item')),
                             priceDeleteItem: @js($roleOldBool('price_delete_item')),
@@ -232,10 +236,14 @@
                                     ordersScopeAll = false;
                                     ordersUpdate = false;
                                     ordersPayments = false;
+                                    ordersPaymentsOverpayment = false;
+                                    ordersPaymentsEdit = false;
                                     ordersClientsManage = false;
                                     ordersClientsCreate = false;
                                     ordersClientsEdit = false;
                                     ordersClientsPayments = false;
+                                    ordersClientsOverpaymentsManage = false;
+                                    ordersClientsPaymentsEdit = false;
                                 }
                             });
                             $watch('ordersCalculation', (v) => {
@@ -254,6 +262,8 @@
                                     ordersScopeAll = false;
                                     ordersUpdate = false;
                                     ordersPayments = false;
+                                    ordersPaymentsOverpayment = false;
+                                    ordersPaymentsEdit = false;
                                 }
                             });
                             $watch('ordersAccess', (v) => {
@@ -261,6 +271,14 @@
                                     ordersScopeAll = false;
                                     ordersUpdate = false;
                                     ordersPayments = false;
+                                    ordersPaymentsOverpayment = false;
+                                    ordersPaymentsEdit = false;
+                                }
+                            });
+                            $watch('ordersPayments', (v) => {
+                                if (!v) {
+                                    ordersPaymentsOverpayment = false;
+                                    ordersPaymentsEdit = false;
                                 }
                             });
                             $watch('ordersClientsManage', (v) => {
@@ -268,6 +286,14 @@
                                     ordersClientsCreate = false;
                                     ordersClientsEdit = false;
                                     ordersClientsPayments = false;
+                                    ordersClientsOverpaymentsManage = false;
+                                    ordersClientsPaymentsEdit = false;
+                                }
+                            });
+                            $watch('ordersClientsPayments', (v) => {
+                                if (!v) {
+                                    ordersClientsOverpaymentsManage = false;
+                                    ordersClientsPaymentsEdit = false;
                                 }
                             });
                             $watch('canPrice', (v) => {
@@ -475,8 +501,8 @@
                                         </div>
 
                                         <div class="border-t border-gray-200 pt-3">
-                                            <div class="flex items-center justify-between gap-3">
-                                                <div class="text-sm font-medium text-gray-800">Доступність замовлень</div>
+                                            <div class="flex items-center justify-between gap-3" data-help="Керує видимістю кнопки створення замовлення, таблиці замовлень та доступом до карток замовлень.">
+                                                <div class="text-sm font-medium text-gray-800">Замовлення</div>
                                                 <label class="permission-switch">
                                                     <input type="hidden" name="orders_access" value="0">
                                                     <input type="checkbox" name="orders_access" value="1" x-model="ordersAccess">
@@ -514,6 +540,26 @@
                                                         <span class="switch-track"></span><span class="switch-knob"></span>
                                                         <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
                                                     </label>
+                                                </div>
+                                                <div x-show="ordersPayments" x-cloak class="ml-6 space-y-3 border-l-2 border-gray-300 pl-3">
+                                                    <div class="flex items-center justify-between gap-3">
+                                                        <div class="text-sm text-gray-800">Списати з переплати</div>
+                                                        <label class="permission-switch">
+                                                            <input type="hidden" name="orders_payments_overpayment" value="0">
+                                                            <input type="checkbox" name="orders_payments_overpayment" value="1" x-model="ordersPaymentsOverpayment">
+                                                            <span class="switch-track"></span><span class="switch-knob"></span>
+                                                            <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                        </label>
+                                                    </div>
+                                                    <div class="flex items-center justify-between gap-3">
+                                                        <div class="text-sm text-gray-800">Редагування платежів</div>
+                                                        <label class="permission-switch">
+                                                            <input type="hidden" name="orders_payments_edit" value="0">
+                                                            <input type="checkbox" name="orders_payments_edit" value="1" x-model="ordersPaymentsEdit">
+                                                            <span class="switch-track"></span><span class="switch-knob"></span>
+                                                            <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                        </label>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -554,6 +600,26 @@
                                                 <span class="switch-track"></span><span class="switch-knob"></span>
                                                 <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
                                             </label>
+                                        </div>
+                                        <div x-show="ordersClientsPayments" x-cloak class="ml-6 space-y-3 border-l-2 border-gray-300 pl-3">
+                                            <div class="flex items-center justify-between gap-3">
+                                                <div class="text-sm text-gray-800">Керування переплатами</div>
+                                                <label class="permission-switch">
+                                                    <input type="hidden" name="orders_clients_overpayments_manage" value="0">
+                                                    <input type="checkbox" name="orders_clients_overpayments_manage" value="1" x-model="ordersClientsOverpaymentsManage">
+                                                    <span class="switch-track"></span><span class="switch-knob"></span>
+                                                    <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                </label>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-3">
+                                                <div class="text-sm text-gray-800">Редагування платежів</div>
+                                                <label class="permission-switch">
+                                                    <input type="hidden" name="orders_clients_payments_edit" value="0">
+                                                    <input type="checkbox" name="orders_clients_payments_edit" value="1" x-model="ordersClientsPaymentsEdit">
+                                                    <span class="switch-track"></span><span class="switch-knob"></span>
+                                                    <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                </label>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -707,13 +773,15 @@
                 'Бачить заявки': 'Визначає область видимості заявок: лише створені/доступні цьому користувачу або всі активні заявки.',
                 'Редагування заявок': 'Дозволяє відкривати заявку для редагування з її сторінки перегляду.',
                 'Редагування списку': 'Дозволяє вмикати режим керування списком заявок, зокрема операції над вибраними заявками.',
-                'Доступність замовлень': 'Керує видимістю кнопки створення замовлення, таблиці замовлень та доступом до карток замовлень.',
                 'Бачить замовлення': 'Визначає область видимості замовлень: усі замовлення або лише створені поточним користувачем.',
                 'Редагування замовлення': 'Дозволяє редагувати замовлення та переглядати історію його змін.',
                 'Замовники': 'Дозволяє відкривати список і картки замовників без права змінювати дані.',
                 'Додати': 'Дозволяє створювати нових замовників.',
                 'Редагувати': 'Дозволяє редагувати та деактивувати замовників.',
                 'Платежі': 'Дозволяє працювати з платежами у відповідному розділі замовлення або картки замовника.',
+                'Списати з переплати': 'Дозволяє оплачувати замовлення коштами з переплати клієнта.',
+                'Керування переплатами': 'Дозволяє бачити залишок переплати клієнта, вносити переплату та списувати її на замовлення або інші операції.',
+                'Редагування платежів': 'Дозволяє переходити з перегляду платежу до його редагування у відповідному розділі.',
                 'Прайс': 'Керує доступом до розділу прайсу і всіх вкладених дій з позиціями.',
                 'Доступ до закупівельної ціни': 'Дозволяє бачити закупівельну ціну, націнку та пов’язані фінансові поля у прайсі.',
                 'Доступ до картки існуючої позиції': 'Дозволяє відкривати детальну картку позиції прайсу.',

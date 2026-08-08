@@ -206,6 +206,8 @@ class OrderController extends Controller
         $this->authorizeOrderAccess($request, $permissions, $order);
         $canUpdateOrder = $permissions->can($request->user(), 'orders_update');
         $canManageOrderPayments = $permissions->can($request->user(), 'orders_payments');
+        $canSpendOrderOverpayment = $permissions->can($request->user(), 'orders_payments_overpayment');
+        $canEditOrderPayments = $permissions->can($request->user(), 'orders_payments_edit');
 
         $order->load([
             'client:id,public_id,name',
@@ -221,7 +223,7 @@ class OrderController extends Controller
             ]);
         }
 
-        $paymentModalData = $canManageOrderPayments ? $order->payments->map(function ($payment) use ($order): array {
+        $paymentModalData = $canManageOrderPayments ? $order->payments->map(function ($payment) use ($order, $canEditOrderPayments, $canSpendOrderOverpayment): array {
             return [
                 'id' => $payment->public_id,
                 'amount' => $payment->amount,
@@ -236,6 +238,7 @@ class OrderController extends Controller
                 'time' => $payment->paid_at->copy()->timezone('Europe/Kiev')->format('H:i'),
                 'comment' => $payment->comment ?? '',
                 'fromOverpayment' => $payment->is_from_overpayment,
+                'canEdit' => $canEditOrderPayments && (! $payment->is_from_overpayment || $canSpendOrderOverpayment),
                 'automaticOverpaymentId' => $payment->automaticOverpayment?->public_id,
                 'updateUrl' => route('orders.clients.payments.update', [$order->client, $payment]),
                 'histories' => $payment->histories->map(fn ($history): array => [
@@ -245,7 +248,7 @@ class OrderController extends Controller
                 ])->values()->all(),
             ];
         })->values() : collect();
-        $clientOverpaymentTotal = $canManageOrderPayments && $order->client_id
+        $clientOverpaymentTotal = $canSpendOrderOverpayment && $order->client_id
             ? (int) ClientPayment::query()
                 ->where('client_id', $order->client_id)
                 ->where('payment_type', 'prepayment')
@@ -267,6 +270,8 @@ class OrderController extends Controller
             'orderPermissions' => [
                 'update' => $canUpdateOrder,
                 'payments' => $canManageOrderPayments,
+                'payments_overpayment' => $canSpendOrderOverpayment,
+                'payments_edit' => $canEditOrderPayments,
             ],
         ]);
     }

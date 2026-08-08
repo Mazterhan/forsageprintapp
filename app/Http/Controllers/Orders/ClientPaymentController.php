@@ -89,11 +89,14 @@ class ClientPaymentController extends Controller
         $this->authorizePaymentContext($request, $permissions);
 
         if ($request->has('order_public_ids')) {
+            abort_unless($permissions->can($request->user(), 'orders_clients_overpayments_manage'), 403);
+
             return $this->storeOverpaymentOrderBatch($request, $client);
         }
 
         [$data, $order] = $this->validatedPaymentData($request, $client, $exchangeRates);
         $this->authorizeOrderContextScope($request, $permissions, $order);
+        $this->authorizeOverpaymentOperation($request, $permissions, $data);
 
         [$payment, $automaticOverpayment] = DB::transaction(function () use ($request, $client, $data, $order): array {
             $this->ensureValidOverpaymentBalance($client, $data);
@@ -266,6 +269,7 @@ class ClientPaymentController extends Controller
         PermissionService $permissions
     ): JsonResponse {
         $this->authorizePaymentContext($request, $permissions);
+        $this->authorizePaymentEditContext($request, $permissions);
         abort_unless((int) $clientPayment->client_id === (int) $client->id, 404);
         abort_if($clientPayment->is_automatic, 422, 'Автоматичну переплату не можна редагувати окремо від пов’язаного платежу за замовлення.');
 
@@ -279,6 +283,7 @@ class ClientPaymentController extends Controller
         [$data, $order] = $this->validatedPaymentData($request, $client, $exchangeRates, $clientPayment);
         $this->authorizeOrderContextScope($request, $permissions, $order);
         $data['is_from_overpayment'] = $clientPayment->is_from_overpayment;
+        $this->authorizeOverpaymentOperation($request, $permissions, $data, $clientPayment);
         if ($data['is_from_overpayment'] && ! in_array($data['payment_type'], ['order', 'writeoff'], true)) {
             throw ValidationException::withMessages([
                 'payment_type' => 'Оберіть внесення платежу за замовлення або просте списання.',
@@ -375,6 +380,40 @@ class ClientPaymentController extends Controller
             : 'orders_clients_payments';
 
         abort_unless($permissions->can($request->user(), $permission), 403);
+    }
+
+    private function authorizePaymentEditContext(Request $request, PermissionService $permissions): void
+    {
+        $permission = $request->input('return_context') === 'order'
+            ? 'orders_payments_edit'
+            : 'orders_clients_payments_edit';
+
+        abort_unless($permissions->can($request->user(), $permission), 403);
+    }
+
+    /** @param array<string, mixed> $data */
+    private function authorizeOverpaymentOperation(
+        Request $request,
+        PermissionService $permissions,
+        array $data,
+        ?ClientPayment $currentPayment = null
+    ): void {
+        if ($request->input('return_context') === 'order') {
+            if ($data['is_from_overpayment'] ?? false) {
+                abort_unless($permissions->can($request->user(), 'orders_payments_overpayment'), 403);
+            }
+
+            return;
+        }
+
+        $touchesOverpayment = in_array($data['payment_type'] ?? null, ['prepayment', 'writeoff'], true)
+            || ($data['is_from_overpayment'] ?? false)
+            || $currentPayment?->is_automatic
+            || $currentPayment?->automaticOverpayment()->exists();
+
+        if ($touchesOverpayment) {
+            abort_unless($permissions->can($request->user(), 'orders_clients_overpayments_manage'), 403);
+        }
     }
 
     private function authorizeOrderContextScope(

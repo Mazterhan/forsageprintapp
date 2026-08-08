@@ -25,10 +25,14 @@ class PermissionService
         'orders_access' => 'orders_access',
         'orders_update' => 'orders_update',
         'orders_payments' => 'orders_payments',
+        'orders_payments_overpayment' => 'orders_payments_overpayment',
+        'orders_payments_edit' => 'orders_payments_edit',
         'orders_clients_manage' => 'orders_clients_manage',
         'orders_clients_create' => 'orders_clients_create',
         'orders_clients_edit' => 'orders_clients_edit',
         'orders_clients_payments' => 'orders_clients_payments',
+        'orders_clients_overpayments_manage' => 'orders_clients_overpayments_manage',
+        'orders_clients_payments_edit' => 'orders_clients_payments_edit',
         'price' => 'can_price',
         'price_create_item' => 'price_create_item',
         'price_deactivate_item' => 'price_deactivate_item',
@@ -58,10 +62,14 @@ class PermissionService
         'orders_access' => ['orders_proposals'],
         'orders_update' => ['orders_access'],
         'orders_payments' => ['orders_access'],
+        'orders_payments_overpayment' => ['orders_payments'],
+        'orders_payments_edit' => ['orders_payments'],
         'orders_clients_manage' => ['orders'],
         'orders_clients_create' => ['orders_clients_manage'],
         'orders_clients_edit' => ['orders_clients_manage'],
         'orders_clients_payments' => ['orders_clients_manage'],
+        'orders_clients_overpayments_manage' => ['orders_clients_payments'],
+        'orders_clients_payments_edit' => ['orders_clients_payments'],
         'price_create_item' => ['price'],
         'price_deactivate_item' => ['price'],
         'price_delete_item' => ['price'],
@@ -83,7 +91,7 @@ class PermissionService
 
     public function can(?User $user, string $permission): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -91,18 +99,18 @@ class PermissionService
             return true;
         }
 
-        if (!array_key_exists($permission, self::PERMISSION_COLUMNS)) {
+        if (! array_key_exists($permission, self::PERMISSION_COLUMNS)) {
             return false;
         }
 
         foreach (self::DEPENDENCIES[$permission] ?? [] as $dependency) {
-            if (!$this->can($user, $dependency)) {
+            if (! $this->can($user, $dependency)) {
                 return false;
             }
         }
 
         $role = $this->roleFor($user);
-        if (!$role) {
+        if (! $role) {
             return false;
         }
 
@@ -111,7 +119,7 @@ class PermissionService
 
     public function ordersListScope(?User $user): string
     {
-        if (!$user) {
+        if (! $user) {
             return 'own';
         }
 
@@ -120,7 +128,7 @@ class PermissionService
         }
 
         $role = $this->roleFor($user);
-        if (!$role || !$this->can($user, 'orders_proposals')) {
+        if (! $role || ! $this->can($user, 'orders_proposals')) {
             return 'own';
         }
 
@@ -152,7 +160,7 @@ class PermissionService
             return null;
         }
 
-        if (!array_key_exists($slug, $this->roleCache)) {
+        if (! array_key_exists($slug, $this->roleCache)) {
             $this->roleCache[$slug] = Role::query()->where('slug', $slug)->first();
         }
 

@@ -14,7 +14,7 @@
             line-height: 1.45;
         }
         h1 { margin: 0; font-size: 20px; }
-        .header { margin-bottom: 22px; border-bottom: 2px solid #4f46e5; padding-bottom: 14px; }
+        .header { margin-bottom: 22px; border-bottom: 2px solid #000000; padding-bottom: 14px; }
         .header-table, .totals-table { width: 100%; border-collapse: collapse; }
         .header-table td { padding: 3px 0; vertical-align: top; }
         .label { width: 145px; color: #6b7280; }
@@ -23,7 +23,7 @@
         .order-table thead { display: table-header-group; }
         .order-table th {
             border: 1px solid #9ca3af;
-            background: #fceedf;
+            background: #e5e7eb;
             padding: 8px 6px;
             text-align: center;
             font-weight: 700;
