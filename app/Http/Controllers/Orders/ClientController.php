@@ -206,6 +206,7 @@ class ClientController extends Controller
                 'payments.createdBy:id,name',
                 'payments.updatedBy:id,name',
                 'payments.histories.user:id,name',
+                'payments.automaticOverpayment:id,public_id,source_payment_id,amount_uah',
             ]);
         } else {
             $client->setRelation('payments', collect());
@@ -220,7 +221,7 @@ class ClientController extends Controller
             return [
                 'id' => $payment->public_id,
                 'amount' => $payment->amount,
-                'amountUah' => $payment->amount_uah,
+                'amountUah' => (int) $payment->amount_uah + (int) ($payment->automaticOverpayment?->amount_uah ?? 0),
                 'calculatedAmountUah' => $payment->calculated_amount_uah,
                 'currency' => $payment->currency,
                 'exchangeRate' => $payment->exchange_rate,
@@ -231,9 +232,13 @@ class ClientController extends Controller
                 'time' => $payment->paid_at->copy()->timezone('Europe/Kiev')->format('H:i'),
                 'paymentType' => $payment->payment_type,
                 'fromOverpayment' => $payment->is_from_overpayment,
+                'isAutomatic' => $payment->is_automatic,
+                'automaticOverpaymentId' => $payment->automaticOverpayment?->public_id,
                 'orderPublicId' => $payment->order?->public_id,
                 'orderNumber' => $payment->order?->order_number,
-                'orderAmountDue' => $payment->order ? (int) round((float) $payment->order->amount_due) : null,
+                'orderAmountDue' => $payment->order
+                    ? max(0, (int) round((float) $payment->order->amount_due + (float) $payment->amount_uah))
+                    : null,
                 'comment' => $payment->comment ?? '',
                 'updateUrl' => route('orders.clients.payments.update', [$client, $payment]),
                 'histories' => $payment->histories->map(fn ($history): array => [

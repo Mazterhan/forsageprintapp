@@ -6,6 +6,7 @@ use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ClientPayment extends Model
 {
@@ -24,6 +25,8 @@ class ClientPayment extends Model
         'exchange_rate_fetched_at',
         'payment_type',
         'is_from_overpayment',
+        'is_automatic',
+        'source_payment_id',
         'paid_at',
         'comment',
         'created_by',
@@ -40,6 +43,8 @@ class ClientPayment extends Model
         'exchange_rate' => 'decimal:6',
         'exchange_rate_fetched_at' => 'datetime',
         'is_from_overpayment' => 'boolean',
+        'is_automatic' => 'boolean',
+        'source_payment_id' => 'integer',
         'paid_at' => 'datetime',
         'created_by' => 'integer',
         'updated_by' => 'integer',
@@ -83,5 +88,34 @@ class ClientPayment extends Model
     public function histories(): HasMany
     {
         return $this->hasMany(ClientPaymentHistory::class)->latest('created_at');
+    }
+
+    public function automaticOverpayment(): HasOne
+    {
+        return $this->hasOne(self::class, 'source_payment_id');
+    }
+
+    public function hasCommentTrace(): bool
+    {
+        if (trim((string) $this->comment) !== '') {
+            return true;
+        }
+
+        foreach ($this->histories as $history) {
+            foreach ((array) $history->getAttribute('changes') as $change) {
+                if (! is_array($change) || ($change['field'] ?? null) !== 'comment') {
+                    continue;
+                }
+
+                foreach (['before', 'after'] as $side) {
+                    $value = trim((string) ($change[$side] ?? ''));
+                    if ($value !== '' && $value !== '—') {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 }

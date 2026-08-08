@@ -17,7 +17,7 @@ class DashboardController extends Controller
     public function index(Request $request, PermissionService $permissions)
     {
         $user = $request->user();
-        if (!$permissions->can($user, 'analytics')) {
+        if (! $permissions->can($user, 'analytics')) {
             return response()->view('errors.403', [
                 'message' => 'У вас немає доступу до сторінки аналітики. Зверніться до адміністратора для отримання відповідного рівня доступу.',
             ], 403);
@@ -40,7 +40,7 @@ class DashboardController extends Controller
         $now = now($timezone);
 
         $period = (string) $request->query('period', 'mtd');
-        if (!in_array($period, ['all', 'ytd', 'mtd', 'wtd', 'custom'], true)) {
+        if (! in_array($period, ['all', 'ytd', 'mtd', 'wtd', 'custom'], true)) {
             $period = 'mtd';
         }
 
@@ -125,11 +125,11 @@ class DashboardController extends Controller
                 $clientQuery->whereRaw('1 = 0');
             } else {
                 $clientQuery->where(function ($query) use ($availableClientIds, $availableClientNames) {
-                    if (!empty($availableClientIds)) {
+                    if (! empty($availableClientIds)) {
                         $query->whereIn('id', $availableClientIds);
                     }
 
-                    if (!empty($availableClientNames)) {
+                    if (! empty($availableClientNames)) {
                         $method = empty($availableClientIds) ? 'whereIn' : 'orWhereIn';
                         $query->{$method}(DB::raw('LOWER(TRIM(name))'), $availableClientNames);
                     }
@@ -143,7 +143,7 @@ class DashboardController extends Controller
         $clientIdByName = [];
         foreach ($clients as $client) {
             $normalized = mb_strtolower(trim((string) $client->name), 'UTF-8');
-            if ($normalized !== '' && !array_key_exists($normalized, $clientIdByName)) {
+            if ($normalized !== '' && ! array_key_exists($normalized, $clientIdByName)) {
                 $clientIdByName[$normalized] = (int) $client->id;
             }
         }
@@ -192,11 +192,11 @@ class DashboardController extends Controller
             $normalizedFallbackName = mb_strtolower($fallbackName, 'UTF-8');
 
             $resolvedClientId = $stateClientId;
-            if (!$resolvedClientId && $normalizedFallbackName !== '' && isset($clientIdByName[$normalizedFallbackName])) {
+            if (! $resolvedClientId && $normalizedFallbackName !== '' && isset($clientIdByName[$normalizedFallbackName])) {
                 $resolvedClientId = $clientIdByName[$normalizedFallbackName];
             }
 
-            if (!empty($selectedClientIds) && !in_array($resolvedClientId, $selectedClientIds, true)) {
+            if (! empty($selectedClientIds) && ! in_array($resolvedClientId, $selectedClientIds, true)) {
                 continue;
             }
 
@@ -231,7 +231,7 @@ class DashboardController extends Controller
             $serviceStats = [];
 
             foreach ($products as $product) {
-                if (!is_array($product)) {
+                if (! is_array($product)) {
                     continue;
                 }
 
@@ -248,7 +248,7 @@ class DashboardController extends Controller
 
                 $typeName = trim((string) ($product['productTypeName'] ?? ''));
                 if ($typeName !== '') {
-                    if (!isset($productTypeStats[$typeName])) {
+                    if (! isset($productTypeStats[$typeName])) {
                         $productTypeStats[$typeName] = ['count' => 0, 'sum' => 0.0, 'purchase_sum' => 0.0, 'profit_sum' => 0.0];
                     }
                     $productTypeStats[$typeName]['count'] += 1;
@@ -259,7 +259,7 @@ class DashboardController extends Controller
 
                 $materialName = trim((string) ($product['material'] ?? ''));
                 if ($materialName !== '') {
-                    if (!isset($materialStats[$materialName])) {
+                    if (! isset($materialStats[$materialName])) {
                         $materialStats[$materialName] = ['count' => 0, 'sum' => 0.0, 'purchase_sum' => 0.0, 'profit_sum' => 0.0];
                     }
                     $materialStats[$materialName]['count'] += 1;
@@ -269,12 +269,12 @@ class DashboardController extends Controller
                 }
 
                 $serviceRows = $product['service_rows'] ?? [];
-                if (!is_array($serviceRows)) {
+                if (! is_array($serviceRows)) {
                     $serviceRows = [];
                 }
 
                 foreach ($serviceRows as $serviceRow) {
-                    if (!is_array($serviceRow)) {
+                    if (! is_array($serviceRow)) {
                         continue;
                     }
                     $serviceName = trim((string) ($serviceRow['name'] ?? ''));
@@ -283,7 +283,7 @@ class DashboardController extends Controller
                     if ($serviceName === '' || $serviceCost <= 0) {
                         continue;
                     }
-                    if (!isset($serviceStats[$serviceName])) {
+                    if (! isset($serviceStats[$serviceName])) {
                         $serviceStats[$serviceName] = ['count' => 0, 'sum' => 0.0, 'purchase_sum' => 0.0, 'profit_sum' => 0.0];
                     }
                     $serviceStats[$serviceName]['count'] += 1;
@@ -359,7 +359,7 @@ class DashboardController extends Controller
         foreach ($rows as $row) {
             $dateKey = $row['working_date_key'];
             if ($dateKey) {
-                if (!isset($dailyMap[$dateKey])) {
+                if (! isset($dailyMap[$dateKey])) {
                     $dailyMap[$dateKey] = [
                         'count' => 0,
                         'sum' => 0.0,
@@ -376,7 +376,7 @@ class DashboardController extends Controller
             }
 
             $managerKey = $row['user_name'] !== '' ? $row['user_name'] : '—';
-            if (!isset($managerMap[$managerKey])) {
+            if (! isset($managerMap[$managerKey])) {
                 $managerMap[$managerKey] = ['name' => $managerKey, 'count' => 0, 'sum' => 0.0, 'purchase_sum' => 0.0, 'profit_sum' => 0.0, 'corrections' => 0];
             }
             $managerMap[$managerKey]['count'] += 1;
@@ -389,7 +389,7 @@ class DashboardController extends Controller
                 ? 'id:'.$row['client_id']
                 : 'name:'.mb_strtolower(trim((string) $row['client_name']), 'UTF-8');
             $clientName = trim((string) $row['client_name']) !== '' ? (string) $row['client_name'] : '—';
-            if (!isset($clientMap[$clientKey])) {
+            if (! isset($clientMap[$clientKey])) {
                 $clientMap[$clientKey] = ['name' => $clientName, 'count' => 0, 'sum' => 0.0, 'purchase_sum' => 0.0, 'profit_sum' => 0.0, 'corrections' => 0, 'warnings' => 0];
             }
             $clientMap[$clientKey]['count'] += 1;
@@ -400,7 +400,7 @@ class DashboardController extends Controller
             $clientMap[$clientKey]['warnings'] += $row['has_warnings'] ? 1 : 0;
 
             foreach ($row['product_type_stats'] as $name => $stat) {
-                if (!isset($productTypeMap[$name])) {
+                if (! isset($productTypeMap[$name])) {
                     $productTypeMap[$name] = ['name' => $name, 'count' => 0, 'sum' => 0.0, 'purchase_sum' => 0.0, 'profit_sum' => 0.0];
                 }
                 $productTypeMap[$name]['count'] += (int) ($stat['count'] ?? 0);
@@ -410,7 +410,7 @@ class DashboardController extends Controller
             }
 
             foreach ($row['material_stats'] as $name => $stat) {
-                if (!isset($materialMap[$name])) {
+                if (! isset($materialMap[$name])) {
                     $materialMap[$name] = ['name' => $name, 'count' => 0, 'sum' => 0.0, 'purchase_sum' => 0.0, 'profit_sum' => 0.0];
                 }
                 $materialMap[$name]['count'] += (int) ($stat['count'] ?? 0);
@@ -420,7 +420,7 @@ class DashboardController extends Controller
             }
 
             foreach ($row['service_stats'] as $name => $stat) {
-                if (!isset($serviceMap[$name])) {
+                if (! isset($serviceMap[$name])) {
                     $serviceMap[$name] = ['name' => $name, 'count' => 0, 'sum' => 0.0, 'purchase_sum' => 0.0, 'profit_sum' => 0.0];
                 }
                 $serviceMap[$name]['count'] += (int) ($stat['count'] ?? 0);
@@ -482,6 +482,7 @@ class DashboardController extends Controller
                 $item['margin_percent'] = $sum > 0 ? round((((float) ($item['profit_sum'] ?? 0)) / $sum) * 100, 2) : 0;
                 $item['avg_profit'] = (int) ($item['count'] ?? 0) > 0 ? round(((float) ($item['profit_sum'] ?? 0)) / ((int) $item['count']), 2) : 0;
                 $item['purchase_sum'] = $purchase;
+
                 return $item;
             })
             ->sortByDesc('profit_sum')
@@ -491,6 +492,7 @@ class DashboardController extends Controller
             ->map(function ($item) {
                 $sum = (float) ($item['sum'] ?? 0);
                 $item['margin_percent'] = $sum > 0 ? round((((float) ($item['profit_sum'] ?? 0)) / $sum) * 100, 2) : 0;
+
                 return $item;
             })
             ->sortByDesc('profit_sum')
@@ -500,6 +502,7 @@ class DashboardController extends Controller
             ->map(function ($item) {
                 $sum = (float) ($item['sum'] ?? 0);
                 $item['margin_percent'] = $sum > 0 ? round((((float) ($item['profit_sum'] ?? 0)) / $sum) * 100, 2) : 0;
+
                 return $item;
             })
             ->sortByDesc('profit_sum')
@@ -509,6 +512,7 @@ class DashboardController extends Controller
             ->map(function ($item) {
                 $sum = (float) ($item['sum'] ?? 0);
                 $item['margin_percent'] = $sum > 0 ? round((((float) ($item['profit_sum'] ?? 0)) / $sum) * 100, 2) : 0;
+
                 return $item;
             })
             ->sortByDesc('profit_sum')
@@ -520,6 +524,7 @@ class DashboardController extends Controller
                 $sum = (float) ($item['sum'] ?? 0);
                 $item['avg'] = $count > 0 ? round($sum / $count, 2) : 0;
                 $item['margin_percent'] = $sum > 0 ? round((((float) ($item['profit_sum'] ?? 0)) / $sum) * 100, 2) : 0;
+
                 return $item;
             })
             ->sortByDesc('profit_sum')
@@ -681,9 +686,11 @@ class DashboardController extends Controller
             ->all();
 
         $clients = Client::query()
-            ->whereHas('orders')
+            ->where(function ($query): void {
+                $query->whereHas('orders')->orWhereHas('payments');
+            })
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'public_id', 'name']);
 
         $paymentTotals = DB::table('client_payments')
             ->selectRaw('order_id, SUM(amount_uah) as total')
@@ -696,7 +703,7 @@ class DashboardController extends Controller
             })
             ->select('orders.*')
             ->addSelect(DB::raw('COALESCE(dashboard_order_payment_totals.total, 0) as linked_payments_total'))
-            ->with(['client:id,name', 'lastEditedBy:id,name']);
+            ->with(['client:id,public_id,name', 'lastEditedBy:id,name']);
 
         if ($from && $to) {
             $ordersQuery->whereBetween('orders.updated_at', [$from->copy()->utc(), $to->copy()->utc()]);
@@ -741,6 +748,8 @@ class DashboardController extends Controller
             return [
                 'public_id' => $order->public_id,
                 'number' => $order->order_number,
+                'client_id' => $order->client_id,
+                'client_public_id' => $order->client?->public_id,
                 'client_key' => $order->client_id
                     ? 'id:'.$order->client_id
                     : 'name:'.mb_strtolower(trim((string) $order->customer_name), 'UTF-8'),
@@ -759,6 +768,51 @@ class DashboardController extends Controller
         $orderCount = $analyticsOrders->count();
         $totalCost = $analyticsOrders->sum('total_cost');
         $paymentsTotal = $analyticsOrders->sum('payments_total');
+        $debtorClients = $analyticsOrders
+            ->filter(static fn (array $order): bool => (float) $order['amount_due'] > 0)
+            ->groupBy('client_key')
+            ->map(function ($clientOrders): array {
+                $firstOrder = $clientOrders->first();
+
+                return [
+                    'client_id' => $firstOrder['client_id'],
+                    'client_public_id' => $firstOrder['client_public_id'],
+                    'client_name' => $firstOrder['customer'],
+                    'orders_count' => $clientOrders->count(),
+                    'total_cost' => round($clientOrders->sum('total_cost'), 2),
+                    'payments_total' => round($clientOrders->sum('payments_total'), 2),
+                    'debt_total' => round($clientOrders->sum('amount_due'), 2),
+                ];
+            })
+            ->sortByDesc('debt_total')
+            ->values();
+
+        $clientPaymentBalances = DB::table('client_payments')
+            ->selectRaw('client_id')
+            ->selectRaw("SUM(CASE WHEN payment_type = 'prepayment' THEN amount_uah ELSE 0 END) - SUM(CASE WHEN is_from_overpayment = 1 THEN amount_uah ELSE 0 END) as balance")
+            ->groupBy('client_id');
+        $investorClients = Client::query()
+            ->joinSub($clientPaymentBalances, 'dashboard_client_payment_balances', function ($join): void {
+                $join->on('dashboard_client_payment_balances.client_id', '=', 'clients.id');
+            })
+            ->when($selectedClientIds !== [], fn ($query) => $query->whereIn('clients.id', $selectedClientIds))
+            ->whereRaw('dashboard_client_payment_balances.balance > 0')
+            ->orderByDesc('dashboard_client_payment_balances.balance')
+            ->get([
+                'clients.id',
+                'clients.public_id',
+                'clients.name',
+                DB::raw('dashboard_client_payment_balances.balance as overpayment_total'),
+            ])
+            ->map(fn (Client $client): array => [
+                'client_id' => $client->id,
+                'client_public_id' => $client->public_id,
+                'client_name' => $client->name,
+                'overpayment_total' => round((float) $client->overpayment_total, 2),
+            ])
+            ->values();
+        $debtorTotal = $debtorClients->sum('debt_total');
+        $investorTotal = $investorClients->sum('overpayment_total');
 
         return view('dashboard-orders', [
             'activeTab' => 'orders',
@@ -781,8 +835,14 @@ class DashboardController extends Controller
                     ->filter(fn (string $key): bool => $key !== 'name:')
                     ->unique()
                     ->count(),
+                'debtor_clients' => $debtorClients->count(),
+                'debt_total' => round($debtorTotal, 2),
+                'investor_clients' => $investorClients->count(),
+                'investor_total' => round($investorTotal, 2),
             ],
             'statusStats' => array_values($statusStats),
+            'debtorClients' => $debtorClients,
+            'investorClients' => $investorClients,
             'analyticsOrders' => $analyticsOrders->take(100)->values(),
             'dashboardPermissions' => [
                 'show_kpi' => $permissions->can($user, 'analytics_show_kpi'),
@@ -790,6 +850,7 @@ class DashboardController extends Controller
                 'show_finance' => $permissions->can($user, 'analytics_finance_access'),
                 'show_orders_tab' => $permissions->can($user, 'analytics_orders_access'),
                 'can_open_order' => $permissions->can($user, 'orders'),
+                'can_open_client' => $permissions->can($user, 'orders_clients_manage'),
             ],
         ]);
     }
@@ -825,6 +886,7 @@ class DashboardController extends Controller
 
         if (is_string($value)) {
             $normalized = mb_strtolower(trim($value), 'UTF-8');
+
             return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
         }
 

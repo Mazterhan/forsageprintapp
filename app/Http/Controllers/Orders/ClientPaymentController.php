@@ -85,15 +85,16 @@ class ClientPaymentController extends Controller
         Client $client,
         PrivatBankExchangeRateService $exchangeRates,
         PermissionService $permissions
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $this->authorizePaymentContext($request, $permissions);
         [$data, $order] = $this->validatedPaymentData($request, $client, $exchangeRates);
         $this->authorizeOrderContextScope($request, $permissions, $order);
 
-        $payment = DB::transaction(function () use ($request, $client, $data, $order): ClientPayment {
+        [$payment, $automaticOverpayment] = DB::transaction(function () use ($request, $client, $data, $order): array {
             $this->ensureValidOverpaymentBalance($client, $data);
             $this->ensureOrderCanAcceptNewPayment($order);
+
+            [$data, $automaticOverpaymentAmount] = $this->splitOrderOverpayment($data, $order);
 
             $payment = ClientPayment::query()->create([
                 ...$data,
@@ -103,14 +104,24 @@ class ClientPaymentController extends Controller
                 'updated_by' => $request->user()?->id,
             ]);
 
+            $automaticOverpayment = $this->syncAutomaticOverpayment(
+                $payment,
+                $client,
+                $order,
+                $automaticOverpaymentAmount,
+                $request->user()?->id
+            );
+
             $this->syncOrderPaymentTotals($order);
 
-            return $payment;
+            return [$payment, $automaticOverpayment];
         });
 
         return response()->json([
             'ok' => true,
             'payment_id' => $payment->public_id,
+            'automatic_overpayment_id' => $automaticOverpayment?->public_id,
+            'automatic_overpayment_amount' => $automaticOverpayment?->amount_uah,
             'redirect_url' => $this->redirectUrl($request, $client, $order),
             'notification' => $this->currencyNotification($payment),
         ]);
@@ -122,10 +133,10 @@ class ClientPaymentController extends Controller
         ClientPayment $clientPayment,
         PrivatBankExchangeRateService $exchangeRates,
         PermissionService $permissions
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $this->authorizePaymentContext($request, $permissions);
         abort_unless((int) $clientPayment->client_id === (int) $client->id, 404);
+        abort_if($clientPayment->is_automatic, 422, 'Автоматичну переплату не можна редагувати окремо від пов’язаного платежу за замовлення.');
 
         if ($request->input('return_context') === 'order') {
             abort_unless($clientPayment->order_id !== null, 403);
@@ -154,6 +165,8 @@ class ClientPaymentController extends Controller
                 $this->ensureOrderCanAcceptNewPayment($order);
             }
 
+            [$data, $automaticOverpaymentAmount] = $this->splitOrderOverpayment($data, $order, $clientPayment);
+
             $clientPayment->loadMissing('order:id,order_number');
             $before = $this->historySnapshot($clientPayment);
 
@@ -173,7 +186,7 @@ class ClientPaymentController extends Controller
                 'exchange_rate_source' => 'Джерело курсу',
                 'exchange_rate_fetched_at' => 'Час отримання курсу',
                 'calculated_amount_uah' => 'Автоматично розрахована сума (ГРН)',
-                'amount_uah' => 'Сума списання (ГРН)',
+                'amount_uah' => 'Еквівалент у ГРН',
                 'paid_at' => 'Дата та час',
                 'payment_type' => 'Тип платежу',
                 'order' => 'Номер замовлення',
@@ -201,6 +214,14 @@ class ClientPaymentController extends Controller
                     'changes' => $changes,
                 ]);
             }
+
+            $this->syncAutomaticOverpayment(
+                $clientPayment,
+                $clientPayment->client,
+                $order,
+                $automaticOverpaymentAmount,
+                $request->user()?->id
+            );
 
             $this->syncOrderPaymentTotals($previousOrder);
             if ((int) $previousOrder?->id !== (int) $order?->id) {
@@ -260,8 +281,10 @@ class ClientPaymentController extends Controller
             'payment_type' => ['required', 'string', 'in:prepayment,order,writeoff'],
             'payment_source' => ['nullable', 'string', 'in:direct,overpayment'],
             'order_public_id' => ['nullable', 'required_if:payment_type,order', 'uuid'],
-            'comment' => ['nullable', 'string', 'max:2000'],
+            'comment' => ['nullable', 'string', 'max:20000'],
             'return_context' => ['nullable', 'string', 'in:client,order'],
+            'suggested_amount' => ['nullable', 'integer', 'min:1'],
+            'suggested_amount_uah' => ['nullable', 'integer', 'min:1'],
         ]);
 
         if (($validated['return_context'] ?? null) === 'order' && $validated['payment_type'] !== 'order') {
@@ -351,7 +374,12 @@ class ClientPaymentController extends Controller
             'Europe/Kiev'
         )->utc();
 
-        $comment = filled($validated['comment'] ?? null) ? trim($validated['comment']) : null;
+        $comment = $this->stripGeneratedPaymentCommentBlocks($validated['comment'] ?? null);
+        if (mb_strlen((string) $comment) > 2000) {
+            throw ValidationException::withMessages([
+                'comment' => 'Коментар користувача не може перевищувати 2000 символів.',
+            ]);
+        }
         if ($validated['payment_type'] === 'writeoff') {
             preg_match_all('/[\p{L}\p{N}]/u', (string) $comment, $commentCharacters);
             if (count($commentCharacters[0] ?? []) < 20) {
@@ -360,7 +388,11 @@ class ClientPaymentController extends Controller
                 ]);
             }
         }
-        if ($currency !== 'UAH' && $amountUah !== $calculatedAmountUah) {
+        $suggestedAmount = isset($validated['suggested_amount']) ? (int) $validated['suggested_amount'] : null;
+        $suggestedAmountUah = isset($validated['suggested_amount_uah']) ? (int) $validated['suggested_amount_uah'] : null;
+        $matchesAutomaticSuggestion = $suggestedAmount === $amount && $suggestedAmountUah === $amountUah;
+
+        if ($currency !== 'UAH' && $amountUah !== $calculatedAmountUah && ! $matchesAutomaticSuggestion) {
             $note = $this->manualConversionComment(
                 $currency,
                 $amount,
@@ -368,6 +400,25 @@ class ClientPaymentController extends Controller
                 $calculatedAmountUah,
                 $amountUah,
                 $exchangeRateFetchedAt
+            );
+            if (! str_contains((string) $comment, $note)) {
+                $comment = filled($comment) ? $comment."\n\n".$note : $note;
+            }
+        }
+
+        if (
+            $validated['payment_type'] === 'order'
+            && ($suggestedAmount !== null || $suggestedAmountUah !== null)
+            && ($suggestedAmount !== $amount || $suggestedAmountUah !== $amountUah)
+        ) {
+            $note = sprintf(
+                'Автоматично запропоновані значення: «Сума операції» — %s %s, «Еквівалент у ГРН» — %s грн. Користувачем збережені значення: «Сума операції» — %s %s, «Еквівалент у ГРН» — %s грн.',
+                number_format((int) ($suggestedAmount ?? $amount), 0, ',', ' '),
+                $currency,
+                number_format((int) ($suggestedAmountUah ?? $amountUah), 0, ',', ' '),
+                number_format($amount, 0, ',', ' '),
+                $currency,
+                number_format($amountUah, 0, ',', ' '),
             );
             if (! str_contains((string) $comment, $note)) {
                 $comment = filled($comment) ? $comment."\n\n".$note : $note;
@@ -444,6 +495,105 @@ class ClientPaymentController extends Controller
         ])->saveQuietly();
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{0: array<string, mixed>, 1: int}
+     */
+    private function splitOrderOverpayment(
+        array $data,
+        ?Order $order,
+        ?ClientPayment $currentPayment = null
+    ): array {
+        if (! $order || $data['payment_type'] !== 'order') {
+            return [$data, 0];
+        }
+
+        $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+        $linkedPayments = (int) ClientPayment::query()
+            ->where('order_id', $lockedOrder->id)
+            ->when(
+                $currentPayment && (int) $currentPayment->order_id === (int) $lockedOrder->id,
+                fn ($query) => $query->where('id', '!=', $currentPayment->id)
+            )
+            ->sum('amount_uah');
+        $amountDue = max(0, (int) round((float) $lockedOrder->total_cost - $linkedPayments));
+
+        if ($amountDue <= 0) {
+            throw ValidationException::withMessages([
+                'order_public_id' => 'Неможливо додати платіж до вже сплаченого замовлення або замовлення з переплатою.',
+            ]);
+        }
+
+        $enteredAmountUah = (int) $data['amount_uah'];
+        if ($data['is_from_overpayment'] && $enteredAmountUah > $amountDue) {
+            throw ValidationException::withMessages([
+                'amount' => 'Значення суми операції більше за наявну переплату.',
+            ]);
+        }
+
+        if ($data['is_from_overpayment'] || $enteredAmountUah <= $amountDue) {
+            return [$data, 0];
+        }
+
+        $data['amount_uah'] = $amountDue;
+
+        return [$data, $enteredAmountUah - $amountDue];
+    }
+
+    private function syncAutomaticOverpayment(
+        ClientPayment $sourcePayment,
+        Client $client,
+        ?Order $order,
+        int $amount,
+        ?int $userId
+    ): ?ClientPayment {
+        $automaticPayment = ClientPayment::query()
+            ->where('source_payment_id', $sourcePayment->id)
+            ->first();
+
+        if ($amount <= 0 || ! $order) {
+            $automaticPayment?->delete();
+
+            return null;
+        }
+
+        $attributes = [
+            'client_id' => $client->id,
+            'order_id' => null,
+            'amount' => $amount,
+            'amount_uah' => $amount,
+            'calculated_amount_uah' => null,
+            'currency' => 'UAH',
+            'exchange_rate' => null,
+            'exchange_rate_type' => null,
+            'exchange_rate_source' => null,
+            'exchange_rate_fetched_at' => null,
+            'payment_type' => 'prepayment',
+            'is_from_overpayment' => false,
+            'is_automatic' => true,
+            'source_payment_id' => $sourcePayment->id,
+            'paid_at' => $sourcePayment->paid_at,
+            'comment' => sprintf(
+                'Одночасно з платежем %s за оплату замовлення %s.',
+                $sourcePayment->public_id,
+                $order->order_number
+            ),
+            'updated_by' => $userId,
+            'is_edited' => false,
+        ];
+
+        if ($automaticPayment) {
+            $automaticPayment->update($attributes);
+
+            return $automaticPayment->fresh();
+        }
+
+        return ClientPayment::query()->create([
+            ...$attributes,
+            'created_by' => $userId,
+        ]);
+    }
+
     /** @param array<string, mixed> $data */
     private function ensureValidOverpaymentBalance(Client $client, array $data, ?ClientPayment $currentPayment = null): void
     {
@@ -512,7 +662,7 @@ class ClientPaymentController extends Controller
             : now('Europe/Kiev')->format('d.m.Y H:i');
 
         return sprintf(
-            'Курс SALE ПриватБанку на %s становив %s грн/%s. Автоматично розрахована сума у полі «Сума списання (ГРН)» за %d %s була %s грн. Користувачем встановлено суму %s грн.',
+            'Курс SALE ПриватБанку на %s становив %s грн/%s. Автоматично розрахована сума у полі «Еквівалент у ГРН» за %d %s була %s грн. Користувачем встановлено суму %s грн.',
             $rateDate,
             number_format($rate, 6, ',', ' '),
             $currency,
@@ -521,6 +671,27 @@ class ClientPaymentController extends Controller
             number_format($calculatedAmountUah, 0, ',', ' '),
             number_format($amountUah, 0, ',', ' '),
         );
+    }
+
+    private function stripGeneratedPaymentCommentBlocks(mixed $comment): ?string
+    {
+        if (! filled($comment)) {
+            return null;
+        }
+
+        $blocks = preg_split('/\R[ \t]*\R+/u', trim((string) $comment)) ?: [];
+        $userBlocks = array_filter($blocks, static function (string $block): bool {
+            $block = trim($block);
+            $isExchangeRateBlock = preg_match('/^Курс\s+(?:BUY|SALE)\s+ПриватБанку\s+на\b/u', $block) === 1
+                && str_contains($block, 'Автоматично розрахована сума');
+            $isSuggestedAmountBlock = str_starts_with($block, 'Автоматично запропоновані значення:');
+
+            return $block !== '' && ! $isExchangeRateBlock && ! $isSuggestedAmountBlock;
+        });
+
+        $userComment = implode("\n\n", array_map('trim', $userBlocks));
+
+        return $userComment !== '' ? $userComment : null;
     }
 
     private function currencyNotification(ClientPayment $payment): ?string

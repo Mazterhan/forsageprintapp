@@ -58,6 +58,27 @@ class DashboardTabsTest extends TestCase
                 'updated_by' => $user->id,
             ]);
         }
+        ClientPayment::query()->create([
+            'client_id' => $client->id,
+            'amount' => 1500,
+            'amount_uah' => 1500,
+            'currency' => 'UAH',
+            'payment_type' => 'prepayment',
+            'paid_at' => now(),
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+        ClientPayment::query()->create([
+            'client_id' => $client->id,
+            'amount' => 300,
+            'amount_uah' => 300,
+            'currency' => 'UAH',
+            'payment_type' => 'writeoff',
+            'is_from_overpayment' => true,
+            'paid_at' => now(),
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
 
         $proposal = OrderProposal::factory()->forUser($user)->create([
             'proposal_number' => 'P-HIDDEN-IN-ORDERS',
@@ -78,9 +99,24 @@ class DashboardTabsTest extends TestCase
             ->assertSee('Частково сплачено')
             ->assertSee('Сплачено')
             ->assertSee('Є переплата')
+            ->assertSee('Клієнти-боржники')
+            ->assertSee('Клієнти-інвестори')
+            ->assertSee('Заборгованість клієнтів (грн)')
+            ->assertSee('Поточна сума переплат (грн)')
+            ->assertSee('Боржники за замовленнями')
+            ->assertSee('Інвестори — поточні переплати')
             ->assertSee('Зведення за статусами оплати')
             ->assertSee('Замовлення у вибраному періоді')
             ->assertDontSee($proposal->proposal_number);
+        $response
+            ->assertViewHas('debtorClients', fn ($debtors): bool => $debtors->count() === 2
+                && (float) $debtors->sum('debt_total') === 1800.0)
+            ->assertViewHas('investorClients', fn ($investors): bool => $investors->count() === 1
+                && (float) $investors->first()['overpayment_total'] === 1200.0)
+            ->assertViewHas('kpi', fn (array $kpi): bool => $kpi['debtor_clients'] === 2
+                && (float) $kpi['debt_total'] === 1800.0
+                && $kpi['investor_clients'] === 1
+                && (float) $kpi['investor_total'] === 1200.0);
 
         foreach ($orders as $order) {
             $response->assertSee($order->order_number);

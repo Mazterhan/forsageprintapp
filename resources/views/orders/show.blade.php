@@ -91,6 +91,7 @@
                 historyUrl: @js($canUpdateOrder ? route('orders.history', $order) : ''),
                 orderPublicId: @js($order->public_id),
                 orderNumber: @js($order->order_number),
+                orderAmountDue: @js(max(0, (int) round($orderAmountDue))),
                 today: @js(now('Europe/Kiev')->format('Y-m-d')),
                 currentTime: @js(now('Europe/Kiev')->format('H:i')),
                 overpaymentTotal: @js($clientOverpaymentTotal),
@@ -199,27 +200,34 @@
                         <div>
                             <h3
                                 class="text-lg font-semibold text-gray-900"
-                                x-text="isEditing ? 'Редагування платежу' : `Платежі замовлення ${orderNumber}`"
+                                x-text="isReadOnlyPayment ? 'Перегляд платежу' : (isEditing ? 'Редагування платежу' : `Платежі замовлення ${orderNumber}`)"
                             ></h3>
                             <p class="mt-1 text-sm text-gray-500">{{ $order->client?->name ?? $order->customer_name }}</p>
                         </div>
-                        <button type="button" @click="closeModal()" class="text-2xl leading-none text-gray-400 hover:text-gray-700" aria-label="Закрити">&times;</button>
+                        <div class="flex items-center gap-3">
+                            <button x-show="isReadOnlyPayment" x-cloak type="button" @click="enablePaymentEditing()" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                                Редагувати
+                            </button>
+                            <button type="button" @click="closeModal()" class="text-2xl leading-none text-gray-400 hover:text-gray-700" aria-label="Закрити">&times;</button>
+                        </div>
                     </div>
 
                     <div x-show="paymentError" x-text="paymentError" class="mt-4 rounded-md bg-red-100 px-4 py-3 text-sm text-red-700"></div>
 
                     <div x-show="isEditing || canAddPayment" x-cloak x-ref="paymentEditor" class="mt-5 scroll-mt-4 rounded-lg border border-gray-200 bg-gray-50 p-5">
                         <div class="flex flex-wrap items-center justify-between gap-3">
-                            <h4 class="font-semibold text-gray-800" x-text="isEditing ? 'Редагування платежу' : 'Внести платіж'"></h4>
+                            <h4 class="font-semibold text-gray-800" x-text="isReadOnlyPayment ? 'Дані платежу' : (isEditing ? 'Редагування платежу' : 'Внести платіж')"></h4>
                             <button x-show="isEditing" x-cloak type="button" @click="resetForm()" class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                                 Повернутися до платежів
                             </button>
                         </div>
 
+                        <fieldset :disabled="isReadOnlyPayment">
+
                         <div class="mt-4 grid grid-cols-1 gap-4" :class="isForeignCurrency() ? 'md:grid-cols-5' : 'md:grid-cols-4'">
                             <div>
                                 <label for="order-payment-amount" class="block text-sm font-medium text-gray-700">Сума операції</label>
-                                <input id="order-payment-amount" x-ref="paymentAmount" x-model="form.amount" @input="recalculateAmountUah()" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
+                                <input id="order-payment-amount" x-ref="paymentAmount" x-model="form.amount" @input="orderAmountChanged()" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
                             </div>
                             <div>
                                 <label for="order-payment-currency" class="block text-sm font-medium text-gray-700">Валюта операції</label>
@@ -232,8 +240,8 @@
                                 <p x-show="ratesError" x-text="ratesError" x-cloak class="mt-1 text-xs text-red-600"></p>
                             </div>
                             <div x-show="isForeignCurrency()" x-cloak>
-                                <label for="order-payment-amount-uah" class="block text-sm font-medium text-gray-700">Сума списання (ГРН)</label>
-                                <input id="order-payment-amount-uah" x-model="form.amountUah" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
+                                <label for="order-payment-amount-uah" class="block text-sm font-medium text-gray-700">Еквівалент у ГРН</label>
+                                <input id="order-payment-amount-uah" x-model="form.amountUah" @input="orderEquivalentChanged()" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
                                 <p class="mt-1 text-xs text-gray-500" x-text="form.exchangeRate ? `SALE: ${formatRate(form.exchangeRate)} грн/${form.currency}` : ''"></p>
                             </div>
                             <div>
@@ -246,20 +254,34 @@
                             </div>
                         </div>
 
+                        <p
+                            x-show="hasOrderOverpayment() || (isReadOnlyPayment && form.automaticOverpaymentId)"
+                            x-cloak
+                            class="mt-4 text-sm font-semibold text-green-700"
+                            x-text="isReadOnlyPayment
+                                ? `Для внесеного платежу, дельта переплати за замовлення була зарахована до переплати Клієнта (платіж ${form.paymentId})`
+                                : 'При внесені платежу, дельта переплати за замовлення буде зарахована у переплату Клієнта'"
+                        ></p>
+
                         <div class="mt-4">
                             <label for="order-payment-comment" class="block text-sm font-medium text-gray-700">Коментар</label>
                             <textarea id="order-payment-comment" x-model="form.comment" rows="3" maxlength="2000" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Додаткові відомості про платіж"></textarea>
                         </div>
 
+                        </fieldset>
+
                         <div class="mt-4 flex justify-end gap-3">
-                            <button x-show="isEditing" x-cloak type="button" @click="resetForm()" :disabled="isSaving" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">Скасувати редагування</button>
-                            <button x-show="!isEditing && overpaymentTotal > 0" x-cloak type="button" @click="submitPayment(true)" :disabled="isSaving" class="rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50">
+                            <button x-show="isEditing" x-cloak type="button" @click="resetForm()" :disabled="isSaving" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50" x-text="isReadOnlyPayment ? 'Повернутися до платежів' : 'Скасувати редагування'"></button>
+                            <button x-show="!isEditing && overpaymentTotal > 0" x-cloak type="button" @click="submitPayment(true)" :disabled="isSaving || isOverpaymentSpendAmountInvalid()" class="rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50">
                                 Списати з переплати
                             </button>
-                            <button type="button" @click="submitPayment(isEditing ? null : false)" :disabled="isSaving" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+                            <button x-show="!isReadOnlyPayment" x-cloak type="button" @click="submitPayment(isEditing ? null : false)" :disabled="isSaving" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
                                 <span x-text="isSaving ? 'Збереження...' : (isEditing ? 'Зберегти зміни' : 'Внести платіж')"></span>
                             </button>
                         </div>
+                        <p x-show="!isEditing && overpaymentTotal > 0 && isOverpaymentSpendAmountInvalid()" x-cloak class="mt-2 text-right text-sm font-semibold text-blue-600">
+                            Значення суми операції більше за наявну переплату
+                        </p>
                     </div>
 
                     <div x-show="!isEditing && !canAddPayment" x-cloak class="mt-5 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
@@ -302,6 +324,7 @@
                                         <th class="px-3 py-2 text-left">№ замовлення</th>
                                         <th class="px-3 py-2 text-right">Сума</th>
                                         <th class="px-3 py-2 text-left">Валюта</th>
+                                        <th class="w-[110px] px-3 py-2 text-center">Коментар</th>
                                         <th class="px-3 py-2 text-left">Користувач</th>
                                         <th class="w-[130px] px-3 py-2 text-center">Дії</th>
                                     </tr>
@@ -323,14 +346,19 @@
                                                 @endif
                                             </td>
                                             <td class="px-3 py-2">грн</td>
+                                            <td class="px-3 py-2 text-center">
+                                                @if($payment->hasCommentTrace())
+                                                    <span data-payment-comment-marker class="inline-block text-xl font-bold leading-none text-blue-600" title="Платіж містить коментар або коментар є в історії змін" aria-label="Є коментар">✓</span>
+                                                @endif
+                                            </td>
                                             <td class="px-3 py-2">{{ $payment->createdBy?->name ?? '—' }}</td>
                                             <td class="px-3 py-2 text-center">
-                                                <button type="button" @click="editPayment(@js($payment->public_id))" class="font-semibold text-indigo-600 hover:text-indigo-900">Редагувати</button>
+                                                <button type="button" @click="viewPayment(@js($payment->public_id))" class="font-semibold text-indigo-600 hover:text-indigo-900">Переглянути</button>
                                             </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="px-3 py-8 text-center text-gray-500">Платежі за цим замовленням ще не внесено.</td>
+                                            <td colspan="7" class="px-3 py-8 text-center text-gray-500">Платежі за цим замовленням ще не внесено.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -345,16 +373,22 @@
 
     <script>
         function orderPaymentPopup(config) {
+            const initialOrderAmountDue = Math.max(0, Math.round(Number(config.orderAmountDue) || 0));
             const emptyForm = () => ({
-                amount: '',
-                amountUah: '',
-                calculatedAmountUah: '',
+                paymentId: '',
+                amount: initialOrderAmountDue > 0 ? String(initialOrderAmountDue) : '',
+                amountUah: initialOrderAmountDue > 0 ? String(initialOrderAmountDue) : '',
+                calculatedAmountUah: initialOrderAmountDue > 0 ? String(initialOrderAmountDue) : '',
                 currency: 'UAH',
                 exchangeRate: null,
+                suggestedAmount: initialOrderAmountDue > 0 ? String(initialOrderAmountDue) : '',
+                suggestedAmountUah: initialOrderAmountDue > 0 ? String(initialOrderAmountDue) : '',
+                amountAutoFilled: initialOrderAmountDue > 0,
                 date: config.today || '',
                 time: config.currentTime || '',
                 comment: '',
                 fromOverpayment: false,
+                automaticOverpaymentId: '',
                 updateUrl: '',
             });
 
@@ -364,12 +398,14 @@
                 historyUrl: config.historyUrl || '',
                 orderPublicId: config.orderPublicId || '',
                 orderNumber: config.orderNumber || '',
+                orderAmountDue: initialOrderAmountDue,
                 payments: Array.isArray(config.payments) ? config.payments : [],
                 overpaymentTotal: Number(config.overpaymentTotal) || 0,
                 canAddPayment: Boolean(config.canAddPayment),
                 today: config.today || '',
                 showModal: false,
                 isEditing: false,
+                isReadOnlyPayment: false,
                 isSaving: false,
                 paymentError: '',
                 rates: {},
@@ -406,36 +442,49 @@
 
                 resetForm() {
                     this.isEditing = false;
+                    this.isReadOnlyPayment = false;
                     this.paymentError = '';
                     this.form = emptyForm();
                     this.activeHistories = [];
                 },
 
-                editPayment(paymentId) {
+                viewPayment(paymentId) {
                     const payment = this.payments.find((item) => item.id === paymentId);
                     if (!payment) {
                         return;
                     }
 
                     this.isEditing = true;
+                    this.isReadOnlyPayment = true;
                     this.paymentError = '';
                     this.form = {
+                        paymentId: payment.id || '',
                         amount: String(payment.amount || ''),
                         amountUah: String(payment.amountUah || payment.amount || ''),
                         calculatedAmountUah: String(payment.calculatedAmountUah || ''),
                         currency: payment.currency || 'UAH',
                         exchangeRate: payment.exchangeRate ? Number(payment.exchangeRate) : null,
+                        suggestedAmount: '',
+                        suggestedAmountUah: '',
+                        amountAutoFilled: false,
                         date: payment.date || this.today,
                         time: payment.time || '',
                         comment: payment.comment || '',
                         fromOverpayment: Boolean(payment.fromOverpayment),
+                        automaticOverpaymentId: payment.automaticOverpaymentId || '',
                         updateUrl: payment.updateUrl || '',
                     };
                     this.activeHistories = Array.isArray(payment.histories) ? payment.histories : [];
                     this.loadRates();
                     this.$nextTick(() => {
                         this.$refs.paymentEditor?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        window.setTimeout(() => this.$refs.paymentAmount?.focus({ preventScroll: true }), 250);
+                    });
+                },
+
+                enablePaymentEditing() {
+                    this.isReadOnlyPayment = false;
+                    this.$nextTick(() => {
+                        window.setTimeout(() => this.$refs.paymentAmount?.focus({ preventScroll: true }), 100);
                     });
                 },
 
@@ -464,6 +513,9 @@
                     }
                     if (this.form.fromOverpayment && !this.isEditing && Number.parseInt(amount, 10) > this.overpaymentTotal) {
                         return 'Сума списання перевищує доступну переплату клієнта.';
+                    }
+                    if (this.form.fromOverpayment && this.isOverpaymentSpendAmountInvalid()) {
+                        return 'Значення суми операції більше за наявну переплату.';
                     }
 
                     return '';
@@ -521,6 +573,8 @@
                                 order_public_id: this.orderPublicId,
                                 comment: String(this.form.comment || '').trim() || null,
                                 return_context: 'order',
+                                suggested_amount: Number.parseInt(String(this.form.suggestedAmount || ''), 10) || null,
+                                suggested_amount_uah: Number.parseInt(String(this.form.suggestedAmountUah || ''), 10) || null,
                             }),
                         });
                         const payload = await response.json();
@@ -557,16 +611,77 @@
                         : `${currency} — курс недоступний`;
                 },
 
+                effectiveOrderAmountUah() {
+                    const value = this.isForeignCurrency() ? this.form.amountUah : this.form.amount;
+
+                    return Number.parseInt(String(value || '0'), 10) || 0;
+                },
+
+                hasOrderOverpayment() {
+                    return !this.form.fromOverpayment
+                        && this.orderAmountDue > 0
+                        && this.effectiveOrderAmountUah() > this.orderAmountDue;
+                },
+
+                isOverpaymentSpendAmountInvalid() {
+                    return !this.isForeignCurrency()
+                        && this.orderAmountDue > 0
+                        && (Number.parseInt(String(this.form.amount || '0'), 10) || 0) > this.orderAmountDue;
+                },
+
+                applyOrderAmountSuggestion() {
+                    if (this.orderAmountDue <= 0) {
+                        return;
+                    }
+
+                    if (this.isForeignCurrency()) {
+                        const rate = Number(this.rates[this.form.currency] || this.form.exchangeRate || 0);
+                        this.form.amountUah = String(this.orderAmountDue);
+                        this.form.suggestedAmountUah = String(this.orderAmountDue);
+                        if (rate > 0) {
+                            const amount = Math.ceil(this.orderAmountDue / rate);
+                            this.form.exchangeRate = rate;
+                            this.form.amount = String(amount);
+                            this.form.calculatedAmountUah = String(Math.ceil(amount * rate));
+                            this.form.suggestedAmount = String(amount);
+                        }
+                    } else {
+                        this.form.amount = String(this.orderAmountDue);
+                        this.form.amountUah = String(this.orderAmountDue);
+                        this.form.calculatedAmountUah = String(this.orderAmountDue);
+                        this.form.suggestedAmount = String(this.orderAmountDue);
+                        this.form.suggestedAmountUah = String(this.orderAmountDue);
+                    }
+                    this.form.amountAutoFilled = true;
+                },
+
+                orderAmountChanged() {
+                    this.form.amountAutoFilled = false;
+                    this.recalculateAmountUah();
+                },
+
+                orderEquivalentChanged() {
+                    this.form.amountAutoFilled = false;
+                },
+
                 currencyChanged() {
                     if (!this.isForeignCurrency()) {
-                        this.form.amountUah = this.form.amount;
-                        this.form.calculatedAmountUah = this.form.amount;
                         this.form.exchangeRate = null;
+                        if (!this.isEditing) {
+                            this.applyOrderAmountSuggestion();
+                        } else {
+                            this.form.amountUah = this.form.amount;
+                            this.form.calculatedAmountUah = this.form.amount;
+                        }
                         return;
                     }
 
                     this.form.exchangeRate = Number(this.rates[this.form.currency] || 0) || null;
-                    this.recalculateAmountUah();
+                    if (!this.isEditing) {
+                        this.applyOrderAmountSuggestion();
+                    } else {
+                        this.recalculateAmountUah();
+                    }
                 },
 
                 recalculateAmountUah() {
@@ -604,6 +719,9 @@
                         }
                         this.rates = payload.rates || {};
                         this.ratesFetchedAt = payload.fetched_at || '';
+                        if (!this.isEditing && this.isForeignCurrency()) {
+                            this.applyOrderAmountSuggestion();
+                        }
                     } catch (error) {
                         this.ratesError = error?.message || 'Не вдалося завантажити курс валют.';
                     } finally {

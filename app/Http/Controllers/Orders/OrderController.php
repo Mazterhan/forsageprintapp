@@ -215,6 +215,7 @@ class OrderController extends Controller
                 'payments' => fn ($query) => $query->latest('paid_at'),
                 'payments.createdBy:id,name',
                 'payments.histories.user:id,name',
+                'payments.automaticOverpayment:id,public_id,source_payment_id,amount_uah',
             ]);
         }
 
@@ -222,7 +223,7 @@ class OrderController extends Controller
             return [
                 'id' => $payment->public_id,
                 'amount' => $payment->amount,
-                'amountUah' => $payment->amount_uah,
+                'amountUah' => (int) $payment->amount_uah + (int) ($payment->automaticOverpayment?->amount_uah ?? 0),
                 'calculatedAmountUah' => $payment->calculated_amount_uah,
                 'currency' => $payment->currency,
                 'exchangeRate' => $payment->exchange_rate,
@@ -233,6 +234,7 @@ class OrderController extends Controller
                 'time' => $payment->paid_at->copy()->timezone('Europe/Kiev')->format('H:i'),
                 'comment' => $payment->comment ?? '',
                 'fromOverpayment' => $payment->is_from_overpayment,
+                'automaticOverpaymentId' => $payment->automaticOverpayment?->public_id,
                 'updateUrl' => route('orders.clients.payments.update', [$order->client, $payment]),
                 'histories' => $payment->histories->map(fn ($history): array => [
                     'date' => $history->created_at->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i'),

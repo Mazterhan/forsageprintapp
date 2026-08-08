@@ -17,6 +17,7 @@
         $showTables = (bool) ($dashboardPermissions['show_tables'] ?? false);
         $showFinance = (bool) ($dashboardPermissions['show_finance'] ?? false);
         $canOpenOrder = (bool) ($dashboardPermissions['can_open_order'] ?? false);
+        $canOpenClient = (bool) ($dashboardPermissions['can_open_client'] ?? false);
         $formatMoney = static fn ($value): string => number_format((float) $value, 2, '.', ' ');
         $formatDate = static fn ($value): string => $value
             ? $value->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i')
@@ -26,6 +27,8 @@
         $kpiCards = [
             ['label' => 'Кількість замовлень', 'value' => number_format((int) ($kpi['order_count'] ?? 0), 0, '.', ' ')],
             ['label' => 'Унікальні замовники', 'value' => number_format((int) ($kpi['unique_clients'] ?? 0), 0, '.', ' ')],
+            ['label' => 'Клієнти-боржники', 'value' => number_format((int) ($kpi['debtor_clients'] ?? 0), 0, '.', ' ')],
+            ['label' => 'Клієнти-інвестори', 'value' => number_format((int) ($kpi['investor_clients'] ?? 0), 0, '.', ' ')],
         ];
         if ($showFinance) {
             $kpiCards = array_merge($kpiCards, [
@@ -33,6 +36,8 @@
                 ['label' => 'Загальна сума сплат (грн)', 'value' => $formatMoney($kpi['payments_total'] ?? 0)],
                 ['label' => 'Сума до сплати (грн)', 'value' => $formatMoney($kpi['amount_due'] ?? 0)],
                 ['label' => 'Середній чек (грн)', 'value' => $formatMoney($kpi['average_check'] ?? 0)],
+                ['label' => 'Заборгованість клієнтів (грн)', 'value' => $formatMoney($kpi['debt_total'] ?? 0)],
+                ['label' => 'Поточна сума переплат (грн)', 'value' => $formatMoney($kpi['investor_total'] ?? 0)],
             ]);
         }
     @endphp
@@ -65,7 +70,8 @@
         }
 
         .orders-analytics-kpi-grid,
-        .orders-analytics-status-grid {
+        .orders-analytics-status-grid,
+        .orders-analytics-client-grid {
             display: grid;
             grid-template-columns: minmax(0, 1fr);
             gap: 1rem;
@@ -97,6 +103,10 @@
 
         @media (min-width: 900px) {
             .orders-analytics-status-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .orders-analytics-client-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
         }
@@ -133,6 +143,7 @@
                 grid-template-columns: repeat(6, minmax(0, 1fr));
             }
         }
+
     </style>
 
     <div class="py-8">
@@ -185,7 +196,7 @@
                                             <span>{{ $client->name }}</span>
                                         </label>
                                     @empty
-                                        <div class="px-1 py-2 text-sm text-gray-500">Немає замовників із замовленнями</div>
+                                        <div class="px-1 py-2 text-sm text-gray-500">Немає клієнтів для аналітики</div>
                                     @endforelse
                                 </div>
                             </div>
@@ -207,7 +218,7 @@
                         <div class="orders-analytics-kpi-grid">
                             @foreach($kpiCards as $card)
                                 <div class="orders-analytics-panel rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                                    <div class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ $card['label'] }}</div>
+                                    <div class="text-xs uppercase tracking-wide text-gray-500">{{ $card['label'] }}</div>
                                     <div class="mt-2 text-2xl font-semibold text-gray-900">{{ $card['value'] }}</div>
                                 </div>
                             @endforeach
@@ -234,6 +245,88 @@
                     @endif
 
                     @if($showTables)
+                        <div class="orders-analytics-client-grid">
+                            <div class="orders-analytics-panel overflow-hidden rounded-lg border border-red-200 bg-white shadow-sm">
+                                <div class="border-b border-red-200 bg-rose-50 px-4 py-3">
+                                    <div class="font-semibold text-red-900">Боржники за замовленнями</div>
+                                    <div class="mt-1 text-xs text-red-700">Позитивний залишок до сплати за замовленнями у вибраному періоді.</div>
+                                </div>
+                                <div class="max-h-[420px] overflow-auto">
+                                    <table class="min-w-full text-sm">
+                                        <thead class="sticky top-0 bg-rose-100">
+                                            <tr>
+                                                <th class="border-b px-3 py-2 text-left">Клієнт</th>
+                                                <th class="border-b px-3 py-2 text-right">Замовлень</th>
+                                                @if($showFinance)
+                                                    <th class="border-b px-3 py-2 text-right">Вартість</th>
+                                                    <th class="border-b px-3 py-2 text-right">Сплачено</th>
+                                                    <th class="border-b px-3 py-2 text-right">Борг</th>
+                                                @endif
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse($debtorClients as $debtor)
+                                                <tr class="border-t border-gray-200 {{ $loop->odd ? 'bg-white' : 'bg-gray-50' }}">
+                                                    <td class="px-3 py-2 font-medium">
+                                                        @if($canOpenClient && $debtor['client_public_id'])
+                                                            <a href="{{ route('orders.clients.show', $debtor['client_public_id']) }}" class="text-indigo-600 hover:text-indigo-900">{{ $debtor['client_name'] }}</a>
+                                                        @else
+                                                            {{ $debtor['client_name'] }}
+                                                        @endif
+                                                    </td>
+                                                    <td class="px-3 py-2 text-right">{{ number_format((int) $debtor['orders_count'], 0, '.', ' ') }}</td>
+                                                    @if($showFinance)
+                                                        <td class="px-3 py-2 text-right">{{ $formatMoney($debtor['total_cost']) }}</td>
+                                                        <td class="px-3 py-2 text-right">{{ $formatMoney($debtor['payments_total']) }}</td>
+                                                        <td class="px-3 py-2 text-right font-bold text-red-700">{{ $formatMoney($debtor['debt_total']) }}</td>
+                                                    @endif
+                                                </tr>
+                                            @empty
+                                                <tr><td colspan="{{ $showFinance ? 5 : 2 }}" class="px-3 py-8 text-center text-gray-500">Клієнтів із заборгованістю не знайдено.</td></tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="orders-analytics-panel overflow-hidden rounded-lg border border-blue-200 bg-white shadow-sm">
+                                <div class="border-b border-blue-200 bg-blue-50 px-4 py-3">
+                                    <div class="font-semibold text-blue-900">Інвестори — поточні переплати</div>
+                                    <div class="mt-1 text-xs text-blue-700">Поточний доступний баланс переплати. Період не змінює баланс; фільтр клієнтів застосовується.</div>
+                                </div>
+                                <div class="max-h-[420px] overflow-auto">
+                                    <table class="min-w-full text-sm">
+                                        <thead class="sticky top-0 bg-blue-100">
+                                            <tr>
+                                                <th class="border-b px-3 py-2 text-left">Клієнт</th>
+                                                @if($showFinance)
+                                                    <th class="border-b px-3 py-2 text-right">Поточна переплата</th>
+                                                @endif
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse($investorClients as $investor)
+                                                <tr class="border-t border-gray-200 {{ $loop->odd ? 'bg-white' : 'bg-gray-50' }}">
+                                                    <td class="px-3 py-2 font-medium">
+                                                        @if($canOpenClient && $investor['client_public_id'])
+                                                            <a href="{{ route('orders.clients.show', $investor['client_public_id']) }}" class="text-indigo-600 hover:text-indigo-900">{{ $investor['client_name'] }}</a>
+                                                        @else
+                                                            {{ $investor['client_name'] }}
+                                                        @endif
+                                                    </td>
+                                                    @if($showFinance)
+                                                        <td class="px-3 py-2 text-right font-bold text-blue-700">{{ $formatMoney($investor['overpayment_total']) }}</td>
+                                                    @endif
+                                                </tr>
+                                            @empty
+                                                <tr><td colspan="{{ $showFinance ? 2 : 1 }}" class="px-3 py-8 text-center text-gray-500">Клієнтів із поточною переплатою не знайдено.</td></tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="orders-analytics-panel overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
                             <div class="border-b bg-gray-50 px-4 py-3 font-semibold text-gray-800">Зведення за статусами оплати</div>
                             <div class="overflow-x-auto">

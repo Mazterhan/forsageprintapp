@@ -247,6 +247,7 @@
                                                 <th class="px-3 py-2 text-left">Замовлення / тип</th>
                                                 <th class="px-3 py-2 text-right">Сума</th>
                                                 <th class="px-3 py-2 text-left">Валюта</th>
+                                                <th class="w-[110px] px-3 py-2 text-center">Коментар</th>
                                                 <th class="px-3 py-2 text-left">Користувач</th>
                                                 <th class="w-[130px] px-3 py-2 text-center">Дії</th>
                                             </tr>
@@ -273,6 +274,9 @@
                                                         @if($payment->is_from_overpayment)
                                                             <div class="mt-0.5 text-xs font-semibold text-blue-600">з переплати</div>
                                                         @endif
+                                                        @if($payment->is_automatic)
+                                                            <div class="mt-0.5 text-xs font-semibold text-blue-600">Автоматично</div>
+                                                        @endif
                                                     </td>
                                                     <td class="px-3 py-2 text-right font-semibold">
                                                         <div>{{ number_format((int) $payment->amount_uah, 0, '.', ' ') }} грн</div>
@@ -283,20 +287,25 @@
                                                     <td class="px-3 py-2">
                                                         грн
                                                     </td>
+                                                    <td class="px-3 py-2 text-center">
+                                                        @if($payment->hasCommentTrace())
+                                                            <span data-payment-comment-marker class="inline-block text-xl font-bold leading-none text-blue-600" title="Платіж містить коментар або коментар є в історії змін" aria-label="Є коментар">✓</span>
+                                                        @endif
+                                                    </td>
                                                     <td class="px-3 py-2">{{ $payment->createdBy?->name ?? '—' }}</td>
                                                     <td class="px-3 py-2 text-center">
                                                         <button
                                                             type="button"
-                                                            @click="openEditPayment(@js($payment->public_id))"
+                                                            @click="openViewPayment(@js($payment->public_id))"
                                                             class="font-semibold text-indigo-600 hover:text-indigo-900"
                                                         >
-                                                            Редагувати
+                                                            Переглянути
                                                         </button>
                                                     </td>
                                                 </tr>
                                             @empty
                                                 <tr>
-                                                    <td :colspan="showPaymentCodes ? 7 : 6" class="px-3 py-8 text-center text-gray-500">
+                                                    <td :colspan="showPaymentCodes ? 8 : 7" class="px-3 py-8 text-center text-gray-500">
                                                         Платежі ще не додано.
                                                     </td>
                                                 </tr>
@@ -402,11 +411,16 @@
                         <div>
                             <h3
                                 class="text-lg font-semibold text-gray-900"
-                                x-text="isEditingPayment ? 'Редагування платежу' : (paymentForm.fromOverpayment ? 'Платіж з переплати' : 'Внесення платежу')"
+                                x-text="isReadOnlyPayment ? 'Перегляд платежу' : (isEditingPayment ? 'Редагування платежу' : (paymentForm.fromOverpayment ? 'Платіж з переплати' : 'Внесення платежу'))"
                             ></h3>
                             <p class="mt-1 text-sm text-gray-500">{{ $client->name }}</p>
                         </div>
-                        <button type="button" @click="closePaymentModal()" class="text-2xl leading-none text-gray-400 hover:text-gray-700" aria-label="Закрити">&times;</button>
+                        <div class="flex items-center gap-3">
+                            <button x-show="isReadOnlyPayment && canEditViewedPayment" x-cloak type="button" @click="enablePaymentEditing()" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                                Редагувати
+                            </button>
+                            <button type="button" @click="closePaymentModal()" class="text-2xl leading-none text-gray-400 hover:text-gray-700" aria-label="Закрити">&times;</button>
+                        </div>
                     </div>
 
                     <div x-show="paymentError" x-text="paymentError" class="mt-4 rounded-md bg-red-100 px-4 py-3 text-sm text-red-700"></div>
@@ -414,10 +428,13 @@
                     <div data-payment-form-panel class="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-5">
                         <h4 class="font-semibold text-gray-800">Дані платежу</h4>
 
+                    <fieldset :disabled="isReadOnlyPayment">
+
                     <div class="mt-4 grid grid-cols-1 gap-4" :class="isForeignPaymentCurrency() ? 'md:grid-cols-5' : 'md:grid-cols-4'">
                         <div>
                             <label for="client-payment-amount" class="block text-sm font-medium text-gray-700">Сума операції</label>
-                            <input id="client-payment-amount" x-model="paymentForm.amount" @input="recalculatePaymentAmountUah()" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
+                            <input id="client-payment-amount" x-model="paymentForm.amount" @input="paymentAmountChanged()" type="text" inputmode="numeric" autocomplete="off" :class="isOverpaymentOrderAmountInvalid() ? 'border-red-500 text-red-700 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'" class="mt-1 block w-full rounded-md shadow-sm" placeholder="0">
+                            <p x-show="isOverpaymentOrderAmountInvalid()" x-cloak class="mt-1 text-xs font-semibold text-red-600">Значення суми операції більше за наявну переплату</p>
                         </div>
                         <div>
                             <label for="client-payment-currency" class="block text-sm font-medium text-gray-700">Валюта операції</label>
@@ -430,8 +447,8 @@
                             <p x-show="paymentRatesError" x-text="paymentRatesError" x-cloak class="mt-1 text-xs text-red-600"></p>
                         </div>
                         <div x-show="isForeignPaymentCurrency()" x-cloak>
-                            <label for="client-payment-amount-uah" class="block text-sm font-medium text-gray-700">Сума списання (ГРН)</label>
-                            <input id="client-payment-amount-uah" x-model="paymentForm.amountUah" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
+                            <label for="client-payment-amount-uah" class="block text-sm font-medium text-gray-700">Еквівалент у ГРН</label>
+                            <input id="client-payment-amount-uah" x-model="paymentForm.amountUah" @input="paymentEquivalentChanged()" type="text" inputmode="numeric" autocomplete="off" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0">
                             <p class="mt-1 text-xs text-gray-500" x-text="paymentForm.exchangeRate ? `SALE: ${formatPaymentRate(paymentForm.exchangeRate)} грн/${paymentForm.currency}` : ''"></p>
                         </div>
                         <div>
@@ -469,6 +486,7 @@
                             <select
                                 id="client-payment-order"
                                 x-model="paymentForm.orderPublicId"
+                                @change="paymentOrderChanged()"
                                 :required="!paymentForm.fromOverpayment && paymentForm.paymentType === 'order'"
                                 @focus="loadPaymentOrders()"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -507,6 +525,7 @@
                             <select
                                 id="client-overpayment-order"
                                 x-model="paymentForm.orderPublicId"
+                                @change="paymentOrderChanged()"
                                 :required="paymentForm.paymentType === 'order'"
                                 @focus="loadPaymentOrders()"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -520,6 +539,15 @@
                         </div>
                     </div>
 
+                    <p
+                        x-show="hasDirectOrderOverpayment() || (isReadOnlyPayment && paymentForm.automaticOverpaymentId)"
+                        x-cloak
+                        class="mt-4 text-sm font-semibold text-green-700"
+                        x-text="isReadOnlyPayment
+                            ? `Для внесеного платежу, дельта переплати за замовлення була зарахована до переплати Клієнта (платіж ${paymentForm.paymentId})`
+                            : 'При внесені платежу, дельта переплати за замовлення буде зарахована до переплати Клієнта'"
+                    ></p>
+
                     <div class="mt-4">
                         <label for="client-payment-comment" class="block text-sm font-medium text-gray-700">
                             Коментар <span x-show="paymentForm.paymentType === 'writeoff'" x-cloak class="text-red-600">*</span>
@@ -530,9 +558,11 @@
                         </p>
                     </div>
 
+                    </fieldset>
+
                         <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-4">
-                            <button type="button" @click="closePaymentModal()" :disabled="isSavingPayment" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">Скасувати</button>
-                            <button type="button" @click="submitPayment()" :disabled="isSavingPayment" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+                            <button type="button" @click="closePaymentModal()" :disabled="isSavingPayment" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50" x-text="isReadOnlyPayment ? 'Закрити' : 'Скасувати'"></button>
+                            <button x-show="!isReadOnlyPayment" x-cloak type="button" @click="submitPayment()" :disabled="isSavingPayment || isOverpaymentOrderAmountInvalid()" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
                                 <span x-text="isSavingPayment ? 'Збереження...' : (isEditingPayment ? 'Зберегти зміни' : 'Додати платіж')"></span>
                             </button>
                         </div>
@@ -573,6 +603,7 @@
     <script>
         function clientCard(config) {
             const emptyPayment = () => ({
+                paymentId: '',
                 amount: '',
                 amountUah: '',
                 calculatedAmountUah: '',
@@ -585,7 +616,11 @@
                 orderPublicId: '',
                 orderNumber: '',
                 orderAmountDue: null,
+                suggestedAmount: '',
+                suggestedAmountUah: '',
+                amountAutoFilled: false,
                 comment: '',
+                automaticOverpaymentId: '',
                 updateUrl: '',
             });
 
@@ -603,6 +638,8 @@
                 isLoadingPaymentOrders: false,
                 showPaymentModal: false,
                 isEditingPayment: false,
+                isReadOnlyPayment: false,
+                canEditViewedPayment: false,
                 isSavingPayment: false,
                 paymentError: '',
                 paymentRates: {},
@@ -614,6 +651,8 @@
 
                 openCreatePayment() {
                     this.isEditingPayment = false;
+                    this.isReadOnlyPayment = false;
+                    this.canEditViewedPayment = false;
                     this.paymentError = '';
                     this.paymentForm = emptyPayment();
                     this.activePaymentHistories = [];
@@ -624,6 +663,8 @@
 
                 openOverpaymentPayment() {
                     this.isEditingPayment = false;
+                    this.isReadOnlyPayment = false;
+                    this.canEditViewedPayment = false;
                     this.paymentError = '';
                     this.paymentForm = {
                         ...emptyPayment(),
@@ -635,15 +676,28 @@
                     this.loadPaymentOrders();
                 },
 
-                openEditPayment(paymentId) {
+                openViewPayment(paymentId) {
                     const payment = this.payments.find((item) => item.id === paymentId);
                     if (!payment) {
                         return;
                     }
 
+                    const selectedOrderId = payment.orderPublicId || '';
+                    if (selectedOrderId && !this.availablePaymentOrders.some((order) => order.id === selectedOrderId)) {
+                        this.availablePaymentOrders.push({
+                            id: selectedOrderId,
+                            number: payment.orderNumber || 'Поточне замовлення',
+                            amountDue: payment.orderAmountDue ?? 0,
+                            unavailable: false,
+                        });
+                    }
+
                     this.isEditingPayment = true;
+                    this.isReadOnlyPayment = true;
+                    this.canEditViewedPayment = !Boolean(payment.isAutomatic);
                     this.paymentError = '';
                     this.paymentForm = {
+                        paymentId: payment.id || '',
                         amount: String(payment.amount || ''),
                         amountUah: String(payment.amountUah || payment.amount || ''),
                         calculatedAmountUah: String(payment.calculatedAmountUah || ''),
@@ -656,15 +710,28 @@
                         orderPublicId: payment.orderPublicId || '',
                         orderNumber: payment.orderNumber || '',
                         orderAmountDue: payment.orderAmountDue ?? null,
+                        suggestedAmount: '',
+                        suggestedAmountUah: '',
+                        amountAutoFilled: false,
                         comment: payment.comment || '',
+                        automaticOverpaymentId: payment.automaticOverpaymentId || '',
                         updateUrl: payment.updateUrl || '',
                     };
                     this.activePaymentHistories = Array.isArray(payment.histories) ? payment.histories : [];
                     this.showPaymentModal = true;
+                    this.restorePaymentOrderSelection(selectedOrderId);
                     this.loadPaymentRates();
                     if (this.paymentForm.paymentType === 'order') {
                         this.loadPaymentOrders();
                     }
+                },
+
+                enablePaymentEditing() {
+                    if (!this.canEditViewedPayment) {
+                        return;
+                    }
+
+                    this.isReadOnlyPayment = false;
                 },
 
                 closePaymentModal() {
@@ -678,9 +745,104 @@
                     this.paymentForm.paymentType = type;
                     if (type !== 'order') {
                         this.paymentForm.orderPublicId = '';
+                        this.paymentForm.orderNumber = '';
+                        this.paymentForm.orderAmountDue = null;
+                        this.paymentForm.suggestedAmount = '';
+                        this.paymentForm.suggestedAmountUah = '';
+                        this.paymentForm.amountAutoFilled = false;
                     } else {
                         this.loadPaymentOrders();
                     }
+                },
+
+                selectedPaymentOrder() {
+                    return this.availablePaymentOrders.find((order) => order.id === this.paymentForm.orderPublicId) || null;
+                },
+
+                paymentOrderChanged() {
+                    const order = this.selectedPaymentOrder();
+                    this.paymentForm.orderNumber = order?.number || '';
+                    this.paymentForm.orderAmountDue = order ? Number(order.amountDue) || 0 : null;
+                    if (!order || this.isEditingPayment) {
+                        return;
+                    }
+
+                    const amount = Number.parseInt(String(this.paymentForm.amount || '0'), 10) || 0;
+                    if (amount <= 0 || this.paymentForm.amountAutoFilled) {
+                        this.applySelectedOrderAmount();
+                    }
+                },
+
+                restorePaymentOrderSelection(orderId) {
+                    if (!orderId) {
+                        return;
+                    }
+
+                    this.$nextTick(() => {
+                        this.paymentForm.orderPublicId = '';
+                        this.$nextTick(() => {
+                            this.paymentForm.orderPublicId = orderId;
+                        });
+                    });
+                },
+
+                applySelectedOrderAmount() {
+                    const order = this.selectedPaymentOrder();
+                    const amountDue = Math.max(0, Math.round(Number(order?.amountDue) || 0));
+                    if (!order || amountDue <= 0) {
+                        return;
+                    }
+
+                    if (this.isForeignPaymentCurrency()) {
+                        const rate = Number(this.paymentRates[this.paymentForm.currency] || this.paymentForm.exchangeRate || 0);
+                        this.paymentForm.amountUah = String(amountDue);
+                        this.paymentForm.suggestedAmountUah = String(amountDue);
+                        if (rate > 0) {
+                            const amount = Math.ceil(amountDue / rate);
+                            this.paymentForm.exchangeRate = rate;
+                            this.paymentForm.amount = String(amount);
+                            this.paymentForm.calculatedAmountUah = String(Math.ceil(amount * rate));
+                            this.paymentForm.suggestedAmount = String(amount);
+                        }
+                    } else {
+                        this.paymentForm.amount = String(amountDue);
+                        this.paymentForm.amountUah = String(amountDue);
+                        this.paymentForm.calculatedAmountUah = String(amountDue);
+                        this.paymentForm.suggestedAmount = String(amountDue);
+                        this.paymentForm.suggestedAmountUah = String(amountDue);
+                    }
+                    this.paymentForm.amountAutoFilled = true;
+                },
+
+                paymentAmountChanged() {
+                    this.paymentForm.amountAutoFilled = false;
+                    this.recalculatePaymentAmountUah();
+                },
+
+                paymentEquivalentChanged() {
+                    this.paymentForm.amountAutoFilled = false;
+                },
+
+                effectivePaymentAmountUah() {
+                    const value = this.isForeignPaymentCurrency()
+                        ? this.paymentForm.amountUah
+                        : this.paymentForm.amount;
+
+                    return Number.parseInt(String(value || '0'), 10) || 0;
+                },
+
+                hasDirectOrderOverpayment() {
+                    return !this.paymentForm.fromOverpayment
+                        && this.paymentForm.paymentType === 'order'
+                        && Number(this.paymentForm.orderAmountDue) > 0
+                        && this.effectivePaymentAmountUah() > Number(this.paymentForm.orderAmountDue);
+                },
+
+                isOverpaymentOrderAmountInvalid() {
+                    return this.paymentForm.fromOverpayment
+                        && this.paymentForm.paymentType === 'order'
+                        && Number(this.paymentForm.orderAmountDue) > 0
+                        && (Number.parseInt(String(this.paymentForm.amount || '0'), 10) || 0) > Number(this.paymentForm.orderAmountDue);
                 },
 
                 countPaymentCommentCharacters() {
@@ -714,16 +876,21 @@
                             throw new Error(payload?.message || 'Не вдалося завантажити замовлення.');
                         }
 
+                        const selectedOrderId = this.paymentForm.orderPublicId;
                         this.availablePaymentOrders = Array.isArray(payload.orders) ? payload.orders : [];
-                        if (this.isEditingPayment && this.paymentForm.orderPublicId && !this.availablePaymentOrders.some((order) => order.id === this.paymentForm.orderPublicId)) {
+                        if (this.isEditingPayment && selectedOrderId && !this.availablePaymentOrders.some((order) => order.id === selectedOrderId)) {
                             this.availablePaymentOrders.push({
-                                id: this.paymentForm.orderPublicId,
+                                id: selectedOrderId,
                                 number: this.paymentForm.orderNumber || 'Поточне замовлення',
                                 amountDue: this.paymentForm.orderAmountDue ?? 0,
-                                unavailable: true,
+                                unavailable: false,
                             });
                         }
                         this.paymentOrdersLoaded = true;
+                        if (selectedOrderId) {
+                            this.paymentOrderChanged();
+                            this.restorePaymentOrderSelection(selectedOrderId);
+                        }
                     } catch (error) {
                         this.paymentError = error?.message || 'Не вдалося завантажити замовлення.';
                     } finally {
@@ -762,6 +929,9 @@
                     }
                     if (this.paymentForm.fromOverpayment && !this.isEditingPayment && Number.parseInt(amount, 10) > this.overpaymentTotal) {
                         return 'Сума списання перевищує доступну переплату клієнта.';
+                    }
+                    if (this.isOverpaymentOrderAmountInvalid()) {
+                        return 'Значення суми операції більше за наявну переплату.';
                     }
 
                     return '';
@@ -813,6 +983,8 @@
                                 payment_source: this.paymentForm.fromOverpayment ? 'overpayment' : 'direct',
                                 order_public_id: this.paymentForm.paymentType === 'order' ? this.paymentForm.orderPublicId : null,
                                 comment: String(this.paymentForm.comment || '').trim() || null,
+                                suggested_amount: Number.parseInt(String(this.paymentForm.suggestedAmount || ''), 10) || null,
+                                suggested_amount_uah: Number.parseInt(String(this.paymentForm.suggestedAmountUah || ''), 10) || null,
                             }),
                         });
                         const payload = await response.json();
@@ -850,15 +1022,28 @@
                 },
 
                 paymentCurrencyChanged() {
+                    const amount = Number.parseInt(String(this.paymentForm.amount || '0'), 10) || 0;
+                    const shouldApplyOrderAmount = !this.isEditingPayment
+                        && this.paymentForm.paymentType === 'order'
+                        && this.paymentForm.orderPublicId
+                        && (amount <= 0 || this.paymentForm.amountAutoFilled);
                     if (!this.isForeignPaymentCurrency()) {
-                        this.paymentForm.amountUah = this.paymentForm.amount;
-                        this.paymentForm.calculatedAmountUah = this.paymentForm.amount;
                         this.paymentForm.exchangeRate = null;
+                        if (shouldApplyOrderAmount) {
+                            this.applySelectedOrderAmount();
+                        } else {
+                            this.paymentForm.amountUah = this.paymentForm.amount;
+                            this.paymentForm.calculatedAmountUah = this.paymentForm.amount;
+                        }
                         return;
                     }
 
                     this.paymentForm.exchangeRate = Number(this.paymentRates[this.paymentForm.currency] || 0) || null;
-                    this.recalculatePaymentAmountUah();
+                    if (shouldApplyOrderAmount) {
+                        this.applySelectedOrderAmount();
+                    } else {
+                        this.recalculatePaymentAmountUah();
+                    }
                 },
 
                 recalculatePaymentAmountUah() {
@@ -896,6 +1081,9 @@
                         }
                         this.paymentRates = payload.rates || {};
                         this.paymentRatesFetchedAt = payload.fetched_at || '';
+                        if (!this.isEditingPayment && this.paymentForm.paymentType === 'order' && this.paymentForm.orderPublicId && (this.paymentForm.amountAutoFilled || !this.paymentForm.amount)) {
+                            this.applySelectedOrderAmount();
+                        }
                     } catch (error) {
                         this.paymentRatesError = error?.message || 'Не вдалося завантажити курс валют.';
                     } finally {
