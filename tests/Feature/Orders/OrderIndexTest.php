@@ -406,7 +406,7 @@ class OrderIndexTest extends TestCase
             'paymentsTotal' => 300,
             'amountDue' => 500,
         ])->render();
-        $this->assertStringContainsString('ТОВ Форсаж-Прінт', $pdfHtml);
+        $this->assertStringContainsString('Форсаж Прінт', $pdfHtml);
         $this->assertStringContainsString('Замовник PDF', $pdfHtml);
         $this->assertStringContainsString('Друкована продукція для PDF', $pdfHtml);
         $this->assertStringContainsString('Загальна сума сплат', $pdfHtml);

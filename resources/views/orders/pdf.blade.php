@@ -55,7 +55,7 @@
     <table class="header-table">
         <tr>
             <td class="label">Виконавець замовлення:</td>
-            <td class="value">ТОВ Форсаж-Прінт</td>
+            <td class="value">Форсаж Прінт</td>
         </tr>
         <tr>
             <td class="label">Замовник:</td>
