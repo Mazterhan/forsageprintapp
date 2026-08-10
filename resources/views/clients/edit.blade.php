@@ -442,8 +442,9 @@
                     <div class="mt-4 grid grid-cols-1 gap-4" :class="isForeignPaymentCurrency() ? 'md:grid-cols-5' : 'md:grid-cols-4'">
                         <div>
                             <label for="client-payment-amount" class="block text-sm font-medium text-gray-700">Сума операції</label>
-                            <input id="client-payment-amount" x-model="paymentForm.amount" @input="paymentAmountChanged()" type="text" inputmode="numeric" autocomplete="off" :readonly="isOverpaymentBatchMode()" :class="(isOverpaymentOrderAmountInvalid() || isOverpaymentBatchAmountInvalid()) ? 'border-red-500 bg-red-50 text-red-700 focus:border-red-500 focus:ring-red-500' : (isOverpaymentBatchMode() ? 'border-gray-300 bg-gray-100 text-gray-800' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500')" class="mt-1 block w-full rounded-md shadow-sm" placeholder="0">
+                            <input id="client-payment-amount" x-model="paymentForm.amount" @input="paymentAmountChanged()" type="text" inputmode="numeric" autocomplete="off" :readonly="isOverpaymentAmountReadOnly()" :class="(isOverpaymentOrderAmountInvalid() || isOverpaymentBatchAmountInvalid() || isOverpaymentSingleAmountInvalid()) ? 'border-red-500 bg-red-50 text-red-700 focus:border-red-500 focus:ring-red-500' : (isOverpaymentAmountReadOnly() ? 'border-gray-300 bg-gray-100 text-gray-800' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500')" class="mt-1 block w-full rounded-md shadow-sm" placeholder="0">
                             <p x-show="isOverpaymentOrderAmountInvalid() && !isOverpaymentBatchMode()" x-cloak class="mt-1 text-xs font-semibold text-red-600">Значення суми операції більше за наявну переплату</p>
+                            <p x-show="isSingleOverpaymentOrderMode() && isOverpaymentSingleAmountInvalid()" x-cloak class="mt-1 text-xs font-semibold text-red-600" x-text="singleOverpaymentAmountError()"></p>
                             <p x-show="isOverpaymentBatchAmountInvalid()" x-cloak class="mt-1 text-xs font-semibold text-blue-700" x-text="`Максимально допустима загальна сума: ${formatPaymentAmount(overpaymentTotal)} грн`"></p>
                         </div>
                         <div>
@@ -814,6 +815,16 @@
                         && !this.isEditingPayment;
                 },
 
+                isSingleOverpaymentOrderMode() {
+                    return this.isOverpaymentBatchMode()
+                        && this.selectedOverpaymentOrderIds.length === 1;
+                },
+
+                isOverpaymentAmountReadOnly() {
+                    return this.isOverpaymentBatchMode()
+                        && !this.isSingleOverpaymentOrderMode();
+                },
+
                 selectedOverpaymentOrders() {
                     return this.availablePaymentOrders.filter((order) => this.selectedOverpaymentOrderIds.includes(order.id));
                 },
@@ -855,16 +866,53 @@
 
                 isOverpaymentBatchAmountInvalid() {
                     return this.isOverpaymentBatchMode()
-                        && this.selectedOverpaymentOrderIds.length > 0
+                        && this.selectedOverpaymentOrderIds.length > 1
                         && this.overpaymentBatchTotal() > this.overpaymentTotal;
+                },
+
+                singleOverpaymentAmountMaximum() {
+                    const order = this.selectedOverpaymentOrders()[0];
+
+                    return Math.min(
+                        Math.max(0, Math.round(Number(order?.amountDue) || 0)),
+                        this.overpaymentTotal,
+                    );
+                },
+
+                isOverpaymentSingleAmountInvalid() {
+                    if (!this.isSingleOverpaymentOrderMode()) {
+                        return false;
+                    }
+
+                    const amount = Number.parseInt(String(this.paymentForm.amount || '0'), 10) || 0;
+
+                    return amount > this.singleOverpaymentAmountMaximum();
+                },
+
+                singleOverpaymentAmountError() {
+                    const order = this.selectedOverpaymentOrders()[0];
+                    const amountDue = Math.max(0, Math.round(Number(order?.amountDue) || 0));
+                    const maximum = this.singleOverpaymentAmountMaximum();
+
+                    if (this.overpaymentTotal < amountDue) {
+                        return `Сума операції не може перевищувати доступну переплату: ${this.formatPaymentAmount(maximum)} грн.`;
+                    }
+
+                    return `Сума операції не може перевищувати суму до сплати за замовленням: ${this.formatPaymentAmount(maximum)} грн.`;
                 },
 
                 isOverpaymentBatchInvalid() {
                     return this.isOverpaymentBatchMode()
-                        && (this.selectedOverpaymentOrderIds.length === 0 || this.isOverpaymentBatchAmountInvalid());
+                        && (this.selectedOverpaymentOrderIds.length === 0
+                            || this.isOverpaymentBatchAmountInvalid()
+                            || this.isOverpaymentSingleAmountInvalid());
                 },
 
                 overpaymentBatchError() {
+                    if (this.isOverpaymentSingleAmountInvalid()) {
+                        return this.singleOverpaymentAmountError();
+                    }
+
                     return this.isOverpaymentBatchAmountInvalid()
                         ? 'Загальна сума вибраних замовлень перевищує доступну переплату клієнта. Змініть перелік вибраних замовлень.'
                         : '';
@@ -1030,6 +1078,9 @@
                     if (this.isOverpaymentBatchAmountInvalid()) {
                         return this.overpaymentBatchError();
                     }
+                    if (this.isOverpaymentSingleAmountInvalid()) {
+                        return this.singleOverpaymentAmountError();
+                    }
 
                     const amount = String(this.paymentForm.amount || '').trim();
                     if (!/^\d+$/.test(amount) || Number.parseInt(amount, 10) <= 0) {
@@ -1089,7 +1140,7 @@
                         ? '\nСума платежу буде списана з переплати клієнта.'
                         : '';
                     const batchDetails = this.isOverpaymentBatchMode()
-                        ? `\nВибрано замовлень: ${this.selectedOverpaymentOrderIds.length}.\nЗагальна сума: ${this.formatPaymentAmount(this.overpaymentBatchTotal())} грн.`
+                        ? `\nВибрано замовлень: ${this.selectedOverpaymentOrderIds.length}.\nЗагальна сума: ${this.formatPaymentAmount(this.isSingleOverpaymentOrderMode() ? this.paymentForm.amount : this.overpaymentBatchTotal())} грн.`
                         : '';
                     const confirmation = (this.isEditingPayment
                         ? 'Підтверджуєте, що всі зміни платежу внесено правильно?'

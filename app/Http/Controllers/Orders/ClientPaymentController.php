@@ -169,6 +169,7 @@ class ClientPaymentController extends Controller
         [$payments, $total] = DB::transaction(function () use (
             $request,
             $client,
+            $validated,
             $selectedPublicIds,
             $paidAt,
             $comment
@@ -190,6 +191,7 @@ class ClientPaymentController extends Controller
             }
 
             $paymentAmounts = [];
+            $isSingleOrder = count($selectedPublicIds) === 1;
             foreach ($selectedPublicIds as $publicId) {
                 /** @var Order $order */
                 $order = $orders->get($publicId);
@@ -207,13 +209,26 @@ class ClientPaymentController extends Controller
                     ]);
                 }
 
-                $paymentAmounts[$publicId] = $amountDue;
+                $paymentAmount = $isSingleOrder ? (int) $validated['amount'] : $amountDue;
+                if ($paymentAmount > $amountDue) {
+                    throw ValidationException::withMessages([
+                        'amount' => sprintf(
+                            'Сума операції не може перевищувати суму до сплати за замовленням %s: %d грн.',
+                            $order->order_number,
+                            $amountDue
+                        ),
+                    ]);
+                }
+
+                $paymentAmounts[$publicId] = $paymentAmount;
             }
 
             $total = array_sum($paymentAmounts);
             if ($total > $this->availableOverpaymentBalance($client)) {
                 throw ValidationException::withMessages([
-                    'order_public_ids' => 'Загальна сума вибраних замовлень перевищує доступну переплату клієнта. Змініть перелік вибраних замовлень.',
+                    $isSingleOrder ? 'amount' : 'order_public_ids' => $isSingleOrder
+                        ? 'Сума операції перевищує доступну переплату клієнта.'
+                        : 'Загальна сума вибраних замовлень перевищує доступну переплату клієнта. Змініть перелік вибраних замовлень.',
                 ]);
             }
 

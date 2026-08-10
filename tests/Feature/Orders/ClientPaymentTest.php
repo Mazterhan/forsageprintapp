@@ -369,7 +369,8 @@ class ClientPaymentTest extends TestCase
             ->assertSee('Валюта операції')
             ->assertSee('<option value="UAH">UAH</option>', false)
             ->assertSee('x-show="!paymentForm.fromOverpayment"', false)
-            ->assertSee(':readonly="isOverpaymentBatchMode()"', false)
+            ->assertSee(':readonly="isOverpaymentAmountReadOnly()"', false)
+            ->assertSee('isSingleOverpaymentOrderMode()', false)
             ->assertSee('type="checkbox"', false)
             ->assertSee('selectedOverpaymentOrderIds', false)
             ->assertSee('order_public_ids:', false)
@@ -578,10 +579,88 @@ class ClientPaymentTest extends TestCase
                 'order_public_ids' => [$orders[2]->public_id],
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('order_public_ids');
+            ->assertJsonValidationErrors('amount');
 
         $this->assertSame($paymentCount, ClientPayment::query()->count());
         $this->assertSame(0.0, (float) $orders[2]->fresh()->payments_total);
+    }
+
+    public function test_single_selected_order_accepts_partial_amount_within_order_due_and_client_overpayment(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_orders' => true,
+            'orders_clients_manage' => true,
+        ]);
+        $client = Client::factory()->create();
+        $order = Order::factory()->create([
+            'client_id' => $client->id,
+            'total_cost' => 900,
+            'payments_total' => 0,
+            'amount_due' => 900,
+        ]);
+        ClientPayment::query()->create([
+            'client_id' => $client->id,
+            'amount' => 700,
+            'amount_uah' => 700,
+            'currency' => 'UAH',
+            'payment_type' => 'prepayment',
+            'paid_at' => now(),
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+        $payload = [
+            'amount' => 350,
+            'amount_uah' => 350,
+            'currency' => 'UAH',
+            'payment_date' => now('Europe/Kiev')->toDateString(),
+            'payment_time' => '13:45',
+            'payment_type' => 'order',
+            'payment_source' => 'overpayment',
+            'order_public_ids' => [$order->public_id],
+            'comment' => 'Часткова оплата одного замовлення',
+        ];
+
+        $this->actingAs($user)
+            ->postJson(route('orders.clients.payments.store', $client), $payload)
+            ->assertOk()
+            ->assertJsonPath('payments_count', 1)
+            ->assertJsonPath('amount_total', 350);
+
+        $this->assertDatabaseHas('client_payments', [
+            'client_id' => $client->id,
+            'order_id' => $order->id,
+            'amount' => 350,
+            'amount_uah' => 350,
+            'is_from_overpayment' => true,
+        ]);
+        $this->assertSame(350.0, (float) $order->fresh()->payments_total);
+        $this->assertSame(550.0, (float) $order->fresh()->amount_due);
+
+        $this->actingAs($user)
+            ->postJson(route('orders.clients.payments.store', $client), [
+                ...$payload,
+                'amount' => 551,
+                'amount_uah' => 551,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('amount');
+
+        $otherOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'total_cost' => 500,
+            'payments_total' => 0,
+            'amount_due' => 500,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('orders.clients.payments.store', $client), [
+                ...$payload,
+                'amount' => 351,
+                'amount_uah' => 351,
+                'order_public_ids' => [$otherOrder->public_id],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('amount');
     }
 
     public function test_order_payment_popup_creates_shared_payment_and_returns_to_same_order(): void
