@@ -49,6 +49,10 @@ class OrderIndexTest extends TestCase
             ->assertSee('Останній редактор')
             ->assertSee('650.25')
             ->assertSee('1 000.50');
+
+        $this->actingAs($user)
+            ->get(route('orders.index'))
+            ->assertDontSee('data-page-back-link', false);
     }
 
     public function test_orders_table_displays_payment_statuses_with_order_colors(): void
@@ -153,6 +157,11 @@ class OrderIndexTest extends TestCase
             ->assertSee('Замовлення буде створено з введеними даними. Підтверджуєте створення замовлення?')
             ->assertSee('Замовлення буде збережено з внесеними змінами. Підтверджуєте збереження змін?')
             ->assertSee('window.confirm(message)', false)
+            ->assertSee('data-page-back-link', false)
+            ->assertSee('href="'.route('orders.index').'"', false)
+            ->assertSee('images/back.png', false)
+            ->assertDontSee('data-order-edit-cancel', false)
+            ->assertDontSee('Повернутись до замовлень')
             ->assertDontSee('Вартість загальна (грн)')
             ->assertSee('x-show="hasNomenclatureItem()"', false)
             ->assertSee('maxlength="500"', false)
@@ -488,6 +497,10 @@ class OrderIndexTest extends TestCase
             ->assertSee("initialClientId: {$client->id}", false)
             ->assertSee("saveMethod: 'PATCH'", false)
             ->assertSee('Зберегти')
+            ->assertSee('data-order-edit-cancel', false)
+            ->assertSeeInOrder(['data-order-edit-cancel', 'Скасувати', 'requestSaveOrder()', "isEdit ? 'Зберегти'"])
+            ->assertDontSee('Повернутись до замовлення')
+            ->assertSee(route('orders.show', $order), false)
             ->assertSee(route('orders.update', $order), false);
 
         $this->actingAs($user)

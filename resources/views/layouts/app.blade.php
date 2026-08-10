@@ -155,9 +155,35 @@
 
             <!-- Page Heading -->
             @isset($header)
+                @php
+                    $pageBackUrl = app(\App\Support\PageBackNavigation::class)->url(request());
+                @endphp
                 <header class="bg-white shadow">
                     <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                        {{ $header }}
+                        @if($pageBackUrl)
+                            <div class="flex min-w-0 items-start gap-3">
+                                <a
+                                    href="{{ $pageBackUrl }}"
+                                    data-page-back-link
+                                    aria-label="Повернутися на попередній рівень"
+                                    title="Повернутися на попередній рівень"
+                                    class="inline-flex h-8 w-10 shrink-0 items-center justify-center rounded-md transition hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-2"
+                                >
+                                    <img
+                                        src="{{ asset('images/back.png') }}"
+                                        alt=""
+                                        width="36"
+                                        height="31"
+                                        class="block h-[31px] w-[36px] object-contain"
+                                    >
+                                </a>
+                                <div class="min-w-0 flex-1">
+                                    {{ $header }}
+                                </div>
+                            </div>
+                        @else
+                            {{ $header }}
+                        @endif
                     </div>
                 </header>
             @endisset

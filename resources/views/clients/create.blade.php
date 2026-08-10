@@ -5,9 +5,6 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('Додати замовника') }}
             </h2>
-            <a href="{{ route('orders.clients.index') }}" class="text-sm text-gray-600 hover:text-gray-900">
-                {{ __('Повернутися до замовників') }}
-            </a>
         </div>
     </x-slot>
 

@@ -97,9 +97,6 @@
                 </div>
             @endif
 
-            <a href="{{ $backUrl }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                {{ $isEdit ? __('Повернутись до замовлення') : __('Повернутись до замовлень') }}
-            </a>
         </div>
     </x-slot>
 
@@ -313,7 +310,16 @@
                 class="rounded-lg border border-gray-300 p-4 shadow-sm"
                 style="background-color: #FCEEDF;"
             >
-                <div class="flex justify-end">
+                <div class="flex justify-end gap-3">
+                    @if($isEdit)
+                        <a
+                            href="{{ $backUrl }}"
+                            data-order-edit-cancel
+                            class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                            Скасувати
+                        </a>
+                    @endif
                     <button
                         type="button"
                         @click="requestSaveOrder()"

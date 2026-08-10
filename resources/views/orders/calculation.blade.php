@@ -19,9 +19,6 @@
                 {{ __('Прорахунок замовлення') }}
             </h2>
             <div class="flex items-center gap-2">
-                <a href="{{ route('orders.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                    {{ __('Повернутись до замовлень') }}
-                </a>
                 <a href="{{ route('orders.proposals') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
                     {{ __('Повернутись до заявок') }}
                 </a>
