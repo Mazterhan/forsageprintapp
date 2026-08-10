@@ -405,7 +405,11 @@ class OrderIndexTest extends TestCase
         $response
             ->assertOk()
             ->assertHeader('content-type', 'application/pdf')
-            ->assertDownload('zamovlennia-'.$order->order_number.'.pdf');
+            ->assertDownload('Замовлення-'.$order->order_number.'.pdf');
+        $this->assertStringContainsString(
+            "filename*=UTF-8''".rawurlencode('Замовлення-'.$order->order_number.'.pdf'),
+            (string) $response->headers->get('content-disposition')
+        );
 
         $this->assertStringStartsWith('%PDF-', $response->getContent());
 

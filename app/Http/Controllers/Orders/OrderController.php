@@ -303,15 +303,27 @@ class OrderController extends Controller
 
         $paymentsTotal = (int) $order->payments()->sum('amount_uah');
         $totalCost = (int) round((float) $order->total_cost);
+        $filename = 'Замовлення-'.$order->order_number.'.pdf';
 
-        return Pdf::loadView('orders.pdf', [
+        $response = Pdf::loadView('orders.pdf', [
             'order' => $order,
             'items' => is_array($order->items) ? $order->items : [],
             'paymentsTotal' => $paymentsTotal,
             'amountDue' => $totalCost - $paymentsTotal,
         ])
             ->setPaper('a4', 'portrait')
-            ->download('zamovlennia-'.$order->order_number.'.pdf');
+            ->download($filename);
+
+        $response->headers->set(
+            'Content-Disposition',
+            sprintf(
+                'attachment; filename="%s"; filename*=UTF-8\'\'%s',
+                $filename,
+                rawurlencode($filename)
+            )
+        );
+
+        return $response;
     }
 
     public function edit(Request $request, Order $order, PermissionService $permissions)
