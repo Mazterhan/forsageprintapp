@@ -38,21 +38,17 @@
     @endphp
 
     <x-slot name="header">
-        <div class="flex items-center justify-between gap-3">
-            <div class="space-y-1">
-                <div class="flex items-center gap-3">
-                    <div class="relative">
-                        <span class="absolute right-full top-1/2 mr-3 inline-flex -translate-y-1/2 whitespace-nowrap rounded-md border px-3 py-1 text-sm font-semibold {{ $paymentStatusClass }}">
-                            {{ $paymentStatusLabel }}
-                        </span>
-                        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                            {{ __('Замовлення :number', ['number' => $order->order_number]) }}
-                        </h2>
-                    </div>
-                </div>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div data-order-heading-inline class="flex min-w-0 flex-wrap items-center gap-3">
+                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                    {{ __('Замовлення :number', ['number' => $order->order_number]) }}
+                </h2>
+                <span class="inline-flex whitespace-nowrap rounded-md border px-3 py-1 text-sm font-semibold {{ $paymentStatusClass }}">
+                    {{ $paymentStatusLabel }}
+                </span>
             </div>
 
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 <a
                     href="{{ route('orders.pdf', $order) }}"
                     download
