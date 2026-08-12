@@ -581,8 +581,8 @@
                             Коментар <span x-show="paymentForm.paymentType === 'writeoff'" x-cloak class="text-red-600">*</span>
                         </label>
                         <textarea id="client-payment-comment" x-model="paymentForm.comment" :required="paymentForm.paymentType === 'writeoff'" rows="3" maxlength="2000" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Додаткові відомості про платіж"></textarea>
-                        <p x-show="paymentForm.paymentType === 'writeoff'" x-cloak class="mt-1 text-xs" :class="countPaymentCommentCharacters() >= 20 ? 'text-green-700' : 'text-amber-700'">
-                            Щонайменше 20 букв або цифр: <span x-text="countPaymentCommentCharacters()"></span>/20
+                        <p x-show="paymentForm.paymentType === 'writeoff'" x-cloak class="mt-1 text-xs" :class="countPaymentCommentCharacters() >= 3 ? 'text-green-700' : 'text-amber-700'">
+                            Щонайменше 3 букви або цифри: <span x-text="countPaymentCommentCharacters()"></span>/3
                         </p>
                     </div>
 
@@ -1107,8 +1107,8 @@
                     if (this.paymentForm.paymentType === 'order' && !this.isOverpaymentBatchMode() && !this.paymentForm.orderPublicId) {
                         return 'Оберіть номер замовлення.';
                     }
-                    if (this.paymentForm.paymentType === 'writeoff' && this.countPaymentCommentCharacters() < 20) {
-                        return 'Для простого списання коментар має містити щонайменше 20 букв або цифр.';
+                    if (this.paymentForm.paymentType === 'writeoff' && this.countPaymentCommentCharacters() < 3) {
+                        return 'Для простого списання коментар має містити щонайменше 3 букви або цифри.';
                     }
                     if (this.paymentForm.fromOverpayment && !this.isEditingPayment && Number.parseInt(amount, 10) > this.overpaymentTotal) {
                         return 'Сума списання перевищує доступну переплату клієнта.';

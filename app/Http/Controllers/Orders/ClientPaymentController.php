@@ -567,9 +567,9 @@ class ClientPaymentController extends Controller
         }
         if ($validated['payment_type'] === 'writeoff') {
             preg_match_all('/[\p{L}\p{N}]/u', (string) $comment, $commentCharacters);
-            if (count($commentCharacters[0] ?? []) < 20) {
+            if (count($commentCharacters[0] ?? []) < 3) {
                 throw ValidationException::withMessages([
-                    'comment' => 'Для простого списання коментар має містити щонайменше 20 букв або цифр.',
+                    'comment' => 'Для простого списання коментар має містити щонайменше 3 букви або цифри.',
                 ]);
             }
         }

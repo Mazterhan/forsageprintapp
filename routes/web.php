@@ -62,10 +62,16 @@ Route::middleware(['auth', 'permission:orders'])
         Route::get('/', [OrderController::class, 'index'])->name('index');
         Route::post('/', [OrderController::class, 'store'])->name('store');
         Route::get('/create', [OrderController::class, 'create'])->name('create');
+        Route::get('/append-candidate', [OrderController::class, 'appendCandidate'])->name('append-candidate');
+        Route::post('/{order}/append-items', [OrderController::class, 'appendItems'])->whereUuid('order')->name('append-items');
         Route::get('/{order}/edit', [OrderController::class, 'edit'])->whereUuid('order')->name('edit');
         Route::patch('/{order}', [OrderController::class, 'update'])->whereUuid('order')->name('update');
+        Route::patch('/{order}/status', [OrderController::class, 'updateStatus'])->whereUuid('order')->name('status.update');
+        Route::get('/{order}/merge-candidates', [OrderController::class, 'mergeCandidates'])->whereUuid('order')->name('merge-candidates');
+        Route::post('/{order}/merge', [OrderController::class, 'merge'])->whereUuid('order')->name('merge');
         Route::get('/{order}/history', [OrderController::class, 'history'])->whereUuid('order')->name('history');
         Route::get('/{order}/pdf', [OrderController::class, 'downloadPdf'])->whereUuid('order')->name('pdf');
+        Route::get('/{order}/excel', [OrderController::class, 'downloadExcel'])->whereUuid('order')->name('excel');
         Route::get('/{order}', [OrderController::class, 'show'])->whereUuid('order')->name('show');
     });
 

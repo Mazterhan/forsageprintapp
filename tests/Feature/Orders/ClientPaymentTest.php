@@ -364,7 +364,7 @@ class ClientPaymentTest extends TestCase
             ->assertSee('Платіж за замовлення')
             ->assertSee('Просте списання')
             ->assertSee("setPaymentType('writeoff')", false)
-            ->assertSee('Щонайменше 20 букв або цифр')
+            ->assertSee('Щонайменше 3 букви або цифри')
             ->assertSee('Сума операції')
             ->assertSee('Валюта операції')
             ->assertSee('<option value="UAH">UAH</option>', false)
@@ -471,7 +471,7 @@ class ClientPaymentTest extends TestCase
         $this->actingAs($user)
             ->postJson(route('orders.clients.payments.store', $client), [
                 ...$payload,
-                'comment' => 'Короткий текст!!! 123',
+                'comment' => '!!12',
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('comment');
@@ -479,7 +479,7 @@ class ClientPaymentTest extends TestCase
         $this->actingAs($user)
             ->postJson(route('orders.clients.payments.store', $client), [
                 ...$payload,
-                'comment' => 'Списання на господарські потреби офісу',
+                'comment' => 'А-1-Б',
             ])
             ->assertOk();
 

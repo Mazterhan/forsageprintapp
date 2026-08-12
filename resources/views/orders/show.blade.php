@@ -38,17 +38,86 @@
     @endphp
 
     <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+        <div
+            x-data="orderStatusEditor({
+                initialStatus: @js($order->status),
+                statusLabels: @js(\App\Models\Order::STATUSES),
+                updateUrl: @js($canUpdateOrder ? route('orders.status.update', $order) : ''),
+                mergeCandidatesUrl: @js(($orderPermissions['merge'] ?? false) ? route('orders.merge-candidates', $order) : ''),
+                mergeUrl: @js(($orderPermissions['merge'] ?? false) ? route('orders.merge', $order) : ''),
+            })"
+            @beforeunload.window="warnAboutUnsavedStatus($event)"
+            class="flex flex-wrap items-center justify-between gap-3"
+        >
             <div data-order-heading-inline class="flex min-w-0 flex-wrap items-center gap-3">
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                     {{ __('Замовлення :number', ['number' => $order->order_number]) }}
                 </h2>
-                <span class="inline-flex whitespace-nowrap rounded-md border px-3 py-1 text-sm font-semibold {{ $paymentStatusClass }}">
+                @if($canUpdateOrder)
+                    <div
+                        data-order-status-selector
+                        @click.outside="showStatusDropdown = false"
+                        @keydown.escape.window="showStatusDropdown = false"
+                        class="relative z-20 shrink-0"
+                        style="width: 158px; min-width: 158px; height: 34px;"
+                    >
+                        <button
+                            type="button"
+                            @click="showStatusDropdown = !showStatusDropdown"
+                            :disabled="isSavingStatus"
+                            aria-label="Статус замовлення"
+                            aria-haspopup="listbox"
+                            :aria-expanded="showStatusDropdown"
+                            :class="orderStatusClass(selectedStatus)"
+                            class="inline-flex h-full w-full items-center justify-center whitespace-nowrap rounded-md border px-2 py-1 text-sm font-semibold shadow-sm outline-none focus:outline-none focus:ring-1 disabled:cursor-wait disabled:opacity-70"
+                            style="width: 100%; height: 34px; box-sizing: border-box;"
+                        >
+                            <span x-text="statusLabel(selectedStatus)"></span>
+                        </button>
+                        <div
+                            x-show="showStatusDropdown"
+                            x-cloak
+                            class="absolute left-0 top-full mt-1 overflow-hidden rounded-md border border-gray-300 bg-white p-1 shadow-lg"
+                            style="width: 158px; min-width: 158px; box-sizing: border-box;"
+                            role="listbox"
+                        >
+                            @foreach(\App\Models\Order::STATUSES as $statusValue => $statusLabel)
+                                <button
+                                    type="button"
+                                    role="option"
+                                    @click="chooseStatus(@js($statusValue))"
+                                    :aria-selected="selectedStatus === @js($statusValue)"
+                                    :class="orderStatusClass(@js($statusValue))"
+                                    class="mb-1 inline-flex w-full items-center justify-center whitespace-nowrap rounded border px-2 text-sm font-semibold outline-none last:mb-0 hover:brightness-95 focus:outline-none focus:ring-1"
+                                    style="width: 100%; height: 32px; box-sizing: border-box;"
+                                >
+                                    {{ $statusLabel }}
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+                    <span x-show="statusError" x-cloak x-text="statusError" class="text-sm font-semibold text-red-600"></span>
+                @else
+                    <span class="inline-flex h-[34px] w-[158px] items-center justify-center whitespace-nowrap rounded-md border px-2 py-1 text-sm font-semibold {{ \App\Models\Order::statusStyle($order->status) }}">
+                        {{ $order->statusLabel() }}
+                    </span>
+                @endif
+                <span class="inline-flex h-[34px] w-[158px] items-center justify-center whitespace-nowrap rounded-md border px-2 py-1 text-sm font-semibold {{ $paymentStatusClass }}">
                     {{ $paymentStatusLabel }}
                 </span>
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
+                <a
+                    href="{{ route('orders.excel', $order) }}"
+                    download
+                    title="Вивантажити замовлення в Excel"
+                    aria-label="Вивантажити замовлення в Excel"
+                    class="inline-flex h-[38px] items-center justify-center gap-2 overflow-hidden rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                    <span>Завантажити</span>
+                    <img src="{{ asset('images/excel-file-icon.png') }}" alt="Excel" width="20" height="20" class="block h-5 w-5 object-contain">
+                </a>
                 <a
                     href="{{ route('orders.pdf', $order) }}"
                     download
@@ -72,10 +141,89 @@
                     </button>
                 @endif
                 @if($canUpdateOrder)
-                    <a href="{{ route('orders.edit', $order) }}" class="inline-flex h-[38px] items-center rounded-md border border-transparent bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">
-                        Редагувати
-                    </a>
+                    <div class="relative w-[130px]" @click.outside="showOptions = false">
+                        <button
+                            type="button"
+                            @click="showOptions = !showOptions"
+                            class="inline-flex h-[38px] w-full items-center justify-center gap-2 rounded-md border border-transparent bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700"
+                        >
+                            Опції
+                            <span aria-hidden="true">▾</span>
+                        </button>
+                        <div
+                            x-show="showOptions"
+                            x-cloak
+                            class="absolute right-0 top-full z-40 mt-1 w-full overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                        >
+                            <a href="{{ route('orders.edit', $order) }}" class="block px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100">
+                                Редагувати
+                            </a>
+                            @if($orderPermissions['merge'] ?? false)
+                                <button data-order-merge-option type="button" @click="openMergeModal()" class="block w-full px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100">
+                                    Об'єднати
+                                </button>
+                            @endif
+                        </div>
+                    </div>
                 @endif
+            </div>
+
+            <div x-show="showMergeModal" x-cloak class="fixed inset-0 z-[12000] !mt-0 flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/40" @click="closeMergeModal()"></div>
+                <div class="relative w-[900px] max-w-full rounded-lg border border-gray-300 bg-white p-6 shadow-xl">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">Об'єднати замовлення</h3>
+                            <p class="mt-1 text-sm text-gray-600">Оберіть замовлення, до якого потрібно перенести всі позиції поточного замовлення.</p>
+                        </div>
+                        <button type="button" @click="closeMergeModal()" class="text-2xl leading-none text-gray-500 hover:text-gray-800" aria-label="Закрити">×</button>
+                    </div>
+
+                    <div class="mt-5 overflow-x-auto rounded-md border border-gray-200">
+                        <table class="min-w-full text-sm">
+                            <thead style="background-color: #FCEEDF;">
+                                <tr>
+                                    <th class="w-[55px] border-b px-3 py-2"></th>
+                                    <th class="border-b px-3 py-2 text-left">Номер</th>
+                                    <th class="border-b px-3 py-2 text-left">Дата</th>
+                                    <th class="border-b px-3 py-2 text-left">Хто створив</th>
+                                    <th class="border-b px-3 py-2 text-right">Сума до сплати</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-if="isLoadingMergeCandidates">
+                                    <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">Завантаження...</td></tr>
+                                </template>
+                                <template x-if="!isLoadingMergeCandidates && mergeCandidates.length === 0">
+                                    <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">Немає замовлень, доступних для об'єднання.</td></tr>
+                                </template>
+                                <template x-for="candidate in mergeCandidates" :key="candidate.id">
+                                    <tr class="border-t border-gray-200 hover:bg-indigo-50">
+                                        <td class="px-3 py-3 text-center">
+                                            <input type="radio" name="merge_target_order" :value="candidate.id" x-model="selectedMergeOrderId" class="border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                        </td>
+                                        <td class="px-3 py-3 font-semibold text-indigo-700" x-text="candidate.number"></td>
+                                        <td class="px-3 py-3" x-text="candidate.date"></td>
+                                        <td class="px-3 py-3" x-text="candidate.user"></td>
+                                        <td class="px-3 py-3 text-right font-semibold" x-text="formatOrderAmount(candidate.amount_due)"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p x-show="mergeError" x-text="mergeError" class="mt-3 text-sm font-semibold text-red-600"></p>
+                    <div class="mt-5 flex justify-end gap-3">
+                        <button type="button" @click="closeMergeModal()" class="inline-flex h-[40px] items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50">Скасувати</button>
+                        <button
+                            type="button"
+                            @click="mergeOrder()"
+                            :disabled="!selectedMergeOrderId || isMergingOrder"
+                            class="inline-flex h-[40px] items-center rounded-md bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            x-text="isMergingOrder ? 'Об’єднання...' : 'Об’єднати'"
+                        ></button>
+                    </div>
+                </div>
             </div>
         </div>
     </x-slot>
@@ -121,6 +269,7 @@
                         <tr>
                             <th class="w-[70px] px-3 py-2 border text-center">№</th>
                             <th class="px-3 py-2 border text-left">Номенклатура</th>
+                            <th class="w-[220px] px-3 py-2 border text-left">Опис</th>
                             <th class="w-[150px] px-3 py-2 border text-right">Кількість</th>
                             <th class="w-[190px] px-3 py-2 border text-right">Вартість за одн.</th>
                             <th class="w-[180px] px-3 py-2 border text-right">Сума</th>
@@ -131,13 +280,14 @@
                             <tr>
                                 <td class="px-3 py-2 border text-center align-middle font-semibold">{{ $loop->iteration }}</td>
                                 <td class="px-3 py-2 border align-top whitespace-pre-wrap break-words">{{ trim((string) ($item['nomenclature'] ?? '—')) }}</td>
+                                <td class="px-3 py-2 border align-top whitespace-pre-wrap break-words">{{ trim((string) ($item['description'] ?? '')) ?: '—' }}</td>
                                 <td class="px-3 py-2 border text-right align-middle">{{ $formatOrderMoney($item['quantity'] ?? 0) }}</td>
                                 <td class="px-3 py-2 border text-right align-middle">{{ $formatOrderMoney($item['unit_cost'] ?? 0) }}</td>
                                 <td class="px-3 py-2 border text-right align-middle font-semibold">{{ $formatOrderMoney($item['sum'] ?? 0) }}</td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-4 py-8 border text-center text-gray-500">Позиції замовлення відсутні.</td>
+                                <td colspan="6" class="px-4 py-8 border text-center text-gray-500">Позиції замовлення відсутні.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -377,6 +527,162 @@
     </div>
 
     <script>
+        function orderStatusEditor(config) {
+            return {
+                savedStatus: config.initialStatus || 'new',
+                selectedStatus: config.initialStatus || 'new',
+                statusLabels: config.statusLabels || {},
+                updateUrl: config.updateUrl || '',
+                mergeCandidatesUrl: config.mergeCandidatesUrl || '',
+                mergeUrl: config.mergeUrl || '',
+                isSavingStatus: false,
+                showStatusDropdown: false,
+                showOptions: false,
+                showMergeModal: false,
+                isLoadingMergeCandidates: false,
+                isMergingOrder: false,
+                mergeCandidates: [],
+                selectedMergeOrderId: '',
+                mergeError: '',
+                statusError: '',
+
+                get statusDirty() {
+                    return this.selectedStatus !== this.savedStatus;
+                },
+
+                statusLabel(status) {
+                    return this.statusLabels[status] || status;
+                },
+
+                chooseStatus(status) {
+                    this.showStatusDropdown = false;
+                    if (status === this.selectedStatus || this.isSavingStatus) {
+                        return;
+                    }
+
+                    this.selectedStatus = status;
+                    this.saveStatus();
+                },
+
+                orderStatusClass(status) {
+                    if (status === 'blocked') {
+                        return 'border-orange-500 bg-yellow-100 text-orange-800 focus:border-orange-500 focus:ring-orange-400';
+                    }
+                    if (status === 'completed') {
+                        return 'border-green-300 bg-green-100 text-green-800 focus:border-green-400 focus:ring-green-300';
+                    }
+                    if (status === 'cancelled') {
+                        return 'border-gray-400 bg-gray-100 text-gray-700 focus:border-gray-500 focus:ring-gray-300';
+                    }
+
+                    return 'border-blue-400 bg-teal-100 text-blue-800 focus:border-blue-400 focus:ring-blue-300';
+                },
+
+                formatOrderAmount(value) {
+                    return `${new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 2 }).format(Number(value) || 0)} грн`;
+                },
+
+                async openMergeModal() {
+                    this.showOptions = false;
+                    this.showMergeModal = true;
+                    this.selectedMergeOrderId = '';
+                    this.mergeCandidates = [];
+                    this.mergeError = '';
+                    this.isLoadingMergeCandidates = true;
+                    try {
+                        const response = await fetch(this.mergeCandidatesUrl, { headers: { 'Accept': 'application/json' } });
+                        const payload = await response.json();
+                        if (!response.ok || !payload?.ok) {
+                            throw new Error(payload?.message || 'Не вдалося завантажити замовлення.');
+                        }
+                        this.mergeCandidates = Array.isArray(payload.orders) ? payload.orders : [];
+                    } catch (error) {
+                        this.mergeError = error?.message || 'Не вдалося завантажити замовлення.';
+                    } finally {
+                        this.isLoadingMergeCandidates = false;
+                    }
+                },
+
+                closeMergeModal() {
+                    if (!this.isMergingOrder) {
+                        this.showMergeModal = false;
+                    }
+                },
+
+                async mergeOrder() {
+                    if (!this.selectedMergeOrderId || this.isMergingOrder || !this.mergeUrl) {
+                        return;
+                    }
+
+                    this.isMergingOrder = true;
+                    this.mergeError = '';
+                    try {
+                        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                        const response = await fetch(this.mergeUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrf,
+                            },
+                            body: JSON.stringify({ target_order_id: this.selectedMergeOrderId }),
+                        });
+                        const payload = await response.json();
+                        if (!response.ok || !payload?.ok) {
+                            throw new Error(payload?.message || 'Не вдалося об’єднати замовлення.');
+                        }
+                        window.location.href = payload.redirect_url;
+                    } catch (error) {
+                        this.mergeError = error?.message || 'Не вдалося об’єднати замовлення.';
+                    } finally {
+                        this.isMergingOrder = false;
+                    }
+                },
+
+                warnAboutUnsavedStatus(event) {
+                    if (!this.statusDirty) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    event.returnValue = '';
+                },
+
+                async saveStatus() {
+                    if (!this.statusDirty || this.isSavingStatus || !this.updateUrl) {
+                        return;
+                    }
+
+                    this.isSavingStatus = true;
+                    this.statusError = '';
+                    try {
+                        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                        const response = await fetch(this.updateUrl, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrf,
+                            },
+                            body: JSON.stringify({ status: this.selectedStatus }),
+                        });
+                        const payload = await response.json();
+                        if (!response.ok || !payload?.ok) {
+                            throw new Error(payload?.message || 'Не вдалося змінити статус замовлення.');
+                        }
+
+                        this.savedStatus = payload.status || this.selectedStatus;
+                        this.selectedStatus = this.savedStatus;
+                    } catch (error) {
+                        this.statusError = error?.message || 'Не вдалося змінити статус замовлення.';
+                        this.selectedStatus = this.savedStatus;
+                    } finally {
+                        this.isSavingStatus = false;
+                    }
+                },
+            };
+        }
+
         function orderPaymentPopup(config) {
             const initialOrderAmountDue = Math.max(0, Math.round(Number(config.orderAmountDue) || 0));
             const emptyForm = () => ({

@@ -20,6 +20,7 @@
             if (array_key_exists('nomenclature', $value)) {
                 return implode("\n", [
                     'Номенклатура: '.($value['nomenclature'] ?: '—'),
+                    'Опис: '.(($value['description'] ?? '') ?: '—'),
                     'Кількість: '.$formatOrderMoney($value['quantity'] ?? 0),
                     'Вартість за одн.: '.$formatOrderMoney($value['unit_cost'] ?? 0),
                     'Сума: '.$formatOrderMoney($value['sum'] ?? 0),

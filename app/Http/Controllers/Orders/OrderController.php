@@ -12,6 +12,7 @@ use App\Models\PriceItem;
 use App\Models\ProductCategory;
 use App\Models\ProductType;
 use App\Models\ProductTypeCategoryRule;
+use App\Models\User;
 use App\Services\PermissionService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +20,12 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrderController extends Controller
 {
@@ -31,6 +38,7 @@ class OrderController extends Controller
         $perPageRaw = in_array($perPageRaw, ['20', '50', '100', 'all'], true) ? $perPageRaw : '20';
 
         $sortMap = [
+            'status' => 'orders.status',
             'number' => 'orders.order_number',
             'customer' => 'orders.customer_name',
             'user' => 'users.name',
@@ -38,10 +46,79 @@ class OrderController extends Controller
             'total_cost' => 'orders.total_cost',
         ];
 
+        $paymentStatusLabels = [
+            'unpaid' => 'Не сплачено',
+            'partial' => 'Частково сплачено',
+            'paid' => 'Сплачено',
+            'overpaid' => 'Є переплата',
+        ];
+        $paymentStatusSql = "CASE
+            WHEN COALESCE(order_payment_totals.total, 0) <= 0 THEN 'unpaid'
+            WHEN COALESCE(order_payment_totals.total, 0) < orders.total_cost THEN 'partial'
+            WHEN COALESCE(order_payment_totals.total, 0) = orders.total_cost THEN 'paid'
+            ELSE 'overpaid'
+        END";
+        $selectedPaymentStatuses = array_values(array_intersect(
+            array_keys($paymentStatusLabels),
+            array_map('strval', (array) $request->query('payment_status', []))
+        ));
+        $selectedClientIds = array_values(array_unique(array_filter(array_map(
+            static fn ($value): int => (int) $value,
+            (array) $request->query('client_id', [])
+        ))));
+        $selectedUserIds = array_values(array_unique(array_filter(array_map(
+            static fn ($value): int => (int) $value,
+            (array) $request->query('user_id', [])
+        ))));
+        $selectedOrderStatuses = array_values(array_intersect(
+            array_keys(Order::STATUSES),
+            array_map('strval', (array) $request->query('order_status', []))
+        ));
+
         $paymentTotals = DB::table('client_payments')
             ->selectRaw('order_id, SUM(amount_uah) as total')
             ->whereNotNull('order_id')
             ->groupBy('order_id');
+
+        $applyOrderScope = function ($query) use ($canAccessOrders, $permissions, $request): void {
+            if (! $canAccessOrders) {
+                $query->whereRaw('1 = 0');
+            } elseif ($permissions->orderScope($request->user()) === 'own') {
+                $query->where('orders.created_by', $request->user()?->id);
+            }
+        };
+
+        $availableOrdersQuery = Order::query();
+        $applyOrderScope($availableOrdersQuery);
+
+        $availableClients = Client::query()
+            ->whereIn('id', (clone $availableOrdersQuery)
+                ->whereNotNull('orders.client_id')
+                ->select('orders.client_id'))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+        $availableUsers = User::query()
+            ->whereIn('id', (clone $availableOrdersQuery)
+                ->whereNotNull('orders.last_edited_by')
+                ->select('orders.last_edited_by'))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+        $existingOrderStatuses = (clone $availableOrdersQuery)
+            ->whereNotNull('orders.status')
+            ->distinct()
+            ->pluck('orders.status')
+            ->all();
+        $availableOrderStatuses = array_intersect_key(Order::STATUSES, array_flip($existingOrderStatuses));
+
+        $availablePaymentStatusKeys = (clone $availableOrdersQuery)
+            ->leftJoinSub(clone $paymentTotals, 'order_payment_totals', function ($join): void {
+                $join->on('order_payment_totals.order_id', '=', 'orders.id');
+            })
+            ->selectRaw("{$paymentStatusSql} as payment_filter")
+            ->distinct()
+            ->pluck('payment_filter')
+            ->all();
+        $availablePaymentStatuses = array_intersect_key($paymentStatusLabels, array_flip($availablePaymentStatusKeys));
 
         $query = Order::query()
             ->leftJoin('users', 'users.id', '=', 'orders.last_edited_by')
@@ -52,10 +129,19 @@ class OrderController extends Controller
             ->addSelect(DB::raw('COALESCE(order_payment_totals.total, 0) as linked_payments_total'))
             ->with('lastEditedBy:id,name');
 
-        if (! $canAccessOrders) {
-            $query->whereRaw('1 = 0');
-        } elseif ($permissions->orderScope($request->user()) === 'own') {
-            $query->where('orders.created_by', $request->user()?->id);
+        $applyOrderScope($query);
+
+        if ($selectedPaymentStatuses !== []) {
+            $query->whereIn(DB::raw($paymentStatusSql), $selectedPaymentStatuses);
+        }
+        if ($selectedClientIds !== []) {
+            $query->whereIn('orders.client_id', $selectedClientIds);
+        }
+        if ($selectedUserIds !== []) {
+            $query->whereIn('orders.last_edited_by', $selectedUserIds);
+        }
+        if ($selectedOrderStatuses !== []) {
+            $query->whereIn('orders.status', $selectedOrderStatuses);
         }
 
         if ($sort === 'date') {
@@ -86,6 +172,16 @@ class OrderController extends Controller
             'sort' => $sort,
             'direction' => $direction,
             'perPageRaw' => $perPageRaw,
+            'orderFilters' => [
+                'payment_status' => $selectedPaymentStatuses,
+                'client_id' => $selectedClientIds,
+                'user_id' => $selectedUserIds,
+                'order_status' => $selectedOrderStatuses,
+            ],
+            'availablePaymentStatuses' => $availablePaymentStatuses,
+            'availableClients' => $availableClients,
+            'availableUsers' => $availableUsers,
+            'availableOrderStatuses' => $availableOrderStatuses,
             'ordersPermissions' => [
                 'calculation' => $permissions->can($request->user(), 'orders_calculation'),
                 'proposals' => $permissions->can($request->user(), 'orders_proposals'),
@@ -109,6 +205,98 @@ class OrderController extends Controller
         ]);
     }
 
+    public function appendCandidate(Request $request, PermissionService $permissions): JsonResponse
+    {
+        abort_unless($permissions->can($request->user(), 'orders_access'), 403);
+
+        $data = $request->validate([
+            'client_id' => ['required', 'integer', 'exists:clients,id'],
+        ]);
+
+        $query = Order::query()
+            ->where('client_id', (int) $data['client_id'])
+            ->where('status', Order::STATUS_NEW)
+            ->whereRaw('(SELECT COALESCE(SUM(client_payments.amount_uah), 0) FROM client_payments WHERE client_payments.order_id = orders.id) <= 0');
+
+        if ($permissions->orderScope($request->user()) === 'own') {
+            $query->where('created_by', $request->user()?->id);
+        }
+
+        $order = $query
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+
+        return response()->json([
+            'ok' => true,
+            'order' => $order ? [
+                'id' => $order->public_id,
+                'number' => $order->order_number,
+                'append_url' => route('orders.append-items', $order),
+            ] : null,
+        ]);
+    }
+
+    public function appendItems(Request $request, Order $order, PermissionService $permissions): JsonResponse
+    {
+        $this->authorizeOrderAccess($request, $permissions, $order);
+
+        $data = $request->validate([
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.nomenclature' => ['required', 'string', 'max:500'],
+            'items.*.description' => ['nullable', 'string', 'max:200'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.unit_cost' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $newItems = collect($data['items'])->map(function (array $item): array {
+            $quantity = (int) $item['quantity'];
+            $unitCost = (int) $item['unit_cost'];
+
+            return [
+                'item_id' => (string) Str::uuid(),
+                'nomenclature' => trim((string) $item['nomenclature']),
+                'description' => trim((string) ($item['description'] ?? '')),
+                'quantity' => $quantity,
+                'unit_cost' => $unitCost,
+                'sum' => $quantity * $unitCost,
+            ];
+        })->values()->all();
+
+        $updatedOrder = DB::transaction(function () use ($request, $order, $newItems): Order {
+            $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->id);
+            $paymentsTotal = (float) $lockedOrder->payments()->sum('amount_uah');
+
+            if ($lockedOrder->status !== Order::STATUS_NEW || $paymentsTotal > 0) {
+                abort(409, 'Замовлення вже не відповідає умовам додавання позицій.');
+            }
+
+            $lockedOrder->ensureItemIds();
+            $items = array_merge(is_array($lockedOrder->items) ? $lockedOrder->items : [], $newItems);
+            $totalCost = (float) collect($items)->sum('sum');
+            $lockedOrder->update([
+                'items' => $items,
+                'payments_total' => $paymentsTotal,
+                'amount_due' => $totalCost - $paymentsTotal,
+                'total_cost' => $totalCost,
+                'last_edited_by' => $request->user()?->id,
+            ]);
+            $lockedOrder->client?->update([
+                'last_order_at' => now(),
+                'updated_by' => $request->user()?->id,
+            ]);
+
+            return $lockedOrder;
+        });
+
+        return response()->json([
+            'ok' => true,
+            'order_id' => $updatedOrder->public_id,
+            'order_number' => $updatedOrder->order_number,
+            'redirect_url' => route('orders.show', $updatedOrder),
+        ]);
+    }
+
     public function store(Request $request, PermissionService $permissions): JsonResponse
     {
         abort_unless($permissions->can($request->user(), 'orders_access'), 403);
@@ -119,6 +307,7 @@ class OrderController extends Controller
             'create_client' => ['nullable', 'boolean'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.nomenclature' => ['required', 'string', 'max:500'],
+            'items.*.description' => ['nullable', 'string', 'max:200'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_cost' => ['required', 'integer', 'min:1'],
         ]);
@@ -145,6 +334,7 @@ class OrderController extends Controller
                 return [
                     'item_id' => (string) Str::uuid(),
                     'nomenclature' => trim((string) $item['nomenclature']),
+                    'description' => trim((string) ($item['description'] ?? '')),
                     'quantity' => $quantity,
                     'unit_cost' => $unitCost,
                     'sum' => $quantity * $unitCost,
@@ -175,6 +365,7 @@ class OrderController extends Controller
             }
 
             $order = Order::query()->create([
+                'status' => Order::STATUS_NEW,
                 'customer_name' => $client->name,
                 'client_id' => $client->id,
                 'created_by' => $request->user()?->id,
@@ -260,6 +451,10 @@ class OrderController extends Controller
             : 0;
         $orderPaymentsTotal = (float) $order->payments()->sum('amount_uah');
         $canAddOrderPayment = $orderPaymentsTotal <= 0 || $orderPaymentsTotal < (float) $order->total_cost;
+        $canMergeOrder = $canUpdateOrder
+            && $order->client_id
+            && $order->status === Order::STATUS_NEW
+            && $orderPaymentsTotal <= 0;
 
         return view('orders.show', [
             'order' => $order,
@@ -269,6 +464,7 @@ class OrderController extends Controller
             'canAddOrderPayment' => $canAddOrderPayment,
             'orderPermissions' => [
                 'update' => $canUpdateOrder,
+                'merge' => $canMergeOrder,
                 'payments' => $canManageOrderPayments,
                 'payments_overpayment' => $canSpendOrderOverpayment,
                 'payments_edit' => $canEditOrderPayments,
@@ -296,6 +492,136 @@ class OrderController extends Controller
         ]);
     }
 
+    public function mergeCandidates(Request $request, Order $order, PermissionService $permissions): JsonResponse
+    {
+        $this->authorizeOrderAccess($request, $permissions, $order);
+        abort_unless($permissions->can($request->user(), 'orders_update'), 403);
+        abort_if(! $order->client_id || $order->status !== Order::STATUS_NEW || $order->payments()->sum('amount_uah') > 0, 409);
+
+        $query = Order::query()
+            ->where('client_id', $order->client_id)
+            ->whereKeyNot($order->id)
+            ->where('status', Order::STATUS_NEW)
+            ->whereRaw('(SELECT COALESCE(SUM(client_payments.amount_uah), 0) FROM client_payments WHERE client_payments.order_id = orders.id) <= 0')
+            ->with('createdBy:id,name')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+
+        if ($permissions->orderScope($request->user()) === 'own') {
+            $query->where('created_by', $request->user()?->id);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'orders' => $query->get()->map(fn (Order $candidate): array => [
+                'id' => $candidate->public_id,
+                'number' => $candidate->order_number,
+                'date' => $candidate->created_at?->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i') ?? '—',
+                'user' => $candidate->createdBy?->name ?? '—',
+                'amount_due' => (float) $candidate->amount_due,
+            ])->values(),
+        ]);
+    }
+
+    public function merge(Request $request, Order $order, PermissionService $permissions): JsonResponse
+    {
+        $this->authorizeOrderAccess($request, $permissions, $order);
+        abort_unless($permissions->can($request->user(), 'orders_update'), 403);
+
+        $data = $request->validate([
+            'target_order_id' => ['required', 'uuid'],
+        ]);
+        $targetOrder = Order::query()->where('public_id', $data['target_order_id'])->firstOrFail();
+        $this->authorizeOrderAccess($request, $permissions, $targetOrder);
+
+        $mergedOrder = DB::transaction(function () use ($request, $order, $targetOrder): Order {
+            $lockedOrders = Order::query()
+                ->whereIn('id', [$order->id, $targetOrder->id])
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+            $source = $lockedOrders->get($order->id);
+            $target = $lockedOrders->get($targetOrder->id);
+
+            abort_if(! $source || ! $target || $source->id === $target->id, 422, 'Оберіть інше замовлення для об’єднання.');
+            abort_if((int) $source->client_id !== (int) $target->client_id, 422, 'Замовлення належать різним клієнтам.');
+
+            $sourcePayments = (float) $source->payments()->sum('amount_uah');
+            $targetPayments = (float) $target->payments()->sum('amount_uah');
+            abort_if(
+                $source->status !== Order::STATUS_NEW
+                || $target->status !== Order::STATUS_NEW
+                || $sourcePayments > 0
+                || $targetPayments > 0,
+                409,
+                'Одне із замовлень вже не відповідає умовам об’єднання.'
+            );
+
+            $source->ensureItemIds();
+            $target->ensureItemIds();
+            $sourceItems = is_array($source->items) ? $source->items : [];
+            $targetItems = array_merge(is_array($target->items) ? $target->items : [], $sourceItems);
+            $targetTotal = (float) collect($targetItems)->sum('sum');
+
+            $target->update([
+                'items' => $targetItems,
+                'payments_total' => $targetPayments,
+                'amount_due' => $targetTotal - $targetPayments,
+                'total_cost' => $targetTotal,
+                'last_edited_by' => $request->user()?->id,
+            ]);
+
+            $oldSourceStatus = (string) $source->status;
+            $source->update([
+                'status' => Order::STATUS_CANCELLED,
+                'items' => [],
+                'payments_total' => $sourcePayments,
+                'amount_due' => 0,
+                'total_cost' => 0,
+                'last_edited_by' => $request->user()?->id,
+            ]);
+            $this->recordOrderStatusChange($source, $oldSourceStatus, Order::STATUS_CANCELLED, $request->user()?->id);
+
+            return $target;
+        });
+
+        return response()->json([
+            'ok' => true,
+            'order_id' => $mergedOrder->public_id,
+            'order_number' => $mergedOrder->order_number,
+            'redirect_url' => route('orders.show', $mergedOrder),
+        ]);
+    }
+
+    public function updateStatus(Request $request, Order $order, PermissionService $permissions): JsonResponse
+    {
+        $this->authorizeOrderAccess($request, $permissions, $order);
+        abort_unless($permissions->can($request->user(), 'orders_update'), 403);
+
+        $data = $request->validate([
+            'status' => ['required', 'string', 'in:'.implode(',', array_keys(Order::STATUSES))],
+        ]);
+        $newStatus = (string) $data['status'];
+        $oldStatus = (string) ($order->status ?: Order::STATUS_NEW);
+
+        if ($newStatus !== $oldStatus) {
+            DB::transaction(function () use ($request, $order, $oldStatus, $newStatus): void {
+                $order->update([
+                    'status' => $newStatus,
+                    'last_edited_by' => $request->user()?->id,
+                ]);
+                $this->recordOrderStatusChange($order, $oldStatus, $newStatus, $request->user()?->id);
+            });
+        }
+
+        return response()->json([
+            'ok' => true,
+            'status' => $order->fresh()->status,
+            'status_label' => $order->fresh()->statusLabel(),
+        ]);
+    }
+
     public function downloadPdf(Request $request, Order $order, PermissionService $permissions): Response
     {
         $this->authorizeOrderAccess($request, $permissions, $order);
@@ -314,6 +640,138 @@ class OrderController extends Controller
             ->setPaper('a4', 'portrait')
             ->download($filename);
 
+        $response->headers->set(
+            'Content-Disposition',
+            sprintf(
+                'attachment; filename="%s"; filename*=UTF-8\'\'%s',
+                $filename,
+                rawurlencode($filename)
+            )
+        );
+
+        return $response;
+    }
+
+    public function downloadExcel(Request $request, Order $order, PermissionService $permissions): StreamedResponse
+    {
+        $this->authorizeOrderAccess($request, $permissions, $order);
+        $order->load('client:id,name');
+
+        $items = is_array($order->items) ? $order->items : [];
+        $paymentsTotal = (int) $order->payments()->sum('amount_uah');
+        $totalCost = (int) round((float) $order->total_cost);
+        $amountDue = $totalCost - $paymentsTotal;
+        $filename = 'Замовлення-'.$order->order_number.'.xlsx';
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Замовлення');
+
+        $sheet->mergeCells('A1:F1');
+        $sheet->setCellValue('A1', 'Замовлення '.$order->order_number);
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+        $sheet->getStyle('A1:F1')->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM);
+        $sheet->getRowDimension(1)->setRowHeight(28);
+
+        $sheet->fromArray([
+            ['Виконавець замовлення:', 'Форсаж Прінт'],
+            ['Замовник:', $order->client?->name ?? $order->customer_name],
+            ['Дата замовлення:', $order->created_at?->copy()->timezone('Europe/Kiev')->format('d.m.Y') ?? '—'],
+        ], null, 'A3');
+        $sheet->mergeCells('B3:F3');
+        $sheet->mergeCells('B4:F4');
+        $sheet->mergeCells('B5:F5');
+        $sheet->getStyle('A3:A5')->getFont()->getColor()->setARGB('FF6B7280');
+        $sheet->getStyle('B3:B5')->getFont()->setBold(true);
+
+        $headerRow = 7;
+        $sheet->fromArray([['№', 'Номенклатура', 'Опис', 'Кількість', 'Вартість за одн.', 'Сума']], null, 'A'.$headerRow);
+        $sheet->getStyle("A{$headerRow}:F{$headerRow}")->applyFromArray([
+            'font' => ['bold' => true],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FFE5E7EB'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['argb' => 'FF9CA3AF'],
+                ],
+            ],
+        ]);
+        $sheet->getRowDimension($headerRow)->setRowHeight(24);
+
+        $itemStartRow = $headerRow + 1;
+        foreach ($items as $index => $item) {
+            $row = $itemStartRow + $index;
+            $quantity = (int) ($item['quantity'] ?? 0);
+            $unitCost = (int) ($item['unit_cost'] ?? 0);
+            $sum = isset($item['sum']) ? (int) $item['sum'] : $quantity * $unitCost;
+
+            $sheet->fromArray([[
+                $index + 1,
+                $item['nomenclature'] ?? '—',
+                $item['description'] ?? '',
+                $quantity,
+                $unitCost,
+                $sum,
+            ]], null, 'A'.$row);
+        }
+
+        $itemEndRow = max($itemStartRow, $itemStartRow + count($items) - 1);
+        if ($items === []) {
+            $sheet->fromArray([['', 'Позиції замовлення відсутні', '', '', '', '']], null, 'A'.$itemStartRow);
+        }
+        $sheet->getStyle("A{$itemStartRow}:F{$itemEndRow}")->applyFromArray([
+            'alignment' => ['vertical' => Alignment::VERTICAL_TOP],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['argb' => 'FFD1D5DB'],
+                ],
+            ],
+        ]);
+        $sheet->getStyle("A{$itemStartRow}:A{$itemEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle("B{$itemStartRow}:C{$itemEndRow}")->getAlignment()->setWrapText(true);
+        $sheet->getStyle("D{$itemStartRow}:D{$itemEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle("E{$itemStartRow}:F{$itemEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle("E{$itemStartRow}:F{$itemEndRow}")->getNumberFormat()->setFormatCode('#,##0 "грн"');
+
+        $totalsStartRow = $itemEndRow + 2;
+        $sheet->fromArray([
+            ['Сума з ПДВ', $totalCost],
+            ['Загальна сума сплат', $paymentsTotal],
+            ['Сума до сплати', $amountDue],
+        ], null, 'E'.$totalsStartRow);
+        $totalsEndRow = $totalsStartRow + 2;
+        $sheet->getStyle("E{$totalsStartRow}:F{$totalsEndRow}")->getFont()->setBold(true);
+        $sheet->getStyle("F{$totalsStartRow}:F{$totalsEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle("F{$totalsStartRow}:F{$totalsEndRow}")->getNumberFormat()->setFormatCode('#,##0 "грн"');
+        $sheet->getStyle("E{$totalsEndRow}:F{$totalsEndRow}")->getBorders()->getTop()->setBorderStyle(Border::BORDER_THIN);
+
+        $sheet->getColumnDimension('A')->setWidth(7);
+        $sheet->getColumnDimension('B')->setWidth(42);
+        $sheet->getColumnDimension('C')->setWidth(24);
+        $sheet->getColumnDimension('D')->setWidth(13);
+        $sheet->getColumnDimension('E')->setWidth(22);
+        $sheet->getColumnDimension('F')->setWidth(18);
+        $sheet->freezePane('A8');
+        $sheet->getPageSetup()->setFitToWidth(1)->setFitToHeight(0);
+        $sheet->getPageMargins()->setTop(0.4)->setRight(0.4)->setBottom(0.4)->setLeft(0.4);
+        $sheet->setShowGridlines(false);
+
+        $writer = new Xlsx($spreadsheet);
+        $response = response()->streamDownload(function () use ($writer, $spreadsheet): void {
+            $writer->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
         $response->headers->set(
             'Content-Disposition',
             sprintf(
@@ -361,26 +819,17 @@ class OrderController extends Controller
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'customer_name' => ['required', 'string', 'max:255'],
             'create_client' => ['nullable', 'boolean'],
+            'status' => ['sometimes', 'required', 'string', 'in:'.implode(',', array_keys(Order::STATUSES))],
             'items' => ['required', 'array', 'min:1'],
             'items.*.item_id' => ['nullable', 'string', 'max:100'],
             'items.*.nomenclature' => ['required', 'string', 'max:500'],
+            'items.*.description' => ['nullable', 'string', 'max:200'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_cost' => ['required', 'integer', 'min:1'],
         ]);
 
-        $customerName = trim((string) $data['customer_name']);
-        $client = ! empty($data['client_id'])
-            ? Client::query()->find((int) $data['client_id'])
-            : $this->findClientByName($customerName);
-
-        if (! $client && ! $request->boolean('create_client')) {
-            return response()->json([
-                'ok' => false,
-                'code' => 'client_not_found',
-                'message' => 'Замовника з таким ім\'ям не знайдено.',
-                'customer_name' => $customerName,
-            ], 422);
-        }
+        $client = $order->client;
+        $customerName = $client?->name ?? $order->customer_name;
 
         $normalizedItems = collect($data['items'])
             ->map(function (array $item): array {
@@ -391,6 +840,7 @@ class OrderController extends Controller
                 return [
                     'item_id' => $itemId !== '' ? $itemId : (string) Str::uuid(),
                     'nomenclature' => trim((string) $item['nomenclature']),
+                    'description' => trim((string) ($item['description'] ?? '')),
                     'quantity' => $quantity,
                     'unit_cost' => $unitCost,
                     'sum' => $quantity * $unitCost,
@@ -400,30 +850,15 @@ class OrderController extends Controller
             ->all();
 
         $totalCost = (float) collect($normalizedItems)->sum('sum');
+        $oldStatus = (string) ($order->status ?: Order::STATUS_NEW);
+        $newStatus = (string) ($data['status'] ?? $oldStatus);
 
-        DB::transaction(function () use ($request, $order, $client, $customerName, $normalizedItems, $totalCost): void {
-            if (! $client) {
-                $client = $this->findClientByName($customerName, true);
-            }
-
-            if (! $client) {
-                $temporaryCode = 'FP-TEMP-'.Str::upper(Str::random(8));
-                $client = Client::query()->create([
-                    'code' => $temporaryCode,
-                    'name' => $customerName,
-                    'status' => 'active',
-                    'created_by' => $request->user()?->id,
-                    'updated_by' => $request->user()?->id,
-                ]);
-                $client->update([
-                    'code' => 'FP-'.str_pad((string) $client->id, 6, '0', STR_PAD_LEFT),
-                ]);
-            }
-
+        DB::transaction(function () use ($request, $order, $client, $customerName, $normalizedItems, $totalCost, $oldStatus, $newStatus): void {
             $paymentsTotal = (float) $order->payments()->sum('amount_uah');
             $order->update([
-                'customer_name' => $client->name,
-                'client_id' => $client->id,
+                'status' => $newStatus,
+                'customer_name' => $customerName,
+                'client_id' => $order->client_id,
                 'last_edited_by' => $request->user()?->id,
                 'items' => $normalizedItems,
                 'payments_total' => $paymentsTotal,
@@ -431,7 +866,11 @@ class OrderController extends Controller
                 'total_cost' => $totalCost,
             ]);
 
-            $client->update([
+            if ($newStatus !== $oldStatus) {
+                $this->recordOrderStatusChange($order, $oldStatus, $newStatus, $request->user()?->id);
+            }
+
+            $client?->update([
                 'last_order_at' => now(),
                 'updated_by' => $request->user()?->id,
             ]);
@@ -442,6 +881,18 @@ class OrderController extends Controller
             'order_id' => $order->public_id,
             'order_number' => $order->order_number,
             'redirect_url' => route('orders.show', $order),
+        ]);
+    }
+
+    private function recordOrderStatusChange(Order $order, string $oldStatus, string $newStatus, ?int $userId): void
+    {
+        $order->histories()->create([
+            'user_id' => $userId,
+            'operation_type' => 'order_updated',
+            'field_name' => 'status',
+            'description' => 'Статус замовлення',
+            'before_value' => ['value' => Order::STATUSES[$oldStatus] ?? $oldStatus],
+            'after_value' => ['value' => Order::STATUSES[$newStatus] ?? $newStatus],
         ]);
     }
 

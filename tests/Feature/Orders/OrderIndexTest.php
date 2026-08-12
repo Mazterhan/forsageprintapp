@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\Support\CreatesRoles;
 use Tests\TestCase;
 
@@ -21,6 +22,7 @@ class OrderIndexTest extends TestCase
         $order = Order::factory()->create();
 
         $this->assertSame(sprintf('O-%06d', $order->id), $order->fresh()->order_number);
+        $this->assertSame(Order::STATUS_NEW, $order->fresh()->status);
     }
 
     public function test_orders_page_displays_order_table_and_create_link(): void
@@ -40,6 +42,7 @@ class OrderIndexTest extends TestCase
             ->assertSee('Створити замовлення')
             ->assertSee(route('orders.create'), false)
             ->assertSee('Номер замовлення')
+            ->assertSeeInOrder(['Дата', 'Статус', 'Номер замовлення'])
             ->assertSeeInOrder(['Номер замовлення', 'Оплата', "Ім'я замовника"])
             ->assertSee("Ім'я замовника")
             ->assertSee('До сплати')
@@ -118,6 +121,98 @@ class OrderIndexTest extends TestCase
             ->assertSeeInOrder(['Є переплата', 'Сплачено', 'Частково сплачено', 'Не сплачено']);
     }
 
+    public function test_orders_table_can_be_filtered_by_actual_payment_client_user_and_order_status_values(): void
+    {
+        $user = $this->createUserWithRole(['can_orders' => true]);
+        $firstEditor = User::factory()->create(['name' => 'Редактор Альфа']);
+        $secondEditor = User::factory()->create(['name' => 'Редактор Бета']);
+        $unusedEditor = User::factory()->create(['name' => 'Редактор без замовлень']);
+        $firstClient = Client::factory()->create(['name' => 'Клієнт Альфа']);
+        $secondClient = Client::factory()->create(['name' => 'Клієнт Бета']);
+        $unusedClient = Client::factory()->create(['name' => 'Клієнт без замовлень']);
+
+        $unpaidOrder = Order::factory()->create([
+            'client_id' => $firstClient->id,
+            'customer_name' => $firstClient->name,
+            'last_edited_by' => $firstEditor->id,
+            'status' => Order::STATUS_NEW,
+            'total_cost' => 1000,
+        ]);
+        $partialOrder = Order::factory()->create([
+            'client_id' => $secondClient->id,
+            'customer_name' => $secondClient->name,
+            'last_edited_by' => $secondEditor->id,
+            'status' => Order::STATUS_BLOCKED,
+            'total_cost' => 1000,
+        ]);
+        $paidOrder = Order::factory()->create([
+            'client_id' => $firstClient->id,
+            'customer_name' => $firstClient->name,
+            'last_edited_by' => $firstEditor->id,
+            'status' => Order::STATUS_COMPLETED,
+            'total_cost' => 1000,
+        ]);
+
+        foreach ([[$partialOrder, 400], [$paidOrder, 1000]] as [$order, $amount]) {
+            ClientPayment::query()->create([
+                'client_id' => $order->client_id,
+                'order_id' => $order->id,
+                'amount' => $amount,
+                'currency' => 'UAH',
+                'payment_type' => 'order',
+                'paid_at' => now(),
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+            ]);
+        }
+
+        $this->actingAs($user)
+            ->get(route('orders.index'))
+            ->assertOk()
+            ->assertSee('data-orders-filters', false)
+            ->assertSee('data-orders-filter-details', false)
+            ->assertSee('data-orders-filter-input', false)
+            ->assertSee('data-orders-client-search', false)
+            ->assertSee('data-orders-client-option', false)
+            ->assertSee('window.setTimeout(submitFilters, 2000)', false)
+            ->assertSeeInOrder(["Ім'я замовника", 'Статус замовлення', 'Оплата', 'Користувач'])
+            ->assertSee('name="payment_status[]"', false)
+            ->assertSee('name="client_id[]"', false)
+            ->assertSee('name="user_id[]"', false)
+            ->assertSee('name="order_status[]"', false)
+            ->assertSee($firstClient->name)
+            ->assertSee($secondClient->name)
+            ->assertDontSee($unusedClient->name)
+            ->assertSee($firstEditor->name)
+            ->assertSee($secondEditor->name)
+            ->assertDontSee($unusedEditor->name)
+            ->assertDontSee('Є переплата');
+
+        $this->actingAs($user)
+            ->get(route('orders.index', [
+                'payment_status' => ['partial'],
+                'client_id' => [$secondClient->id],
+                'user_id' => [$secondEditor->id],
+                'order_status' => [Order::STATUS_BLOCKED],
+                'per_page' => 'all',
+            ]))
+            ->assertOk()
+            ->assertSee($partialOrder->order_number)
+            ->assertDontSee($unpaidOrder->order_number)
+            ->assertDontSee($paidOrder->order_number);
+
+        $this->actingAs($user)
+            ->get(route('orders.index', [
+                'payment_status' => ['unpaid', 'paid'],
+                'client_id' => [$firstClient->id],
+                'per_page' => 'all',
+            ]))
+            ->assertOk()
+            ->assertSee($unpaidOrder->order_number)
+            ->assertSee($paidOrder->order_number)
+            ->assertDontSee($partialOrder->order_number);
+    }
+
     public function test_create_order_form_loads_active_clients_and_requires_orders_permission(): void
     {
         $allowedUser = $this->createUserWithRole(['can_orders' => true]);
@@ -147,6 +242,7 @@ class OrderIndexTest extends TestCase
             ->assertDontSee('Вивантажити замовлення у PDF')
             ->assertDontSee('>Платежі<', false)
             ->assertSee('Номенклатура')
+            ->assertSee('Опис')
             ->assertSee('Кількість')
             ->assertSee('Вартість за одн.')
             ->assertSee('Сума з ПДВ')
@@ -163,11 +259,18 @@ class OrderIndexTest extends TestCase
             ->assertDontSee('data-order-edit-cancel', false)
             ->assertDontSee('Повернутись до замовлень')
             ->assertDontSee('Вартість загальна (грн)')
-            ->assertSee('x-show="hasNomenclatureItem()"', false)
+            ->assertSee('x-show="hasNomenclatureItem() && (isEdit || hasCustomerName())"', false)
+            ->assertSee('Додати до існуючого замовлення')
+            ->assertSee(str_replace('/', '\\/', route('orders.append-candidate')), false)
             ->assertSee('maxlength="500"', false)
+            ->assertSee('data-order-description', false)
+            ->assertSee('maxlength="200"', false)
+            ->assertDontSee('placeholder="Введіть опис"', false)
+            ->assertSee('Залишилось символів:', false)
+            ->assertSee('Досягнуто максимальний ліміт: 200/200')
             ->assertSee("quantity: source.quantity ? String(source.quantity) : '1'", false)
             ->assertDontSee("|| String(item.quantity || '').trim() !== ''", false)
-            ->assertSee('@resize.window.debounce.100ms="resizeAllNomenclatureFields()"', false);
+            ->assertSee('@resize.window.debounce.100ms="resizeAllItemTextFields()"', false);
         $this->assertSame(2, substr_count($response->getContent(), 'fixed inset-0 z-[12000] !mt-0'));
 
         $this->actingAs($forbiddenUser)
@@ -189,7 +292,7 @@ class OrderIndexTest extends TestCase
                 'client_id' => $client->id,
                 'customer_name' => $client->name,
                 'items' => [
-                    ['nomenclature' => 'Банер', 'quantity' => 2, 'unit_cost' => 350],
+                    ['nomenclature' => 'Банер', 'description' => 'Для фасаду', 'quantity' => 2, 'unit_cost' => 350],
                     ['nomenclature' => 'Монтаж', 'quantity' => 1, 'unit_cost' => 200],
                 ],
             ])
@@ -206,6 +309,7 @@ class OrderIndexTest extends TestCase
         $this->assertSame('900.00', $order->total_cost);
         $this->assertSame('900.00', $order->amount_due);
         $this->assertSame(700, $order->items[0]['sum']);
+        $this->assertSame('Для фасаду', $order->items[0]['description']);
         $this->assertSame($order->public_id, $response->json('order_id'));
 
         $this->actingAs($user)
@@ -214,6 +318,267 @@ class OrderIndexTest extends TestCase
             ->assertSee($order->order_number)
             ->assertSee($client->name)
             ->assertSee('900');
+
+        $this->actingAs($user)
+            ->postJson(route('orders.store'), [
+                'client_id' => $client->id,
+                'customer_name' => $client->name,
+                'items' => [[
+                    'nomenclature' => 'Позиція з надто довгим описом',
+                    'description' => str_repeat('а', 201),
+                    'quantity' => 1,
+                    'unit_cost' => 100,
+                ]],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('items.0.description');
+    }
+
+    public function test_new_order_positions_can_be_appended_to_the_newest_unpaid_new_order(): void
+    {
+        $user = $this->createUserWithRole(['can_orders' => true]);
+        $client = Client::factory()->create();
+        $olderOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'status' => Order::STATUS_NEW,
+            'created_by' => $user->id,
+            'items' => [],
+            'total_cost' => 0,
+            'amount_due' => 0,
+            'created_at' => now()->subDay(),
+        ]);
+        $newestOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'status' => Order::STATUS_NEW,
+            'created_by' => $user->id,
+            'items' => [[
+                'item_id' => (string) Str::uuid(),
+                'nomenclature' => 'Існуюча позиція',
+                'description' => '',
+                'quantity' => 1,
+                'unit_cost' => 100,
+                'sum' => 100,
+            ]],
+            'total_cost' => 100,
+            'amount_due' => 100,
+            'created_at' => now(),
+        ]);
+        Order::factory()->create([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_COMPLETED,
+            'created_at' => now()->addMinute(),
+        ]);
+
+        $this->actingAs($user)
+            ->getJson(route('orders.append-candidate', ['client_id' => $client->id]))
+            ->assertOk()
+            ->assertJsonPath('order.id', $newestOrder->public_id)
+            ->assertJsonPath('order.number', $newestOrder->order_number)
+            ->assertJsonPath('order.append_url', route('orders.append-items', $newestOrder));
+
+        $this->actingAs($user)
+            ->postJson(route('orders.append-items', $newestOrder), [
+                'items' => [[
+                    'nomenclature' => 'Нова позиція',
+                    'description' => 'Додано з форми створення',
+                    'quantity' => 2,
+                    'unit_cost' => 300,
+                ]],
+            ])
+            ->assertOk()
+            ->assertJsonPath('redirect_url', route('orders.show', $newestOrder));
+
+        $newestOrder->refresh();
+        $this->assertCount(2, $newestOrder->items);
+        $this->assertSame('Існуюча позиція', $newestOrder->items[0]['nomenclature']);
+        $this->assertSame('Нова позиція', $newestOrder->items[1]['nomenclature']);
+        $this->assertSame(700.0, (float) $newestOrder->total_cost);
+        $this->assertSame(700.0, (float) $newestOrder->amount_due);
+        $this->assertDatabaseHas('order_histories', [
+            'order_id' => $newestOrder->id,
+            'operation_type' => 'item_created',
+            'description' => 'Додано позицію номенклатури',
+        ]);
+        $this->assertCount(0, $olderOrder->fresh()->items);
+    }
+
+    public function test_positions_cannot_be_appended_when_order_is_no_longer_new_and_unpaid(): void
+    {
+        $user = $this->createUserWithRole(['can_orders' => true]);
+        $client = Client::factory()->create();
+        $order = Order::factory()->create([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'created_by' => $user->id,
+            'total_cost' => 1000,
+        ]);
+        ClientPayment::query()->create([
+            'client_id' => $client->id,
+            'order_id' => $order->id,
+            'amount' => 1,
+            'amount_uah' => 1,
+            'currency' => 'UAH',
+            'payment_type' => 'order',
+            'paid_at' => now(),
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson(route('orders.append-candidate', ['client_id' => $client->id]))
+            ->assertOk()
+            ->assertJsonPath('order', null);
+
+        $this->actingAs($user)
+            ->postJson(route('orders.append-items', $order), [
+                'items' => [[
+                    'nomenclature' => 'Не повинна додатися',
+                    'quantity' => 1,
+                    'unit_cost' => 100,
+                ]],
+            ])
+            ->assertConflict();
+    }
+
+    public function test_unpaid_new_orders_of_one_client_can_be_merged_with_full_history(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_orders' => true,
+            'orders_update' => true,
+        ]);
+        $client = Client::factory()->create();
+        $source = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'status' => Order::STATUS_NEW,
+            'created_by' => $user->id,
+            'items' => [[
+                'item_id' => (string) Str::uuid(),
+                'nomenclature' => 'Позиція джерела',
+                'description' => '',
+                'quantity' => 2,
+                'unit_cost' => 200,
+                'sum' => 400,
+            ]],
+            'total_cost' => 400,
+            'amount_due' => 400,
+        ]);
+        $target = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'status' => Order::STATUS_NEW,
+            'created_by' => $user->id,
+            'items' => [[
+                'item_id' => (string) Str::uuid(),
+                'nomenclature' => 'Позиція отримувача',
+                'description' => '',
+                'quantity' => 1,
+                'unit_cost' => 100,
+                'sum' => 100,
+            ]],
+            'total_cost' => 100,
+            'amount_due' => 100,
+        ]);
+        $completed = Order::factory()->create([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_COMPLETED,
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('orders.show', $source))
+            ->assertOk()
+            ->assertSee('Опції')
+            ->assertSee("Об'єднати", false)
+            ->assertSee('data-order-merge-option', false)
+            ->assertSee(route('orders.edit', $source), false)
+            ->assertSee(str_replace('/', '\\/', route('orders.merge-candidates', $source)), false)
+            ->assertSee(str_replace('/', '\\/', route('orders.merge', $source)), false);
+
+        $this->actingAs($user)
+            ->getJson(route('orders.merge-candidates', $source))
+            ->assertOk()
+            ->assertJsonCount(1, 'orders')
+            ->assertJsonPath('orders.0.id', $target->public_id)
+            ->assertJsonPath('orders.0.number', $target->order_number)
+            ->assertJsonMissing(['id' => $completed->public_id]);
+
+        $this->actingAs($user)
+            ->postJson(route('orders.merge', $source), [
+                'target_order_id' => $target->public_id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('redirect_url', route('orders.show', $target));
+
+        $source->refresh();
+        $target->refresh();
+        $this->assertSame(Order::STATUS_CANCELLED, $source->status);
+        $this->assertSame([], $source->items);
+        $this->assertSame(0.0, (float) $source->total_cost);
+        $this->assertCount(2, $target->items);
+        $this->assertSame('Позиція отримувача', $target->items[0]['nomenclature']);
+        $this->assertSame('Позиція джерела', $target->items[1]['nomenclature']);
+        $this->assertSame(500.0, (float) $target->total_cost);
+        $this->assertTrue($source->histories()->where('operation_type', 'item_deleted')->exists());
+        $this->assertTrue($source->histories()->where('field_name', 'status')->exists());
+        $this->assertTrue($target->histories()->where('operation_type', 'item_created')->exists());
+
+        $this->actingAs($user)
+            ->get(route('orders.show', $source))
+            ->assertOk()
+            ->assertSee('Скасовано')
+            ->assertDontSee('data-order-merge-option', false);
+    }
+
+    public function test_order_client_is_locked_in_edit_form_and_cannot_be_changed_by_request(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_orders' => true,
+            'orders_update' => true,
+        ]);
+        $originalClient = Client::factory()->create(['name' => 'Початковий клієнт']);
+        $otherClient = Client::factory()->create(['name' => 'Інший клієнт']);
+        $order = Order::factory()->create([
+            'client_id' => $originalClient->id,
+            'customer_name' => $originalClient->name,
+            'created_by' => $user->id,
+            'items' => [[
+                'item_id' => (string) Str::uuid(),
+                'nomenclature' => 'Позиція',
+                'description' => '',
+                'quantity' => 1,
+                'unit_cost' => 100,
+                'sum' => 100,
+            ]],
+            'total_cost' => 100,
+            'amount_due' => 100,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('orders.edit', $order))
+            ->assertOk()
+            ->assertSee('id="order-customer-name"', false)
+            ->assertSee('readonly', false)
+            ->assertDontSee('aria-label="Відкрити список замовників"', false);
+
+        $this->actingAs($user)
+            ->patchJson(route('orders.update', $order), [
+                'client_id' => $otherClient->id,
+                'customer_name' => $otherClient->name,
+                'items' => [[
+                    'item_id' => $order->items[0]['item_id'],
+                    'nomenclature' => 'Позиція',
+                    'quantity' => 1,
+                    'unit_cost' => 100,
+                ]],
+            ])
+            ->assertOk();
+
+        $order->refresh();
+        $this->assertSame($originalClient->id, $order->client_id);
+        $this->assertSame($originalClient->name, $order->customer_name);
     }
 
     public function test_unknown_client_requires_confirmation_then_is_created_with_order(): void
@@ -297,10 +662,11 @@ class OrderIndexTest extends TestCase
             ->assertSee('Тестова номенклатура')
             ->assertSee('Редактор замовлення')
             ->assertSee('Дата створення:')
+            ->assertSee('Нове')
             ->assertSee('Частково сплачено')
             ->assertSee('data-page-back-link', false)
             ->assertSee('data-order-heading-inline', false)
-            ->assertSeeInOrder(['Замовлення '.$order->order_number, 'Частково сплачено'])
+            ->assertSeeInOrder(['Замовлення '.$order->order_number, 'Нове', 'Частково сплачено'])
             ->assertDontSee('right-full', false)
             ->assertSee('href="'.route('orders.index').'"', false)
             ->assertSee('Редагувати')
@@ -311,6 +677,49 @@ class OrderIndexTest extends TestCase
         $this->actingAs($user)
             ->get('/orders/'.$order->id)
             ->assertNotFound();
+    }
+
+    public function test_order_status_can_be_changed_separately_and_is_recorded_in_history(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_orders' => true,
+            'orders_update' => true,
+        ]);
+        $order = Order::factory()->create([
+            'status' => Order::STATUS_NEW,
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('orders.show', $order))
+            ->assertOk()
+            ->assertSee('orderStatusEditor(', false)
+            ->assertSee(str_replace('/', '\\/', route('orders.status.update', $order)), false)
+            ->assertSee('data-order-status-selector', false)
+            ->assertSee('chooseStatus(', false)
+            ->assertDontSee('Змінити статус')
+            ->assertSee('warnAboutUnsavedStatus($event)', false)
+            ->assertSeeInOrder(['Замовлення '.$order->order_number, 'Статус замовлення', 'Нове', 'Не сплачено']);
+
+        $this->actingAs($user)
+            ->patchJson(route('orders.status.update', $order), [
+                'status' => Order::STATUS_BLOCKED,
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', Order::STATUS_BLOCKED)
+            ->assertJsonPath('status_label', 'Заблоковано');
+
+        $this->assertSame(Order::STATUS_BLOCKED, $order->fresh()->status);
+        $history = $order->histories()->where('field_name', 'status')->sole();
+        $this->assertSame('order_updated', $history->operation_type);
+        $this->assertSame('Статус замовлення', $history->description);
+        $this->assertSame(['value' => 'Нове'], $history->before_value);
+        $this->assertSame(['value' => 'Заблоковано'], $history->after_value);
+
+        $this->actingAs($user)
+            ->patchJson(route('orders.status.update', $order), ['status' => 'unknown'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
     }
 
     public function test_edited_order_displays_change_history_without_autosave_label(): void
@@ -373,6 +782,7 @@ class OrderIndexTest extends TestCase
             'customer_name' => $client->name,
             'items' => [[
                 'nomenclature' => 'Друкована продукція для PDF',
+                'description' => 'Опис позиції PDF',
                 'quantity' => 2,
                 'unit_cost' => 400,
                 'sum' => 800,
@@ -426,10 +836,92 @@ class OrderIndexTest extends TestCase
         $this->assertStringContainsString('Форсаж Прінт', $pdfHtml);
         $this->assertStringContainsString('Замовник PDF', $pdfHtml);
         $this->assertStringContainsString('Друкована продукція для PDF', $pdfHtml);
+        $this->assertStringContainsString('Опис позиції PDF', $pdfHtml);
         $this->assertStringContainsString('Загальна сума сплат', $pdfHtml);
         $this->assertStringContainsString('500 грн', $pdfHtml);
         $this->assertStringContainsString('background: #e5e7eb;', $pdfHtml);
         $this->assertStringContainsString('border-bottom: 2px solid #000000;', $pdfHtml);
+    }
+
+    public function test_order_excel_is_downloaded_with_order_items_and_payment_totals(): void
+    {
+        $user = $this->createUserWithRole(['can_orders' => true]);
+        $client = Client::factory()->create(['name' => 'Замовник Excel']);
+        $order = Order::factory()->create([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_BLOCKED,
+            'customer_name' => $client->name,
+            'items' => [[
+                'nomenclature' => 'Друкована продукція для Excel',
+                'description' => 'Опис позиції Excel',
+                'quantity' => 2,
+                'unit_cost' => 400,
+                'sum' => 800,
+            ]],
+            'total_cost' => 800,
+            'payments_total' => 300,
+            'amount_due' => 500,
+        ]);
+        ClientPayment::query()->create([
+            'client_id' => $client->id,
+            'order_id' => $order->id,
+            'amount' => 300,
+            'amount_uah' => 300,
+            'currency' => 'UAH',
+            'payment_type' => 'order',
+            'paid_at' => now(),
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $excelUrl = route('orders.excel', $order);
+        $this->actingAs($user)
+            ->get(route('orders.show', $order))
+            ->assertOk()
+            ->assertSeeInOrder([$excelUrl, route('orders.pdf', $order)], false)
+            ->assertSee(asset('images/excel-file-icon.png'), false)
+            ->assertSee('Вивантажити замовлення в Excel');
+
+        $this->assertFileExists(public_path('images/excel-file-icon.png'));
+
+        $response = $this->actingAs($user)->get($excelUrl);
+        $response
+            ->assertOk()
+            ->assertStreamed()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            ->assertDownload('Замовлення-'.$order->order_number.'.xlsx');
+        $this->assertStringContainsString(
+            "filename*=UTF-8''".rawurlencode('Замовлення-'.$order->order_number.'.xlsx'),
+            (string) $response->headers->get('content-disposition')
+        );
+
+        $temporaryPath = tempnam(sys_get_temp_dir(), 'order-excel-');
+        $this->assertNotFalse($temporaryPath);
+        file_put_contents($temporaryPath, $response->streamedContent());
+
+        try {
+            $spreadsheet = IOFactory::load($temporaryPath);
+            $sheet = $spreadsheet->getActiveSheet();
+
+            $this->assertSame('Замовлення '.$order->order_number, $sheet->getCell('A1')->getValue());
+            $this->assertSame('Форсаж Прінт', $sheet->getCell('B3')->getValue());
+            $this->assertSame('Замовник Excel', $sheet->getCell('B4')->getValue());
+            $this->assertSame('Друкована продукція для Excel', $sheet->getCell('B8')->getValue());
+            $this->assertSame('Опис позиції Excel', $sheet->getCell('C8')->getValue());
+            $this->assertSame(2, $sheet->getCell('D8')->getValue());
+            $this->assertSame(400, $sheet->getCell('E8')->getValue());
+            $this->assertSame(800, $sheet->getCell('F8')->getValue());
+            $this->assertSame('Сума з ПДВ', $sheet->getCell('E10')->getValue());
+            $this->assertSame(800, $sheet->getCell('F10')->getValue());
+            $this->assertSame('Загальна сума сплат', $sheet->getCell('E11')->getValue());
+            $this->assertSame(300, $sheet->getCell('F11')->getValue());
+            $this->assertSame('Сума до сплати', $sheet->getCell('E12')->getValue());
+            $this->assertSame(500, $sheet->getCell('F12')->getValue());
+
+            $spreadsheet->disconnectWorksheets();
+        } finally {
+            unlink($temporaryPath);
+        }
     }
 
     public function test_order_history_row_fill_alternates_by_displayed_change_time(): void
@@ -474,6 +966,7 @@ class OrderIndexTest extends TestCase
         ]);
         $order = Order::factory()->create([
             'client_id' => $client->id,
+            'status' => Order::STATUS_BLOCKED,
             'customer_name' => $client->name,
             'last_edited_by' => $user->id,
             'items' => [[
@@ -504,6 +997,11 @@ class OrderIndexTest extends TestCase
             ->assertSee('Редагування замовлення '.$order->order_number)
             ->assertSee("initialClientId: {$client->id}", false)
             ->assertSee("saveMethod: 'PATCH'", false)
+            ->assertSee('initialOrderStatus:', false)
+            ->assertSee("initialOrderStatus: 'blocked'", false)
+            ->assertSee('x-model="orderStatus"', false)
+            ->assertSee('warnAboutUnsavedStatus($event)', false)
+            ->assertSee('status: this.orderStatus', false)
             ->assertSee('Зберегти')
             ->assertSee('data-order-edit-cancel', false)
             ->assertSeeInOrder(['data-order-edit-cancel', 'Скасувати', 'requestSaveOrder()', "isEdit ? 'Зберегти'"])
@@ -515,6 +1013,7 @@ class OrderIndexTest extends TestCase
             ->patchJson(route('orders.update', $order), [
                 'client_id' => $client->id,
                 'customer_name' => $client->name,
+                'status' => Order::STATUS_COMPLETED,
                 'items' => [
                     [
                         'item_id' => 'existing-item',
@@ -537,11 +1036,15 @@ class OrderIndexTest extends TestCase
         $this->assertDatabaseCount('orders', 1);
         $this->assertSame('500.00', $order->total_cost);
         $this->assertSame('480.00', $order->amount_due);
+        $this->assertSame(Order::STATUS_COMPLETED, $order->status);
         $this->assertSame($user->id, $order->last_edited_by);
         $this->assertSame('Змінена позиція', $order->items[0]['nomenclature']);
         $this->assertNotEmpty($order->items[1]['item_id']);
         $this->assertTrue($order->histories()->where('operation_type', 'item_updated')->exists());
         $this->assertTrue($order->histories()->where('operation_type', 'item_created')->exists());
+        $statusHistory = $order->histories()->where('field_name', 'status')->sole();
+        $this->assertSame(['value' => 'Заблоковано'], $statusHistory->before_value);
+        $this->assertSame(['value' => 'Виконане'], $statusHistory->after_value);
 
         $newItem = $order->items[1];
         $this->actingAs($user)

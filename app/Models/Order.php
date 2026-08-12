@@ -13,8 +13,24 @@ class Order extends Model
 {
     use HasFactory, HasPublicId;
 
+    public const STATUS_NEW = 'new';
+
+    public const STATUS_BLOCKED = 'blocked';
+
+    public const STATUS_COMPLETED = 'completed';
+
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUSES = [
+        self::STATUS_NEW => 'Нове',
+        self::STATUS_BLOCKED => 'Заблоковано',
+        self::STATUS_COMPLETED => 'Виконане',
+        self::STATUS_CANCELLED => 'Скасовано',
+    ];
+
     protected $fillable = [
         'order_number',
+        'status',
         'customer_name',
         'client_id',
         'created_by',
@@ -88,6 +104,21 @@ class Order extends Model
         return $this->hasMany(ClientPayment::class);
     }
 
+    public function statusLabel(): string
+    {
+        return self::STATUSES[$this->status] ?? self::STATUSES[self::STATUS_NEW];
+    }
+
+    public static function statusStyle(string $status): string
+    {
+        return match ($status) {
+            self::STATUS_BLOCKED => 'border-orange-500 bg-yellow-100 text-orange-800',
+            self::STATUS_COMPLETED => 'border-green-300 bg-green-100 text-green-800',
+            self::STATUS_CANCELLED => 'border-gray-400 bg-gray-100 text-gray-700',
+            default => 'border-blue-400 bg-teal-100 text-blue-800',
+        };
+    }
+
     /**
      * Adds stable identifiers to positions created before item_id was introduced.
      * The technical backfill must not appear in the user-facing change history.
@@ -147,6 +178,7 @@ class Order extends Model
 
         $fieldLabels = [
             'nomenclature' => 'Номенклатура',
+            'description' => 'Опис',
             'quantity' => 'Кількість',
             'unit_cost' => 'Вартість за одн.',
         ];

@@ -91,6 +91,11 @@ class OrderClientPermissionTest extends TestCase
         $this->actingAs($owner)->get(route('orders.show', $otherOrder))->assertForbidden();
         $this->actingAs($owner)->get(route('orders.pdf', $ownOrder))->assertOk();
         $this->actingAs($owner)->get(route('orders.pdf', $otherOrder))->assertForbidden();
+        $this->actingAs($owner)->get(route('orders.excel', $ownOrder))->assertOk();
+        $this->actingAs($owner)->get(route('orders.excel', $otherOrder))->assertForbidden();
+        $this->actingAs($owner)
+            ->patchJson(route('orders.status.update', $ownOrder), ['status' => Order::STATUS_BLOCKED])
+            ->assertForbidden();
 
         $this->actingAs($owner)
             ->get(route('orders.clients.show', ['client' => $client, 'section' => 'orders']))
@@ -116,10 +121,14 @@ class OrderClientPermissionTest extends TestCase
             ->get(route('orders.show', $order))
             ->assertOk()
             ->assertDontSee(route('orders.edit', $order), false)
+            ->assertDontSee('data-order-status-selector', false)
             ->assertDontSee('Історія змін замовлення')
             ->assertDontSee('title="Відкрити платежі замовлення"', false);
         $this->actingAs($user)->get(route('orders.edit', $order))->assertForbidden();
         $this->actingAs($user)->get(route('orders.history', $order))->assertForbidden();
+        $this->actingAs($user)
+            ->patchJson(route('orders.status.update', $order), ['status' => Order::STATUS_BLOCKED])
+            ->assertForbidden();
         $this->actingAs($user)->get(route('orders.payments.exchange-rates'))->assertForbidden();
         $this->actingAs($user)
             ->postJson(route('orders.clients.payments.store', $client), [

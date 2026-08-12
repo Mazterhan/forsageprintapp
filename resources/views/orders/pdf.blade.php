@@ -30,9 +30,10 @@
         }
         .order-table td { border: 1px solid #d1d5db; padding: 7px 6px; vertical-align: top; }
         .number { width: 7%; text-align: center; }
-        .nomenclature { width: 45%; overflow-wrap: break-word; }
-        .quantity { width: 13%; text-align: center; }
-        .money { width: 17.5%; text-align: right; white-space: nowrap; }
+        .nomenclature { width: 34%; overflow-wrap: break-word; }
+        .description { width: 20%; overflow-wrap: break-word; }
+        .quantity { width: 11%; text-align: center; }
+        .money { width: 14%; text-align: right; white-space: nowrap; }
         .totals { margin-top: 18px; margin-left: auto; width: 310px; }
         .totals-table td { padding: 5px 0; }
         .totals-table .total-label { padding-right: 18px; font-weight: 700; }
@@ -72,6 +73,7 @@
             <tr>
                 <th class="number">№</th>
                 <th class="nomenclature">Номенклатура</th>
+                <th class="description">Опис</th>
                 <th class="quantity">Кількість</th>
                 <th class="money">Вартість за одн.</th>
                 <th class="money">Сума</th>
@@ -87,6 +89,7 @@
                 <tr>
                     <td class="number">{{ $index + 1 }}</td>
                     <td class="nomenclature">{{ $item['nomenclature'] ?? '—' }}</td>
+                    <td class="description">{{ trim((string) ($item['description'] ?? '')) }}</td>
                     <td class="quantity">{{ $quantity }}</td>
                     <td class="money">{{ $formatMoney($unitCost) }} грн</td>
                     <td class="money">{{ $formatMoney($itemSum) }} грн</td>

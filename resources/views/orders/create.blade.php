@@ -105,15 +105,19 @@
             x-data="orderCreateForm({
                 clients: @js($clients),
                 saveUrl: @js($saveUrl),
+                appendCandidateUrl: @js($isEdit ? '' : route('orders.append-candidate')),
                 saveMethod: @js($isEdit ? 'PATCH' : 'POST'),
                 isEdit: @js($isEdit),
                 initialClientId: @js($order?->client_id),
                 initialClientName: @js($order?->customer_name ?? ''),
                 initialItems: @js($order?->items ?? []),
+                initialOrderStatus: @js($order?->status ?? \App\Models\Order::STATUS_NEW),
                 paymentsTotal: @js((float) ($order?->payments_total ?? 0)),
                 paymentStatus: @js($initialPaymentStatus),
             })"
-            @resize.window.debounce.100ms="resizeAllNomenclatureFields()"
+            @order-create-client-changed.window="handleClientSelectionChanged($event.detail)"
+            @resize.window.debounce.100ms="resizeAllItemTextFields()"
+            @beforeunload.window="warnAboutUnsavedStatus($event)"
             class="max-w-[1700px] mx-auto space-y-5 px-6 sm:px-8 lg:px-12"
         >
             @if ($isEdit)
@@ -142,9 +146,11 @@
                                     @blur="handleClientInputBlur()"
                                     type="text"
                                     autocomplete="off"
-                                    class="block w-full rounded-md border-gray-300 pr-10 text-left shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    @readonly($isEdit)
+                                    class="block w-full rounded-md border-gray-300 {{ $isEdit ? 'cursor-not-allowed bg-gray-100 pr-3 text-gray-600' : 'pr-10' }} text-left shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                     placeholder="Оберіть замовника"
                                 >
+                                @unless($isEdit)
                                 <button
                                     type="button"
                                     @click="showClientDropdown = !showClientDropdown; if (showClientDropdown) syncClientDropdownActiveIndex()"
@@ -155,8 +161,10 @@
                                         <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.118l3.71-3.887a.75.75 0 111.08 1.04l-4.25 4.455a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
                                     </svg>
                                 </button>
+                                @endunless
                             </div>
 
+                            @unless($isEdit)
                             <div
                                 x-show="showClientDropdown"
                                 x-transition
@@ -176,17 +184,32 @@
                                     ></button>
                                 </template>
                             </div>
+                            @endunless
                         </div>
                     </div>
 
-                    <div class="w-[190px]">
+                    <div class="w-[158px]">
+                        <select
+                            x-model="orderStatus"
+                            aria-label="Статус замовлення"
+                            :class="orderStatusClass(orderStatus)"
+                            class="block h-[42px] w-full appearance-none rounded-md border px-2 py-2 text-center text-sm font-semibold shadow-sm focus:ring-1"
+                            style="appearance: none; background-image: none;"
+                        >
+                            @foreach(\App\Models\Order::STATUSES as $statusValue => $statusLabel)
+                                <option value="{{ $statusValue }}">{{ $statusLabel }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="w-[158px]">
                         <input
                             id="order-payment-status"
                             type="text"
                             readonly
                             :value="paymentStatus.label"
                             :class="paymentStatus.className"
-                            class="block h-[42px] w-full cursor-default rounded-md border px-3 py-2 text-sm font-semibold shadow-sm focus:ring-0"
+                            class="block h-[42px] w-full cursor-default rounded-md border px-2 py-2 text-center text-sm font-semibold shadow-sm focus:ring-0"
                         >
                     </div>
 
@@ -221,6 +244,7 @@
                                 <tr style="background-color: #FCEEDF;">
                                     <th class="w-[70px] border-b border-r border-gray-200 px-3 py-3 text-center">№</th>
                                     <th class="border-b border-r border-gray-200 px-3 py-3 text-left">Номенклатура</th>
+                                    <th class="w-[220px] border-b border-r border-gray-200 px-3 py-3 text-left">Опис</th>
                                     <th class="w-[150px] border-b border-r border-gray-200 px-3 py-3 text-right">Кількість</th>
                                     <th class="w-[190px] border-b border-r border-gray-200 px-3 py-3 text-right">Вартість за одн.</th>
                                     <th class="w-[180px] border-b border-gray-200 px-3 py-3 text-right">Сума</th>
@@ -253,6 +277,26 @@
                                                 placeholder="Введіть номенклатуру"
                                                 class="block min-h-[42px] w-full resize-none overflow-hidden rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                             ></textarea>
+                                        </td>
+                                        <td class="w-[220px] border-b border-r border-gray-200 p-2 align-top">
+                                            <textarea
+                                                x-model="item.description"
+                                                data-order-description
+                                                :name="`items[${itemIndex}][description]`"
+                                                @input="onDescriptionInput(item, $event)"
+                                                maxlength="200"
+                                                rows="1"
+                                                class="block min-h-[42px] w-full resize-none overflow-hidden rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            ></textarea>
+                                            <p
+                                                x-show="String(item.description || '').length >= 180"
+                                                x-cloak
+                                                class="mt-1 text-xs font-semibold"
+                                                :class="String(item.description || '').length >= 200 ? 'text-red-600' : 'text-amber-600'"
+                                                x-text="String(item.description || '').length >= 200
+                                                    ? 'Досягнуто максимальний ліміт: 200/200'
+                                                    : `Залишилось символів: ${200 - String(item.description || '').length}`"
+                                            ></p>
                                         </td>
                                         <td class="border-b border-r border-gray-200 p-2 align-middle">
                                             <input
@@ -305,7 +349,7 @@
             </div>
 
             <div
-                x-show="hasNomenclatureItem()"
+                x-show="hasNomenclatureItem() && (isEdit || hasCustomerName())"
                 x-cloak
                 class="rounded-lg border border-gray-300 p-4 shadow-sm"
                 style="background-color: #FCEEDF;"
@@ -319,6 +363,17 @@
                         >
                             Скасувати
                         </a>
+                    @else
+                        <button
+                            x-show="appendCandidate"
+                            x-cloak
+                            type="button"
+                            @click="requestAppendToExistingOrder()"
+                            :disabled="isSaving || isCheckingAppendCandidate"
+                            class="inline-flex items-center rounded-md border border-indigo-300 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <span x-text="isSaving ? 'Збереження...' : 'Додати до існуючого замовлення'"></span>
+                        </button>
                     @endif
                     <button
                         type="button"
@@ -391,10 +446,13 @@
             return {
                 clients: config.clients || [],
                 saveUrl: config.saveUrl || '',
+                appendCandidateUrl: config.appendCandidateUrl || '',
                 saveMethod: config.saveMethod || 'POST',
                 isEdit: Boolean(config.isEdit),
                 selectedClientId: config.initialClientId ? String(config.initialClientId) : '',
                 selectedClientQuery: config.initialClientName || '',
+                initialOrderStatus: config.initialOrderStatus || 'new',
+                orderStatus: config.initialOrderStatus || 'new',
                 showClientDropdown: false,
                 clientDropdownActiveIndex: -1,
                 paymentStatus: config.paymentStatus || {
@@ -405,9 +463,40 @@
                 initialItems: Array.isArray(config.initialItems) ? config.initialItems : [],
                 orderItems: [],
                 isSaving: false,
+                isCheckingAppendCandidate: false,
+                appendCandidate: null,
+                appendCandidateTimer: null,
+                appendCandidateRequestId: 0,
                 warningMessage: '',
                 showWarningModal: false,
                 showCreateClientModal: false,
+
+                get statusDirty() {
+                    return this.isEdit && this.orderStatus !== this.initialOrderStatus;
+                },
+
+                orderStatusClass(status) {
+                    if (status === 'blocked') {
+                        return 'border-orange-500 bg-yellow-100 text-orange-800 focus:border-orange-500 focus:ring-orange-400';
+                    }
+                    if (status === 'completed') {
+                        return 'border-green-300 bg-green-100 text-green-800 focus:border-green-400 focus:ring-green-300';
+                    }
+                    if (status === 'cancelled') {
+                        return 'border-gray-400 bg-gray-100 text-gray-700 focus:border-gray-500 focus:ring-gray-300';
+                    }
+
+                    return 'border-blue-400 bg-teal-100 text-blue-800 focus:border-blue-400 focus:ring-blue-300';
+                },
+
+                warnAboutUnsavedStatus(event) {
+                    if (!this.statusDirty) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    event.returnValue = '';
+                },
 
                 init() {
                     this.orderItems = this.initialItems.map((item) => this.createOrderItem(item));
@@ -415,7 +504,7 @@
                         this.orderItems = [this.createOrderItem()];
                     }
                     this.ensureBlankOrderItem();
-                    this.resizeAllNomenclatureFields();
+                    this.resizeAllItemTextFields();
                 },
 
                 createOrderItem(source = {}) {
@@ -423,6 +512,7 @@
                         uid: source.item_id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
                         itemId: source.item_id || '',
                         nomenclature: source.nomenclature || '',
+                        description: source.description || '',
                         quantity: source.quantity ? String(source.quantity) : '1',
                         unitCost: source.unit_cost ? String(source.unit_cost) : '',
                     };
@@ -434,17 +524,23 @@
                         this.orderItems.push(this.createOrderItem());
                     }
                     this.ensureBlankOrderItem();
-                    this.resizeAllNomenclatureFields();
+                    this.resizeAllItemTextFields();
                 },
 
                 onNomenclatureInput(item, event) {
                     item.nomenclature = String(event.currentTarget.value || '').slice(0, 500);
                     event.currentTarget.value = item.nomenclature;
-                    this.resizeNomenclature(event.currentTarget);
+                    this.resizeItemTextarea(event.currentTarget);
                     this.ensureBlankOrderItem();
                 },
 
-                resizeNomenclature(textarea) {
+                onDescriptionInput(item, event) {
+                    item.description = String(event.currentTarget.value || '').slice(0, 200);
+                    event.currentTarget.value = item.description;
+                    this.resizeItemTextarea(event.currentTarget);
+                },
+
+                resizeItemTextarea(textarea) {
                     if (!textarea) {
                         return;
                     }
@@ -457,10 +553,10 @@
                     textarea.style.height = `${Math.max(42, requiredHeight)}px`;
                 },
 
-                resizeAllNomenclatureFields() {
+                resizeAllItemTextFields() {
                     this.$nextTick(() => {
-                        this.$root.querySelectorAll('[data-order-nomenclature]').forEach((textarea) => {
-                            this.resizeNomenclature(textarea);
+                        this.$root.querySelectorAll('[data-order-nomenclature], [data-order-description]').forEach((textarea) => {
+                            this.resizeItemTextarea(textarea);
                         });
                     });
                 },
@@ -512,11 +608,16 @@
 
                 hasAnyOrderItemValue(item) {
                     return String(item.nomenclature || '').trim() !== ''
+                        || String(item.description || '').trim() !== ''
                         || String(item.unitCost || '').trim() !== '';
                 },
 
                 hasNomenclatureItem() {
                     return this.orderItems.some((item) => String(item.nomenclature || '').trim() !== '');
+                },
+
+                hasCustomerName() {
+                    return String(this.selectedClientQuery || '').trim() !== '';
                 },
 
                 showWarning(message) {
@@ -567,6 +668,105 @@
                     this.saveOrderWithConfirmation(false);
                 },
 
+                requestAppendToExistingOrder() {
+                    if (this.isSaving || !this.appendCandidate?.append_url) {
+                        return;
+                    }
+
+                    const enteredItems = this.getEnteredOrderItems();
+                    if (enteredItems.length === 0) {
+                        this.showWarning('Неможливо додати позиції. Додайте хоча б одну позицію.');
+                        return;
+                    }
+                    if (enteredItems.some((item) => !this.isOrderItemComplete(item))) {
+                        this.showWarning('Заповніть номенклатуру, кількість і вартість для кожної позиції.');
+                        return;
+                    }
+                    if (!window.confirm(`Позиції буде додано до замовлення ${this.appendCandidate.number}. Підтверджуєте дію?`)) {
+                        return;
+                    }
+
+                    this.appendItemsToExistingOrder(enteredItems);
+                },
+
+                async appendItemsToExistingOrder(enteredItems) {
+                    this.isSaving = true;
+                    try {
+                        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                        const response = await fetch(this.appendCandidate.append_url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrf,
+                            },
+                            body: JSON.stringify({
+                                items: enteredItems.map((item) => ({
+                                    nomenclature: String(item.nomenclature || '').trim(),
+                                    description: String(item.description || '').trim(),
+                                    quantity: Number.parseInt(item.quantity, 10),
+                                    unit_cost: Number.parseInt(item.unitCost, 10),
+                                })),
+                            }),
+                        });
+                        const payload = await response.json();
+                        if (!response.ok || !payload?.ok) {
+                            throw new Error(payload?.message || 'Не вдалося додати позиції до існуючого замовлення.');
+                        }
+                        if (payload.redirect_url) {
+                            window.location.href = payload.redirect_url;
+                        }
+                    } catch (error) {
+                        this.showWarning(error?.message || 'Не вдалося додати позиції до існуючого замовлення.');
+                        this.checkAppendCandidate();
+                    } finally {
+                        this.isSaving = false;
+                    }
+                },
+
+                handleClientSelectionChanged(detail = {}) {
+                    if (this.isEdit) {
+                        return;
+                    }
+
+                    this.selectedClientId = detail.clientId ? String(detail.clientId) : '';
+                    this.selectedClientQuery = String(detail.clientName || '');
+                    this.appendCandidate = null;
+                    window.clearTimeout(this.appendCandidateTimer);
+                    this.appendCandidateTimer = window.setTimeout(() => this.checkAppendCandidate(), 250);
+                },
+
+                async checkAppendCandidate() {
+                    const clientId = Number.parseInt(this.selectedClientId, 10);
+                    if (!clientId || !this.appendCandidateUrl) {
+                        this.appendCandidate = null;
+                        return;
+                    }
+
+                    const requestId = ++this.appendCandidateRequestId;
+                    this.isCheckingAppendCandidate = true;
+                    try {
+                        const url = new URL(this.appendCandidateUrl, window.location.origin);
+                        url.searchParams.set('client_id', String(clientId));
+                        const response = await fetch(url.toString(), {
+                            headers: { 'Accept': 'application/json' },
+                        });
+                        const payload = await response.json();
+                        if (requestId !== this.appendCandidateRequestId) {
+                            return;
+                        }
+                        this.appendCandidate = response.ok && payload?.ok ? payload.order : null;
+                    } catch (error) {
+                        if (requestId === this.appendCandidateRequestId) {
+                            this.appendCandidate = null;
+                        }
+                    } finally {
+                        if (requestId === this.appendCandidateRequestId) {
+                            this.isCheckingAppendCandidate = false;
+                        }
+                    }
+                },
+
                 confirmCreateClientAndSave() {
                     if (!this.confirmOrderSave()) {
                         return;
@@ -603,6 +803,7 @@
                         const items = this.getEnteredOrderItems().map((item) => ({
                             item_id: item.itemId || null,
                             nomenclature: String(item.nomenclature || '').trim(),
+                            description: String(item.description || '').trim(),
                             quantity: Number.parseInt(item.quantity, 10),
                             unit_cost: Number.parseInt(item.unitCost, 10),
                         }));
@@ -617,6 +818,7 @@
                                 client_id: this.selectedClientId ? Number(this.selectedClientId) : null,
                                 customer_name: String(this.selectedClientQuery || '').trim(),
                                 create_client: Boolean(createClient),
+                                status: this.orderStatus,
                                 items,
                             }),
                         });
@@ -632,6 +834,7 @@
                         }
 
                         if (payload.redirect_url) {
+                            this.initialOrderStatus = this.orderStatus;
                             window.location.href = payload.redirect_url;
                         }
                     } catch (error) {
@@ -658,6 +861,7 @@
                     if (query === '') {
                         this.selectedClientId = '';
                         this.syncClientDropdownActiveIndex();
+                        this.notifyClientSelectionChanged();
                         return;
                     }
 
@@ -670,6 +874,7 @@
                         this.selectedClientId = '';
                     }
                     this.syncClientDropdownActiveIndex();
+                    this.notifyClientSelectionChanged();
                 },
 
                 handleClientInputBlur() {
@@ -736,6 +941,16 @@
                     this.selectedClientId = String(client.id);
                     this.showClientDropdown = false;
                     this.clientDropdownActiveIndex = -1;
+                    this.notifyClientSelectionChanged();
+                },
+
+                notifyClientSelectionChanged() {
+                    window.dispatchEvent(new CustomEvent('order-create-client-changed', {
+                        detail: {
+                            clientId: this.selectedClientId || '',
+                            clientName: this.selectedClientQuery || '',
+                        },
+                    }));
                 },
 
                 applyClientAutoMatch() {
@@ -769,6 +984,7 @@
                     }
 
                     this.selectedClientId = '';
+                    this.notifyClientSelectionChanged();
                 },
             };
         }
