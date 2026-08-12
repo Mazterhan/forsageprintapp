@@ -728,7 +728,17 @@ class DashboardController extends Controller
             'amount_due' => 0.0,
         ])->all();
 
-        $analyticsOrders = $orders->map(function (Order $order) use (&$statusStats): array {
+        $orderStatusStats = collect(Order::STATUSES)->map(fn (string $label, string $key): array => [
+            'key' => $key,
+            'label' => $label,
+            'className' => Order::statusStyle($key),
+            'count' => 0,
+            'total_cost' => 0.0,
+            'payments_total' => 0.0,
+            'amount_due' => 0.0,
+        ])->all();
+
+        $analyticsOrders = $orders->map(function (Order $order) use (&$statusStats, &$orderStatusStats): array {
             $totalCost = (float) $order->total_cost;
             $paymentsTotal = (float) $order->linked_payments_total;
             $amountDue = $totalCost - $paymentsTotal;
@@ -744,6 +754,14 @@ class DashboardController extends Controller
             $statusStats[$status]['total_cost'] += $totalCost;
             $statusStats[$status]['payments_total'] += $paymentsTotal;
             $statusStats[$status]['amount_due'] += $amountDue;
+
+            $orderStatus = array_key_exists((string) $order->status, Order::STATUSES)
+                ? (string) $order->status
+                : Order::STATUS_NEW;
+            $orderStatusStats[$orderStatus]['count']++;
+            $orderStatusStats[$orderStatus]['total_cost'] += $totalCost;
+            $orderStatusStats[$orderStatus]['payments_total'] += $paymentsTotal;
+            $orderStatusStats[$orderStatus]['amount_due'] += $amountDue;
 
             return [
                 'public_id' => $order->public_id,
@@ -762,6 +780,9 @@ class DashboardController extends Controller
                 'status' => $status,
                 'status_label' => $statusStats[$status]['label'],
                 'status_class' => $statusStats[$status]['className'],
+                'order_status' => $orderStatus,
+                'order_status_label' => $orderStatusStats[$orderStatus]['label'],
+                'order_status_class' => $orderStatusStats[$orderStatus]['className'],
             ];
         });
 
@@ -841,6 +862,10 @@ class DashboardController extends Controller
                 'investor_total' => round($investorTotal, 2),
             ],
             'statusStats' => array_values($statusStats),
+            'orderStatusStats' => array_values(array_filter(
+                $orderStatusStats,
+                static fn (array $status): bool => $status['count'] > 0,
+            )),
             'debtorClients' => $debtorClients,
             'investorClients' => $investorClients,
             'analyticsOrders' => $analyticsOrders->take(100)->values(),

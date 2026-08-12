@@ -212,6 +212,9 @@
                             </thead>
                             <tbody id="proposals-table-body">
                                 @forelse($proposals as $proposal)
+                                    @php
+                                        $proposalClient = $proposalClients->get($proposal->id);
+                                    @endphp
                                     <tr class="proposal-row {{ $loop->odd ? 'row-alt' : 'row-base' }}" tabindex="0">
                                         @if($canManageProposals)
                                             <td x-show="$store.proposalManage && $store.proposalManage.mode" x-cloak class="px-4 py-3 border-b">
@@ -236,7 +239,15 @@
                                                 <span class="proposal-status-blink ml-2 inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">Редагується</span>
                                             @endif
                                         </td>
-                                        <td class="px-4 py-3 border-b">{{ $proposal->client_name ?: '—' }}</td>
+                                        <td class="px-4 py-3 border-b">
+                                            @if(($canViewClients ?? false) && $proposalClient)
+                                                <a href="{{ route('orders.clients.show', $proposalClient) }}" class="text-indigo-600 hover:text-indigo-900 hover:underline">
+                                                    {{ $proposalClient->name ?: ($proposal->client_name ?: '—') }}
+                                                </a>
+                                            @else
+                                                {{ $proposal->client_name ?: '—' }}
+                                            @endif
+                                        </td>
                                         <td class="px-4 py-3 border-b">{{ $proposal->user?->name ?? '—' }}</td>
                                         <td class="px-4 py-3 border-b text-right">{{ $formatProposalListMoney((float) $proposal->total_cost) }}</td>
                                     </tr>

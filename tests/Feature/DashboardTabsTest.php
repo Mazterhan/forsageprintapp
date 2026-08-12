@@ -106,6 +106,17 @@ class DashboardTabsTest extends TestCase
             ->assertSee('Боржники за замовленнями')
             ->assertSee('Інвестори — поточні переплати')
             ->assertSee('Зведення за статусами оплати')
+            ->assertSee('Зведення за статусами замовлень')
+            ->assertSee('ordersAnalyticsModal')
+            ->assertSee('data-period-sort="updated_at"', false)
+            ->assertSee('data-period-sort="number"', false)
+            ->assertSee('data-period-sort="payment_status"', false)
+            ->assertSee('data-period-sort="customer"', false)
+            ->assertSee('data-period-sort="user"', false)
+            ->assertSee('data-period-sort="total_cost"', false)
+            ->assertSee('data-period-sort="payments_total"', false)
+            ->assertSee('data-period-sort="amount_due"', false)
+            ->assertSee('href="'.route('orders.clients.show', $client).'"', false)
             ->assertSee('Замовлення у вибраному періоді')
             ->assertDontSee($proposal->proposal_number);
         $response
@@ -121,6 +132,35 @@ class DashboardTabsTest extends TestCase
         foreach ($orders as $order) {
             $response->assertSee($order->order_number);
         }
+    }
+
+    public function test_orders_tables_show_top_ten_and_only_actual_clickable_statuses(): void
+    {
+        $user = $this->analyticsUser();
+
+        foreach (range(1, 12) as $index) {
+            $client = Client::factory()->create(['name' => 'Боржник '.$index]);
+            Order::factory()->create([
+                'client_id' => $client->id,
+                'customer_name' => $client->name,
+                'last_edited_by' => $user->id,
+                'status' => Order::STATUS_NEW,
+                'total_cost' => 1000 + $index,
+                'amount_due' => 1000 + $index,
+            ]);
+        }
+
+        $response = $this->actingAs($user)
+            ->get(route('dashboard', ['tab' => 'orders', 'period' => 'all']))
+            ->assertOk()
+            ->assertSee('Боржники за замовленнями (ТОП 10)')
+            ->assertSee('Інвестори — поточні переплати (ТОП 10)');
+
+        $html = $response->getContent();
+        $this->assertSame(10, substr_count($html, 'dashboard-top-debtor-row'));
+        $this->assertSame(1, substr_count($html, 'data-analytics-popup="payment-status"'));
+        $this->assertSame(1, substr_count($html, 'data-analytics-popup="order-status"'));
+        $response->assertViewHas('debtorClients', fn ($rows): bool => $rows->count() === 12);
     }
 
     public function test_orders_tab_client_filter_does_not_reuse_proposal_tab_state(): void
@@ -190,6 +230,7 @@ class DashboardTabsTest extends TestCase
             'can_orders' => true,
             'orders_proposals' => true,
             'orders_list_scope' => 'all',
+            'orders_clients_manage' => true,
         ]);
     }
 }

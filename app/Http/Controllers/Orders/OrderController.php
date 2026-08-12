@@ -127,7 +127,7 @@ class OrderController extends Controller
             })
             ->select('orders.*')
             ->addSelect(DB::raw('COALESCE(order_payment_totals.total, 0) as linked_payments_total'))
-            ->with('lastEditedBy:id,name');
+            ->with(['lastEditedBy:id,name', 'client:id,public_id,name']);
 
         $applyOrderScope($query);
 
@@ -399,6 +399,7 @@ class OrderController extends Controller
         $canManageOrderPayments = $permissions->can($request->user(), 'orders_payments');
         $canSpendOrderOverpayment = $permissions->can($request->user(), 'orders_payments_overpayment');
         $canEditOrderPayments = $permissions->can($request->user(), 'orders_payments_edit');
+        $canViewClients = $permissions->can($request->user(), 'orders_clients_manage');
 
         $order->load([
             'client:id,public_id,name',
@@ -465,6 +466,7 @@ class OrderController extends Controller
             'orderPermissions' => [
                 'update' => $canUpdateOrder,
                 'merge' => $canMergeOrder,
+                'clients' => $canViewClients,
                 'payments' => $canManageOrderPayments,
                 'payments_overpayment' => $canSpendOrderOverpayment,
                 'payments_edit' => $canEditOrderPayments,

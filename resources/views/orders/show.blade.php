@@ -254,7 +254,13 @@
                 <div class="flex flex-row items-start justify-between gap-6 w-full">
                     <div class="flex-1 min-w-0">
                         <span class="font-semibold">Замовник:</span>
-                        {{ $order->client?->name ?: ($order->customer_name ?: '—') }}
+                        @if(($orderPermissions['clients'] ?? false) && $order->client)
+                            <a href="{{ route('orders.clients.show', $order->client) }}" class="text-indigo-600 hover:text-indigo-900 hover:underline">
+                                {{ $order->client->name ?: ($order->customer_name ?: '—') }}
+                            </a>
+                        @else
+                            {{ $order->customer_name ?: '—' }}
+                        @endif
                     </div>
                     <div class="space-y-2 text-left w-max shrink-0">
                         <div><span class="font-semibold">Дата створення:</span> {{ $formatOrderDate($order->created_at) }}</div>

@@ -57,6 +57,46 @@ class ProposalController extends Controller
         };
 
         $proposals = $query->paginate($perPage)->withQueryString();
+        $canViewClients = $permissions->can($request->user(), 'orders_clients_manage');
+        $proposalClientIds = $proposals->getCollection()
+            ->map(fn (OrderProposal $proposal) => Arr::get(is_array($proposal->payload) ? $proposal->payload : [], 'client_id'))
+            ->filter(fn ($clientId) => is_numeric($clientId))
+            ->map(fn ($clientId) => (int) $clientId)
+            ->unique()
+            ->values();
+        $proposalClientNames = $proposals->getCollection()
+            ->map(function (OrderProposal $proposal): string {
+                $state = is_array($proposal->payload) ? $proposal->payload : [];
+
+                return trim((string) (Arr::get($state, 'client_name', '') ?: ($proposal->client_name ?? '')));
+            })
+            ->filter()
+            ->unique()
+            ->values();
+        $clients = $canViewClients
+            ? Client::query()
+                ->where(function ($query) use ($proposalClientIds, $proposalClientNames): void {
+                    if ($proposalClientIds->isNotEmpty()) {
+                        $query->whereIn('id', $proposalClientIds);
+                    }
+                    if ($proposalClientNames->isNotEmpty()) {
+                        $method = $proposalClientIds->isNotEmpty() ? 'orWhereIn' : 'whereIn';
+                        $query->{$method}('name', $proposalClientNames);
+                    }
+                })
+                ->get(['id', 'public_id', 'name'])
+            : collect();
+        $clientsById = $clients->keyBy('id');
+        $clientsByName = $clients->keyBy(fn (Client $client): string => mb_strtolower(trim($client->name), 'UTF-8'));
+        $proposalClients = $proposals->getCollection()->mapWithKeys(function (OrderProposal $proposal) use ($clientsById, $clientsByName): array {
+            $state = is_array($proposal->payload) ? $proposal->payload : [];
+            $clientId = Arr::get($state, 'client_id');
+            $clientName = trim((string) (Arr::get($state, 'client_name', '') ?: ($proposal->client_name ?? '')));
+            $client = is_numeric($clientId) ? $clientsById->get((int) $clientId) : null;
+            $client ??= $clientsByName->get(mb_strtolower($clientName, 'UTF-8'));
+
+            return [$proposal->id => $client];
+        });
 
         return view('orders.proposals.index', [
             'proposals' => $proposals,
@@ -64,6 +104,8 @@ class ProposalController extends Controller
             'direction' => $direction,
             'perPageRaw' => $perPageRaw,
             'canManageProposals' => $permissions->can($request->user(), 'orders_list_edit'),
+            'canViewClients' => $canViewClients,
+            'proposalClients' => $proposalClients,
         ]);
     }
 
@@ -205,9 +247,15 @@ class ProposalController extends Controller
         $stateClientId = Arr::get($state, 'client_id');
         $stateClientId = is_numeric($stateClientId) ? (int) $stateClientId : null;
         $linkedClient = $stateClientId ? Client::query()->find($stateClientId) : null;
+        $canViewClients = $permissions->can($request->user(), 'orders_clients_manage');
         $clientDisplayName = trim((string) ($linkedClient?->name ?? ''));
         if ($clientDisplayName === '') {
             $clientDisplayName = trim((string) (Arr::get($state, 'client_name', '') ?: ($orderProposal->client_name ?? '')));
+        }
+        if (! $linkedClient && $canViewClients && $clientDisplayName !== '') {
+            $linkedClient = Client::query()
+                ->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($clientDisplayName, 'UTF-8')])
+                ->first();
         }
 
         $products = Arr::get($state, 'products', []);
@@ -224,6 +272,8 @@ class ProposalController extends Controller
             'proposal' => $orderProposal,
             'state' => $state,
             'clientDisplayName' => $clientDisplayName,
+            'linkedClient' => $linkedClient,
+            'canViewClients' => $canViewClients,
             'products' => $products,
             'summary' => Arr::get($state, 'summary', []),
             'canEditProposal' => $permissions->can($request->user(), 'orders_edit'),

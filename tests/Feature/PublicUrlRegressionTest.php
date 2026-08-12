@@ -191,15 +191,29 @@ class PublicUrlRegressionTest extends TestCase
         ]);
         $client = Client::factory()->create(['name' => 'Original Client']);
         $proposal = OrderProposal::factory()->create([
+            'user_id' => $user->id,
             'client_name' => 'Original Client',
             'payload' => array_replace_recursive(OrderProposal::factory()->payload(500), [
-                'client_id' => $client->id,
+                // Legacy proposals may contain only the saved customer name.
+                'client_id' => null,
                 'client_name' => 'Original Client',
             ]),
         ]);
 
         $this->assertStringContainsString((string) $client->public_id, route('orders.clients.edit', $client));
         $this->assertStringNotContainsString('/'.$client->id.'/edit', route('orders.clients.edit', $client));
+
+        $clientCardUrl = route('orders.clients.show', $client);
+        $this->actingAs($user)
+            ->get(route('orders.proposals'))
+            ->assertOk()
+            ->assertSee('href="'.$clientCardUrl.'"', false)
+            ->assertSee($client->name);
+        $this->actingAs($user)
+            ->get(route('orders.proposals.show', $proposal))
+            ->assertOk()
+            ->assertSee('href="'.$clientCardUrl.'"', false)
+            ->assertSee($client->name);
 
         $this->actingAs($user)
             ->get(route('orders.clients.edit', $client))

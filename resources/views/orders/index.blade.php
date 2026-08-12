@@ -271,7 +271,15 @@
                                                 {{ $paymentStatusLabel }}
                                             </span>
                                         </td>
-                                        <td class="px-4 py-3 border-b">{{ $order->customer_name ?: '—' }}</td>
+                                        <td class="px-4 py-3 border-b">
+                                            @if(($ordersPermissions['clients'] ?? false) && $order->client)
+                                                <a href="{{ route('orders.clients.show', $order->client) }}" class="text-indigo-600 hover:text-indigo-900 hover:underline">
+                                                    {{ $order->client->name ?: ($order->customer_name ?: '—') }}
+                                                </a>
+                                            @else
+                                                {{ $order->customer_name ?: '—' }}
+                                            @endif
+                                        </td>
                                         <td class="px-4 py-3 border-b">{{ $order->lastEditedBy?->name ?? '—' }}</td>
                                         <td class="px-4 py-3 border-b text-right">{{ $formatOrderMoney($order->amount_due) }}</td>
                                         <td class="px-4 py-3 border-b text-right font-bold">{{ $formatOrderMoney($order->total_cost) }}</td>

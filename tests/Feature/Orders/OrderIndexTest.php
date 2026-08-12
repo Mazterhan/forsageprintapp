@@ -58,6 +58,33 @@ class OrderIndexTest extends TestCase
             ->assertDontSee('data-page-back-link', false);
     }
 
+    public function test_order_customer_names_link_to_client_card_when_client_access_is_available(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_orders' => true,
+            'orders_clients_manage' => true,
+        ]);
+        $client = Client::factory()->create(['name' => 'Клієнт з посиланням']);
+        $order = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'created_by' => $user->id,
+        ]);
+        $clientUrl = route('orders.clients.show', $client);
+
+        $this->actingAs($user)
+            ->get(route('orders.index'))
+            ->assertOk()
+            ->assertSee('href="'.$clientUrl.'"', false)
+            ->assertSee($client->name);
+
+        $this->actingAs($user)
+            ->get(route('orders.show', $order))
+            ->assertOk()
+            ->assertSee('href="'.$clientUrl.'"', false)
+            ->assertSee($client->name);
+    }
+
     public function test_orders_table_displays_payment_statuses_with_order_colors(): void
     {
         $user = $this->createUserWithRole(['can_orders' => true]);
