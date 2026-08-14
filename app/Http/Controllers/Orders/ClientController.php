@@ -262,6 +262,7 @@ class ClientController extends Controller
         $orderSort = (string) $request->query('order_sort', 'date');
         $orderDirection = strtolower((string) $request->query('order_direction', 'desc')) === 'asc' ? 'asc' : 'desc';
         $orderSortMap = [
+            'status' => 'orders.status',
             'number' => 'orders.order_number',
             'customer' => 'orders.customer_name',
             'user' => 'order_editors.name',

@@ -60,6 +60,7 @@ class ClientPaymentController extends Controller
                             ->whereColumn('selectable_order_payment_totals.total', '<', 'orders.total_cost');
                     });
             })
+            ->where('orders.status', Order::STATUS_NEW)
             ->latest('created_at')
             ->get([
                 'orders.public_id',
@@ -195,6 +196,14 @@ class ClientPaymentController extends Controller
             foreach ($selectedPublicIds as $publicId) {
                 /** @var Order $order */
                 $order = $orders->get($publicId);
+                if ($order->status !== Order::STATUS_NEW) {
+                    throw ValidationException::withMessages([
+                        'order_public_ids' => sprintf(
+                            'Замовлення %s недоступне для внесення платежу через його поточний статус.',
+                            $order->order_number
+                        ),
+                    ]);
+                }
                 $linkedPayments = (int) ClientPayment::query()
                     ->where('order_id', $order->id)
                     ->sum('amount_uah');
@@ -834,6 +843,12 @@ class ClientPaymentController extends Controller
     {
         if (! $order) {
             return;
+        }
+
+        if ($order->status !== Order::STATUS_NEW) {
+            throw ValidationException::withMessages([
+                'order_public_id' => 'Внесення платежів доступне лише для замовлень зі статусом «Нове».',
+            ]);
         }
 
         $paymentsTotal = (int) ClientPayment::query()

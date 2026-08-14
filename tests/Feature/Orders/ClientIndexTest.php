@@ -132,6 +132,9 @@ class ClientIndexTest extends TestCase
             })
             ->assertSee('Картка клієнта. Клієнт Альфа')
             ->assertSee('client-orders-table', false)
+            ->assertSeeInOrder(['Дата', 'Статус', 'Номер замовлення'])
+            ->assertSee('order_sort=status', false)
+            ->assertSee('Нове')
             ->assertSee('Номер замовлення')
             ->assertSee('Оплата')
             ->assertSee('До сплати')
@@ -156,6 +159,16 @@ class ClientIndexTest extends TestCase
             ]))
             ->assertOk()
             ->assertViewHas('clientOrders', fn ($orders): bool => $orders->pluck('id')->all() === $alphaOrders->pluck('id')->all());
+
+        $this->actingAs($user)
+            ->get(route('orders.clients.show', [
+                'client' => $alphaClient,
+                'section' => 'orders',
+                'order_sort' => 'status',
+                'order_direction' => 'asc',
+            ]))
+            ->assertOk()
+            ->assertViewHas('orderSort', 'status');
 
         $this->actingAs($user)
             ->get('/orders/clients/'.$alphaClient->id)

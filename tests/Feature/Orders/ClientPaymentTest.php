@@ -704,7 +704,7 @@ class ClientPaymentTest extends TestCase
             ->get(route('orders.show', $order))
             ->assertOk()
             ->assertSee('viewPayment(', false)
-            ->assertSee('<fieldset :disabled="isReadOnlyPayment">', false)
+            ->assertSee('<fieldset :disabled="isReadOnlyPayment || (paymentsBlocked && !isEditing)">', false)
             ->assertSee('x-show="isReadOnlyPayment && canEditViewedPayment"', false)
             ->assertSee('Для внесеного платежу, дельта переплати за замовлення була зарахована до переплати Клієнта', false);
 
@@ -1063,6 +1063,60 @@ class ClientPaymentTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('order_public_id');
+    }
+
+    public function test_non_new_order_statuses_block_new_payments_and_are_excluded_from_selectors(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_orders' => true,
+            'orders_clients_manage' => true,
+        ]);
+        $client = Client::factory()->create();
+        $newOrder = Order::factory()->create(['client_id' => $client->id, 'status' => Order::STATUS_NEW]);
+        $blockedOrder = Order::factory()->create(['client_id' => $client->id, 'status' => Order::STATUS_BLOCKED]);
+        $completedOrder = Order::factory()->create(['client_id' => $client->id, 'status' => Order::STATUS_COMPLETED]);
+        $cancelledOrder = Order::factory()->create(['client_id' => $client->id, 'status' => Order::STATUS_CANCELLED]);
+
+        $this->actingAs($user)
+            ->getJson(route('orders.clients.payments.orders', $client))
+            ->assertOk()
+            ->assertJsonCount(1, 'orders')
+            ->assertJsonFragment(['id' => $newOrder->public_id])
+            ->assertJsonMissing(['id' => $blockedOrder->public_id])
+            ->assertJsonMissing(['id' => $completedOrder->public_id])
+            ->assertJsonMissing(['id' => $cancelledOrder->public_id]);
+
+        $paymentPayload = [
+            'amount' => 100,
+            'currency' => 'UAH',
+            'payment_date' => now('Europe/Kiev')->toDateString(),
+            'payment_time' => '10:30',
+            'payment_type' => 'order',
+            'payment_source' => 'direct',
+            'return_context' => 'client',
+        ];
+        foreach ([$blockedOrder, $completedOrder, $cancelledOrder] as $order) {
+            $this->actingAs($user)
+                ->postJson(route('orders.clients.payments.store', $client), [
+                    ...$paymentPayload,
+                    'order_public_id' => $order->public_id,
+                ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('order_public_id');
+        }
+
+        $this->actingAs($user)
+            ->get(route('orders.show', $blockedOrder))
+            ->assertOk()
+            ->assertSee('data-order-payments-blocked="true"', false)
+            ->assertSee('paymentsBlocked: true', false)
+            ->assertSee('Внесення платежів недоступне для заблокованих замовлень. Розблокуйте замовлення');
+
+        $this->actingAs($user)
+            ->get(route('orders.show', $cancelledOrder))
+            ->assertOk()
+            ->assertSee('data-order-payments-disabled="true"', false)
+            ->assertSee("selectedStatus === 'cancelled'", false);
     }
 
     public function test_editing_payment_marks_row_yellow_and_records_every_changed_field(): void

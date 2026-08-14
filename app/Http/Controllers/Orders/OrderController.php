@@ -451,7 +451,8 @@ class OrderController extends Controller
                     ->sum('amount_uah')
             : 0;
         $orderPaymentsTotal = (float) $order->payments()->sum('amount_uah');
-        $canAddOrderPayment = $orderPaymentsTotal <= 0 || $orderPaymentsTotal < (float) $order->total_cost;
+        $orderPaymentBalanceAllowsNew = $orderPaymentsTotal <= 0 || $orderPaymentsTotal < (float) $order->total_cost;
+        $canAddOrderPayment = $order->status === Order::STATUS_NEW && $orderPaymentBalanceAllowsNew;
         $canMergeOrder = $canUpdateOrder
             && $order->client_id
             && $order->status === Order::STATUS_NEW
@@ -463,6 +464,7 @@ class OrderController extends Controller
             'clientOverpaymentTotal' => max(0, $clientOverpaymentTotal),
             'orderPaymentsTotal' => $orderPaymentsTotal,
             'canAddOrderPayment' => $canAddOrderPayment,
+            'orderPaymentBalanceAllowsNew' => $orderPaymentBalanceAllowsNew,
             'orderPermissions' => [
                 'update' => $canUpdateOrder,
                 'merge' => $canMergeOrder,

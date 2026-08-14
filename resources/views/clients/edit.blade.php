@@ -336,6 +336,7 @@
                                             <tr>
                                                 @foreach([
                                                     'date' => 'Дата',
+                                                    'status' => 'Статус',
                                                     'number' => 'Номер замовлення',
                                                     'payment' => 'Оплата',
                                                     'customer' => "Ім'я замовника",
@@ -362,6 +363,11 @@
                                                 <tr class="client-order-row {{ $loop->odd ? 'row-alt' : 'row-base' }}" tabindex="0">
                                                     <td class="border-b px-4 py-3">{{ $formatOrderDate($clientOrder->updated_at) }}</td>
                                                     <td class="border-b px-4 py-3">
+                                                        <span class="inline-flex whitespace-nowrap rounded-md border px-3 py-1 text-sm font-semibold {{ \App\Models\Order::statusStyle($clientOrder->status) }}">
+                                                            {{ $clientOrder->statusLabel() }}
+                                                        </span>
+                                                    </td>
+                                                    <td class="border-b px-4 py-3">
                                                         <a href="{{ route('orders.show', $clientOrder) }}" class="text-indigo-600 hover:text-indigo-900">
                                                             {{ $clientOrder->order_number }}
                                                         </a>
@@ -378,7 +384,7 @@
                                                 </tr>
                                             @empty
                                                 <tr>
-                                                    <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                                                    <td colspan="8" class="px-4 py-8 text-center text-gray-500">
                                                         Замовлення ще не створено.
                                                     </td>
                                                 </tr>
