@@ -28,6 +28,10 @@ class OrderClientPermissionTest extends TestCase
             ->assertSee('name="analytics_orders_show_tables"', false)
             ->assertSee('name="analytics_orders_finance_access"', false)
             ->assertDontSee('name="analytics_orders_access"', false)
+            ->assertSee('data-permission-section="calculation"', false)
+            ->assertSee('data-permission-section="proposals"', false)
+            ->assertSee('data-permission-section="orders"', false)
+            ->assertSee('data-permission-section="clients"', false)
             ->assertSee('name="orders_scope"', false)
             ->assertSee('name="orders_update"', false)
             ->assertSee('name="orders_payments"', false)
@@ -160,6 +164,26 @@ class OrderClientPermissionTest extends TestCase
             ->assertOk()
             ->assertSee($ownOrder->order_number)
             ->assertDontSee($otherOrder->order_number);
+    }
+
+    public function test_proposals_and_orders_are_independent_sibling_permissions(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_orders' => true,
+            'orders_proposals' => false,
+            'orders_access' => true,
+            'orders_scope' => 'all',
+        ]);
+        $order = Order::factory()->create(['created_by' => $user->id]);
+
+        $this->actingAs($user)
+            ->get(route('orders.index'))
+            ->assertOk()
+            ->assertSee($order->order_number);
+
+        $this->actingAs($user)
+            ->get(route('orders.proposals'))
+            ->assertForbidden();
     }
 
     public function test_order_edit_history_and_payments_require_their_own_permissions(): void

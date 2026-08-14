@@ -192,12 +192,6 @@ class RoleController extends Controller
             $data['orders_list_purchase_visible'] = false;
             $data['orders_edit'] = false;
             $data['orders_list_edit'] = false;
-            $data['orders_access'] = false;
-            $data['orders_scope'] = 'own';
-            $data['orders_update'] = false;
-            $data['orders_payments'] = false;
-            $data['orders_payments_overpayment'] = false;
-            $data['orders_payments_edit'] = false;
         }
 
         if (! $data['orders_access']) {

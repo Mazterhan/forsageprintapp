@@ -65,7 +65,7 @@ class PermissionService
         'orders_list_purchase_visible' => ['orders_proposals'],
         'orders_edit' => ['orders_proposals'],
         'orders_list_edit' => ['orders_proposals'],
-        'orders_access' => ['orders_proposals'],
+        'orders_access' => ['orders'],
         'orders_update' => ['orders_access'],
         'orders_payments' => ['orders_access'],
         'orders_payments_overpayment' => ['orders_payments'],

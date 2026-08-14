@@ -264,12 +264,6 @@
                                     ordersListPurchaseVisible = false;
                                     ordersListEdit = false;
                                     ordersEdit = false;
-                                    ordersAccess = false;
-                                    ordersScopeAll = false;
-                                    ordersUpdate = false;
-                                    ordersPayments = false;
-                                    ordersPaymentsOverpayment = false;
-                                    ordersPaymentsEdit = false;
                                 }
                             });
                             $watch('ordersAccess', (v) => {
@@ -456,8 +450,9 @@
                                     </label>
                                 </div>
                                 <div x-show="canOrders" x-cloak class="permission-panel space-y-3 sub-setting-level-1">
+                                    <div class="rounded-md border border-gray-300 bg-white p-3" data-permission-section="calculation">
                                     <div class="flex items-center justify-between gap-3">
-                                        <div class="text-sm text-gray-800">Прорахунок заявки</div>
+                                        <div class="text-sm font-semibold text-gray-800">Прорахунок заявки</div>
                                         <label class="permission-switch">
                                             <input type="hidden" name="orders_calculation" value="0">
                                             <input type="checkbox" name="orders_calculation" value="1" x-model="ordersCalculation">
@@ -465,7 +460,7 @@
                                             <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
                                         </label>
                                     </div>
-                                    <div x-show="ordersCalculation" x-cloak class="space-y-3 sub-setting-level-2">
+                                    <div x-show="ordersCalculation" x-cloak class="mt-3 space-y-3 sub-setting-level-2">
                                         <div class="flex items-center justify-between gap-3">
                                             <div class="text-sm text-gray-800">збереження заявки</div>
                                             <label class="permission-switch">
@@ -485,9 +480,11 @@
                                             </label>
                                         </div>
                                     </div>
+                                    </div>
 
+                                    <div class="rounded-md border border-gray-300 bg-white p-3" data-permission-section="proposals">
                                     <div class="flex items-center justify-between gap-3">
-                                        <div class="text-sm text-gray-800">Заявки/замовлення</div>
+                                        <div class="text-sm font-semibold text-gray-800">Заявки</div>
                                         <label class="permission-switch">
                                             <input type="hidden" name="orders_proposals" value="0">
                                             <input type="checkbox" name="orders_proposals" value="1" x-model="ordersProposals">
@@ -495,7 +492,7 @@
                                             <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
                                         </label>
                                     </div>
-                                    <div x-show="ordersProposals" x-cloak class="space-y-3 sub-setting-level-2">
+                                    <div x-show="ordersProposals" x-cloak class="mt-3 space-y-3 sub-setting-level-2">
                                         <div class="flex items-center justify-between gap-3">
                                             <div class="text-sm text-gray-800">Бачить заявки</div>
                                             <div>
@@ -537,18 +534,20 @@
                                                 </label>
                                             </div>
                                         </div>
+                                    </div>
+                                    </div>
 
-                                        <div class="border-t border-gray-200 pt-3">
-                                            <div class="flex items-center justify-between gap-3" data-help="Керує видимістю кнопки створення замовлення, таблиці замовлень та доступом до карток замовлень.">
-                                                <div class="text-sm font-medium text-gray-800">Замовлення</div>
+                                    <div class="rounded-md border border-gray-300 bg-white p-3" data-permission-section="orders">
+                                    <div class="flex items-center justify-between gap-3" data-help="Керує видимістю кнопки створення замовлення, таблиці замовлень та доступом до карток замовлень.">
+                                                <div class="text-sm font-semibold text-gray-800">Замовлення</div>
                                                 <label class="permission-switch">
                                                     <input type="hidden" name="orders_access" value="0">
                                                     <input type="checkbox" name="orders_access" value="1" x-model="ordersAccess">
                                                     <span class="switch-track"></span><span class="switch-knob"></span>
                                                     <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
                                                 </label>
-                                            </div>
-                                            <div x-show="ordersAccess" x-cloak class="mt-3 space-y-3 sub-setting-level-2">
+                                    </div>
+                                    <div x-show="ordersAccess" x-cloak class="mt-3 space-y-3 sub-setting-level-2">
                                                 <div class="flex items-center justify-between gap-3">
                                                     <div class="text-sm text-gray-800">Бачить замовлення</div>
                                                     <div>
@@ -561,6 +560,7 @@
                                                         ></button>
                                                     </div>
                                                 </div>
+                                                <div class="ml-6 space-y-3 border-l-2 border-gray-300 pl-3">
                                                 <div class="flex items-center justify-between gap-3">
                                                     <div class="text-sm text-gray-800">Редагування замовлення</div>
                                                     <label class="permission-switch">
@@ -599,11 +599,12 @@
                                                         </label>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </div>
+                                                </div>
                                     </div>
+                                    </div>
+                                    <div class="rounded-md border border-gray-300 bg-white p-3" data-permission-section="clients">
                                     <div class="flex items-center justify-between gap-3">
-                                        <div class="text-sm text-gray-800">Замовники</div>
+                                        <div class="text-sm font-semibold text-gray-800">Замовники</div>
                                         <label class="permission-switch">
                                             <input type="hidden" name="orders_clients_manage" value="0">
                                             <input type="checkbox" name="orders_clients_manage" value="1" x-model="ordersClientsManage">
@@ -611,7 +612,7 @@
                                             <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
                                         </label>
                                     </div>
-                                    <div x-show="ordersClientsManage" x-cloak class="space-y-3 sub-setting-level-2">
+                                    <div x-show="ordersClientsManage" x-cloak class="mt-3 space-y-3 sub-setting-level-2">
                                         <div class="flex items-center justify-between gap-3">
                                             <div class="text-sm text-gray-800">Додати</div>
                                             <label class="permission-switch">
@@ -659,6 +660,7 @@
                                                 </label>
                                             </div>
                                         </div>
+                                    </div>
                                     </div>
                                 </div>
                             </div>
@@ -807,7 +809,7 @@
                 'Прорахунок заявки': 'Дозволяє відкривати сторінку прорахунку /orders/calculation.',
                 'збереження заявки': 'Дозволяє користувачу зберігати нові або відредаговані заявки з калькуляції.',
                 'Видимість собівартості': 'Керує відображенням розрахункової собівартості у відповідному розділі.',
-                'Заявки/замовлення': 'Дозволяє відкривати список заявок /orders/proposals і переглядати доступні заявки.',
+                'Заявки': 'Дозволяє відкривати список заявок /orders/proposals і переглядати доступні заявки.',
                 'Бачить заявки': 'Визначає область видимості заявок: лише створені/доступні цьому користувачу або всі активні заявки.',
                 'Редагування заявок': 'Дозволяє відкривати заявку для редагування з її сторінки перегляду.',
                 'Редагування списку': 'Дозволяє вмикати режим керування списком заявок, зокрема операції над вибраними заявками.',
