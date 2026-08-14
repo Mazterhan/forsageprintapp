@@ -23,18 +23,34 @@ class DashboardController extends Controller
             ], 403);
         }
 
-        $canViewOrdersAnalytics = $permissions->can($user, 'analytics_orders_access');
-
-        $activeTab = (string) $request->query('tab', 'proposals');
-        if (! in_array($activeTab, ['proposals', 'orders'], true)) {
-            $activeTab = 'proposals';
+        $canViewProposalsAnalytics = $permissions->canViewProposalAnalytics($user);
+        $canViewOrdersAnalytics = $permissions->canViewOrderAnalytics($user);
+        $requestedTab = (string) $request->query('tab', '');
+        if (! in_array($requestedTab, ['proposals', 'orders'], true)) {
+            $requestedTab = '';
         }
+
+        if (! $canViewProposalsAnalytics && ! $canViewOrdersAnalytics) {
+            return view('dashboard-empty', [
+                'activeTab' => null,
+                'dashboardPermissions' => [
+                    'show_proposals_tab' => false,
+                    'show_orders_tab' => false,
+                ],
+            ]);
+        }
+
+        $activeTab = $requestedTab !== ''
+            ? $requestedTab
+            : ($canViewProposalsAnalytics ? 'proposals' : 'orders');
 
         if ($activeTab === 'orders') {
             abort_unless($canViewOrdersAnalytics, 403, 'У вас немає доступу до аналітики замовлень.');
 
             return $this->ordersAnalytics($request, $permissions);
         }
+
+        abort_unless($canViewProposalsAnalytics, 403, 'У вас немає доступу до аналітики заявок.');
 
         $timezone = 'Europe/Kiev';
         $now = now($timezone);
@@ -621,6 +637,7 @@ class DashboardController extends Controller
                 'show_charts' => $permissions->can($user, 'analytics_show_charts'),
                 'show_tables' => $permissions->can($user, 'analytics_show_tables'),
                 'show_finance' => $permissions->can($user, 'analytics_finance_access'),
+                'show_proposals_tab' => $canViewProposalsAnalytics,
                 'show_orders_tab' => $canViewOrdersAnalytics,
                 'can_open_proposal' => $permissions->can($user, 'orders_proposals'),
             ],
@@ -685,10 +702,15 @@ class DashboardController extends Controller
             ->values()
             ->all();
 
+        $ownOrdersOnly = $permissions->orderScope($user) === 'own';
+        $visibleOrderClientIds = Order::query()
+            ->when($ownOrdersOnly, fn ($query) => $query->where('created_by', $user?->id))
+            ->whereNotNull('client_id')
+            ->distinct()
+            ->pluck('client_id');
+
         $clients = Client::query()
-            ->where(function ($query): void {
-                $query->whereHas('orders')->orWhereHas('payments');
-            })
+            ->whereIn('id', $visibleOrderClientIds)
             ->orderBy('name')
             ->get(['id', 'public_id', 'name']);
 
@@ -704,6 +726,10 @@ class DashboardController extends Controller
             ->select('orders.*')
             ->addSelect(DB::raw('COALESCE(dashboard_order_payment_totals.total, 0) as linked_payments_total'))
             ->with(['client:id,public_id,name', 'lastEditedBy:id,name']);
+
+        if ($ownOrdersOnly) {
+            $ordersQuery->where('orders.created_by', $user?->id);
+        }
 
         if ($from && $to) {
             $ordersQuery->whereBetween('orders.updated_at', [$from->copy()->utc(), $to->copy()->utc()]);
@@ -817,6 +843,7 @@ class DashboardController extends Controller
                 $join->on('dashboard_client_payment_balances.client_id', '=', 'clients.id');
             })
             ->when($selectedClientIds !== [], fn ($query) => $query->whereIn('clients.id', $selectedClientIds))
+            ->whereIn('clients.id', $visibleOrderClientIds)
             ->whereRaw('dashboard_client_payment_balances.balance > 0')
             ->orderByDesc('dashboard_client_payment_balances.balance')
             ->get([
@@ -870,10 +897,12 @@ class DashboardController extends Controller
             'investorClients' => $investorClients,
             'analyticsOrders' => $analyticsOrders->take(100)->values(),
             'dashboardPermissions' => [
-                'show_kpi' => $permissions->can($user, 'analytics_show_kpi'),
-                'show_tables' => $permissions->can($user, 'analytics_show_tables'),
-                'show_finance' => $permissions->can($user, 'analytics_finance_access'),
-                'show_orders_tab' => $permissions->can($user, 'analytics_orders_access'),
+                'show_kpi' => $permissions->can($user, 'analytics_orders_show_kpi'),
+                'show_charts' => $permissions->can($user, 'analytics_orders_show_charts'),
+                'show_tables' => $permissions->can($user, 'analytics_orders_show_tables'),
+                'show_finance' => $permissions->can($user, 'analytics_orders_finance_access'),
+                'show_proposals_tab' => $permissions->canViewProposalAnalytics($user),
+                'show_orders_tab' => $permissions->canViewOrderAnalytics($user),
                 'can_open_order' => $permissions->can($user, 'orders'),
                 'can_open_client' => $permissions->can($user, 'orders_clients_manage'),
             ],

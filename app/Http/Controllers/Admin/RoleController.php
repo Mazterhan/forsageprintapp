@@ -70,7 +70,10 @@ class RoleController extends Controller
             'analytics_show_charts',
             'analytics_show_tables',
             'analytics_finance_access',
-            'analytics_orders_access',
+            'analytics_orders_show_kpi',
+            'analytics_orders_show_charts',
+            'analytics_orders_show_tables',
+            'analytics_orders_finance_access',
             'can_orders',
             'orders_calculation',
             'orders_calc_save',
@@ -132,9 +135,26 @@ class RoleController extends Controller
         }
 
         if (! $data['can_analytics']) {
-            foreach (['analytics_show_kpi', 'analytics_show_charts', 'analytics_show_tables', 'analytics_finance_access', 'analytics_orders_access'] as $field) {
+            foreach ([
+                'analytics_show_kpi',
+                'analytics_show_charts',
+                'analytics_show_tables',
+                'analytics_finance_access',
+                'analytics_orders_show_kpi',
+                'analytics_orders_show_charts',
+                'analytics_orders_show_tables',
+                'analytics_orders_finance_access',
+            ] as $field) {
                 $data[$field] = false;
             }
+        }
+
+        if (! $data['analytics_show_kpi'] && ! $data['analytics_show_charts'] && ! $data['analytics_show_tables']) {
+            $data['analytics_finance_access'] = false;
+        }
+
+        if (! $data['analytics_orders_show_kpi'] && ! $data['analytics_orders_show_charts'] && ! $data['analytics_orders_show_tables']) {
+            $data['analytics_orders_finance_access'] = false;
         }
 
         if (! $data['can_orders']) {

@@ -5,6 +5,7 @@ namespace Tests\Feature\Orders;
 use App\Models\Client;
 use App\Models\ClientPayment;
 use App\Models\Order;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesRoles;
@@ -22,7 +23,11 @@ class OrderClientPermissionTest extends TestCase
             ->assertOk()
             ->assertDontSee('Доступність замовлень')
             ->assertSee('Замовлення')
-            ->assertSee('name="analytics_orders_access"', false)
+            ->assertSee('name="analytics_orders_show_kpi"', false)
+            ->assertSee('name="analytics_orders_show_charts"', false)
+            ->assertSee('name="analytics_orders_show_tables"', false)
+            ->assertSee('name="analytics_orders_finance_access"', false)
+            ->assertDontSee('name="analytics_orders_access"', false)
             ->assertSee('name="orders_scope"', false)
             ->assertSee('name="orders_update"', false)
             ->assertSee('name="orders_payments"', false)
@@ -37,6 +42,59 @@ class OrderClientPermissionTest extends TestCase
             ->assertSee('Керування переплатами')
             ->assertSee('Редагування платежів')
             ->assertDontSee('Керування замовниками');
+    }
+
+    public function test_proposal_and_order_analytics_permissions_are_saved_independently(): void
+    {
+        $admin = $this->createAdminUser();
+        $payload = Role::factory()->make(['name' => 'Окрема аналітика'])->getAttributes();
+        unset($payload['slug'], $payload['public_id'], $payload['analytics_orders_access']);
+        $payload = array_merge($payload, [
+            'can_analytics' => true,
+            'analytics_show_kpi' => true,
+            'analytics_show_charts' => false,
+            'analytics_show_tables' => false,
+            'analytics_finance_access' => true,
+            'analytics_orders_show_kpi' => false,
+            'analytics_orders_show_charts' => false,
+            'analytics_orders_show_tables' => true,
+            'analytics_orders_finance_access' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.roles.store'), $payload)
+            ->assertRedirect(route('admin.users.index'));
+
+        $role = Role::query()->where('name', 'Окрема аналітика')->firstOrFail();
+        $this->assertTrue($role->analytics_show_kpi);
+        $this->assertFalse($role->analytics_show_tables);
+        $this->assertTrue($role->analytics_finance_access);
+        $this->assertFalse($role->analytics_orders_show_kpi);
+        $this->assertTrue($role->analytics_orders_show_tables);
+        $this->assertTrue($role->analytics_orders_finance_access);
+
+        $payload['name'] = $role->name;
+        $payload['can_analytics'] = false;
+        $payload['analytics_show_charts'] = true;
+        $payload['analytics_orders_show_kpi'] = true;
+
+        $this->actingAs($admin)
+            ->patch(route('admin.roles.update', $role), $payload)
+            ->assertRedirect(route('admin.users.index'));
+
+        $role->refresh();
+        foreach ([
+            'analytics_show_kpi',
+            'analytics_show_charts',
+            'analytics_show_tables',
+            'analytics_finance_access',
+            'analytics_orders_show_kpi',
+            'analytics_orders_show_charts',
+            'analytics_orders_show_tables',
+            'analytics_orders_finance_access',
+        ] as $field) {
+            $this->assertFalse($role->{$field}, $field.' must be disabled with the parent analytics permission.');
+        }
     }
 
     public function test_order_access_can_be_hidden_and_own_scope_is_enforced_everywhere(): void

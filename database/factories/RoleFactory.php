@@ -23,6 +23,10 @@ class RoleFactory extends Factory
             'analytics_show_tables' => false,
             'analytics_finance_access' => false,
             'analytics_orders_access' => false,
+            'analytics_orders_show_kpi' => false,
+            'analytics_orders_show_charts' => false,
+            'analytics_orders_show_tables' => false,
+            'analytics_orders_finance_access' => false,
             'can_orders' => false,
             'orders_calculation' => false,
             'orders_calc_save' => false,
@@ -60,10 +64,6 @@ class RoleFactory extends Factory
 
     public function withPermissions(array $permissions): static
     {
-        if (($permissions['can_analytics'] ?? false) && ! array_key_exists('analytics_orders_access', $permissions)) {
-            $permissions['analytics_orders_access'] = true;
-        }
-
         if (($permissions['can_orders'] ?? false) && ! array_key_exists('orders_access', $permissions)) {
             $permissions['orders_proposals'] ??= true;
             $permissions['orders_access'] = true;
@@ -94,6 +94,10 @@ class RoleFactory extends Factory
             'analytics_show_tables' => true,
             'analytics_finance_access' => true,
             'analytics_orders_access' => true,
+            'analytics_orders_show_kpi' => true,
+            'analytics_orders_show_charts' => true,
+            'analytics_orders_show_tables' => true,
+            'analytics_orders_finance_access' => true,
             'can_orders' => true,
             'orders_calculation' => true,
             'orders_calc_save' => true,

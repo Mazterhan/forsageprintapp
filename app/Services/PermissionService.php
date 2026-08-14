@@ -13,7 +13,10 @@ class PermissionService
         'analytics_show_charts' => 'analytics_show_charts',
         'analytics_show_tables' => 'analytics_show_tables',
         'analytics_finance_access' => 'analytics_finance_access',
-        'analytics_orders_access' => 'analytics_orders_access',
+        'analytics_orders_show_kpi' => 'analytics_orders_show_kpi',
+        'analytics_orders_show_charts' => 'analytics_orders_show_charts',
+        'analytics_orders_show_tables' => 'analytics_orders_show_tables',
+        'analytics_orders_finance_access' => 'analytics_orders_finance_access',
         'orders' => 'can_orders',
         'orders_calculation' => 'orders_calculation',
         'orders_calc_save' => 'orders_calc_save',
@@ -51,7 +54,10 @@ class PermissionService
         'analytics_show_charts' => ['analytics'],
         'analytics_show_tables' => ['analytics'],
         'analytics_finance_access' => ['analytics'],
-        'analytics_orders_access' => ['analytics'],
+        'analytics_orders_show_kpi' => ['analytics'],
+        'analytics_orders_show_charts' => ['analytics'],
+        'analytics_orders_show_tables' => ['analytics'],
+        'analytics_orders_finance_access' => ['analytics'],
         'orders_calculation' => ['orders'],
         'orders_calc_save' => ['orders_calculation'],
         'orders_calc_purchase_visible' => ['orders_calculation'],
@@ -133,6 +139,20 @@ class PermissionService
         }
 
         return (string) ($role->orders_list_scope ?? 'own') === 'all' ? 'all' : 'own';
+    }
+
+    public function canViewProposalAnalytics(?User $user): bool
+    {
+        return $this->can($user, 'analytics_show_kpi')
+            || $this->can($user, 'analytics_show_charts')
+            || $this->can($user, 'analytics_show_tables');
+    }
+
+    public function canViewOrderAnalytics(?User $user): bool
+    {
+        return $this->can($user, 'analytics_orders_show_kpi')
+            || $this->can($user, 'analytics_orders_show_charts')
+            || $this->can($user, 'analytics_orders_show_tables');
     }
 
     public function orderScope(?User $user): string

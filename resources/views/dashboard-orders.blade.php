@@ -632,9 +632,9 @@
             });
 
             const analyticsData = {
-                debtors: @json($modalDebtors),
-                investors: @json($modalInvestors),
-                orders: @json($modalOrders),
+                debtors: @json($showTables ? $modalDebtors : []),
+                investors: @json($showTables ? $modalInvestors : []),
+                orders: @json($showTables ? $modalOrders : []),
             };
             const showFinance = @json($showFinance);
             const modal = document.getElementById('ordersAnalyticsModal');

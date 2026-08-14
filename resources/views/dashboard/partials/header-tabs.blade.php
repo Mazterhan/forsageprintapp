@@ -1,4 +1,5 @@
 @php
+    $canViewProposalsAnalytics = (bool) ($dashboardPermissions['show_proposals_tab'] ?? false);
     $canViewOrdersAnalytics = (bool) ($dashboardPermissions['show_orders_tab'] ?? false);
 @endphp
 
@@ -107,16 +108,18 @@
     <h2 class="shrink-0 font-semibold text-xl text-gray-800 leading-tight">Аналітика</h2>
 
     <form method="GET" action="{{ route('dashboard') }}" class="analytics-tab-list" role="tablist" aria-label="Розділи аналітики">
-        <button
-            type="{{ $activeTab === 'proposals' ? 'button' : 'submit' }}"
-            name="tab"
-            value="proposals"
-            role="tab"
-            aria-selected="{{ $activeTab === 'proposals' ? 'true' : 'false' }}"
-            @class(['analytics-tab', 'is-active' => $activeTab === 'proposals'])
-        >
-            <span class="analytics-tab-label">Заявки</span>
-        </button>
+        @if($canViewProposalsAnalytics)
+            <button
+                type="{{ $activeTab === 'proposals' ? 'button' : 'submit' }}"
+                name="tab"
+                value="proposals"
+                role="tab"
+                aria-selected="{{ $activeTab === 'proposals' ? 'true' : 'false' }}"
+                @class(['analytics-tab', 'is-active' => $activeTab === 'proposals'])
+            >
+                <span class="analytics-tab-label">Заявки</span>
+            </button>
+        @endif
         @if($canViewOrdersAnalytics)
             <button
                 type="{{ $activeTab === 'orders' ? 'button' : 'submit' }}"

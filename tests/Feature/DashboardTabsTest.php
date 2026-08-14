@@ -32,6 +32,46 @@ class DashboardTabsTest extends TestCase
             ->assertSee('Кількість заявок');
     }
 
+    public function test_analytics_page_can_be_opened_without_exposing_tabs_or_filters(): void
+    {
+        $user = $this->createUserWithRole(['can_analytics' => true]);
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Аналітика')
+            ->assertSee('Для вашої ролі не налаштовано доступних розділів аналітики.')
+            ->assertDontSee('value="proposals"', false)
+            ->assertDontSee('value="orders"', false)
+            ->assertDontSee('Період')
+            ->assertDontSee('Замовник');
+    }
+
+    public function test_orders_tab_is_independent_and_becomes_default_when_proposals_are_hidden(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_analytics' => true,
+            'analytics_orders_show_kpi' => true,
+            'analytics_orders_show_tables' => false,
+            'analytics_orders_show_charts' => false,
+            'analytics_orders_finance_access' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('value="orders"', false)
+            ->assertDontSee('value="proposals"', false)
+            ->assertSee('Кількість замовлень')
+            ->assertViewHas('dashboardPermissions', fn (array $permissions): bool => $permissions['show_kpi'] === true
+                && $permissions['show_tables'] === false
+                && $permissions['show_finance'] === false);
+
+        $this->actingAs($user)
+            ->get(route('dashboard', ['tab' => 'proposals']))
+            ->assertForbidden();
+    }
+
     public function test_orders_tab_calculates_live_payment_statuses_without_rendering_proposals(): void
     {
         $user = $this->analyticsUser();
@@ -197,6 +237,50 @@ class DashboardTabsTest extends TestCase
             ->assertDontSee('Кількість замовлень');
     }
 
+    public function test_orders_analytics_respects_own_order_scope_in_all_server_data(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_analytics' => true,
+            'analytics_orders_show_kpi' => true,
+            'analytics_orders_show_tables' => true,
+            'analytics_orders_finance_access' => true,
+            'can_orders' => true,
+            'orders_proposals' => true,
+            'orders_access' => true,
+            'orders_scope' => 'own',
+        ]);
+        $otherUser = $this->createFullAccessUser();
+        $ownClient = Client::factory()->create(['name' => 'Власний клієнт аналітики']);
+        $foreignClient = Client::factory()->create(['name' => 'Чужий клієнт аналітики']);
+        $ownOrder = Order::factory()->create([
+            'client_id' => $ownClient->id,
+            'customer_name' => $ownClient->name,
+            'created_by' => $user->id,
+            'last_edited_by' => $user->id,
+            'total_cost' => 1111,
+        ]);
+        $foreignOrder = Order::factory()->create([
+            'client_id' => $foreignClient->id,
+            'customer_name' => $foreignClient->name,
+            'created_by' => $otherUser->id,
+            'last_edited_by' => $otherUser->id,
+            'total_cost' => 9999,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->get(route('dashboard', ['tab' => 'orders', 'period' => 'all']))
+            ->assertOk()
+            ->assertSee($ownOrder->order_number)
+            ->assertSee($ownClient->name)
+            ->assertDontSee($foreignOrder->order_number)
+            ->assertDontSee($foreignClient->name);
+
+        $response
+            ->assertViewHas('analyticsOrders', fn ($orders): bool => $orders->count() === 1)
+            ->assertViewHas('clients', fn ($clients): bool => $clients->pluck('id')->all() === [$ownClient->id])
+            ->assertViewHas('kpi', fn (array $kpi): bool => $kpi['order_count'] === 1 && (float) $kpi['total_cost'] === 1111.0);
+    }
+
     public function test_orders_analytics_tab_and_its_content_require_a_separate_permission(): void
     {
         $user = $this->createUserWithRole([
@@ -205,7 +289,10 @@ class DashboardTabsTest extends TestCase
             'analytics_show_charts' => true,
             'analytics_show_tables' => true,
             'analytics_finance_access' => true,
-            'analytics_orders_access' => false,
+            'analytics_orders_show_kpi' => false,
+            'analytics_orders_show_charts' => false,
+            'analytics_orders_show_tables' => false,
+            'analytics_orders_finance_access' => false,
         ]);
 
         $this->actingAs($user)
@@ -227,6 +314,10 @@ class DashboardTabsTest extends TestCase
             'analytics_show_charts' => true,
             'analytics_show_tables' => true,
             'analytics_finance_access' => true,
+            'analytics_orders_show_kpi' => true,
+            'analytics_orders_show_charts' => true,
+            'analytics_orders_show_tables' => true,
+            'analytics_orders_finance_access' => true,
             'can_orders' => true,
             'orders_proposals' => true,
             'orders_list_scope' => 'all',

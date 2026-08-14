@@ -182,7 +182,10 @@
                             analyticsShowCharts: @js($roleOldBool('analytics_show_charts')),
                             analyticsShowTables: @js($roleOldBool('analytics_show_tables')),
                             analyticsFinanceAccess: @js($roleOldBool('analytics_finance_access')),
-                            analyticsOrdersAccess: @js($roleOldBool('analytics_orders_access')),
+                            analyticsOrdersShowKpi: @js($roleOldBool('analytics_orders_show_kpi')),
+                            analyticsOrdersShowCharts: @js($roleOldBool('analytics_orders_show_charts')),
+                            analyticsOrdersShowTables: @js($roleOldBool('analytics_orders_show_tables')),
+                            analyticsOrdersFinanceAccess: @js($roleOldBool('analytics_orders_finance_access')),
                             ordersCalculation: @js($roleOldBool('orders_calculation')),
                             ordersCalcSave: @js($roleOldBool('orders_calc_save')),
                             ordersCalcPurchaseVisible: @js($roleOldBool('orders_calc_purchase_visible')),
@@ -219,7 +222,10 @@
                                     analyticsShowCharts = false;
                                     analyticsShowTables = false;
                                     analyticsFinanceAccess = false;
-                                    analyticsOrdersAccess = false;
+                                    analyticsOrdersShowKpi = false;
+                                    analyticsOrdersShowCharts = false;
+                                    analyticsOrdersShowTables = false;
+                                    analyticsOrdersFinanceAccess = false;
                                 }
                             });
                             $watch('canOrders', (v) => {
@@ -353,7 +359,7 @@
                                     <div class="rounded-md border border-gray-300 bg-white p-3">
                                         <div class="mb-3 text-sm font-semibold text-gray-800">Заявки</div>
                                         <div class="space-y-3">
-                                            <div class="flex items-center justify-between gap-3">
+                                            <div class="flex items-center justify-between gap-3" data-help="Дозволяє бачити верхні KPI-плитки з основними показниками заявок.">
                                                 <div class="text-sm text-gray-800">Відображення KPI</div>
                                                 <label class="permission-switch">
                                                     <input type="hidden" name="analytics_show_kpi" value="0">
@@ -362,7 +368,7 @@
                                                     <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
                                                 </label>
                                             </div>
-                                            <div class="flex items-center justify-between gap-3">
+                                            <div class="flex items-center justify-between gap-3" data-help="Дозволяє бачити графіки динаміки заявок, сум та середнього чека.">
                                                 <div class="text-sm text-gray-800">Відображення графіків</div>
                                                 <label class="permission-switch">
                                                     <input type="hidden" name="analytics_show_charts" value="0">
@@ -371,7 +377,7 @@
                                                     <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
                                                 </label>
                                             </div>
-                                            <div class="flex items-center justify-between gap-3">
+                                            <div class="flex items-center justify-between gap-3" data-help="Дозволяє бачити аналітичні таблиці з топами матеріалів, послуг, замовників, типів виробу та заявок.">
                                                 <div class="text-sm text-gray-800">Відображення таблиць</div>
                                                 <label class="permission-switch">
                                                     <input type="hidden" name="analytics_show_tables" value="0">
@@ -380,7 +386,7 @@
                                                     <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
                                                 </label>
                                             </div>
-                                            <div class="flex items-center justify-between gap-3">
+                                            <div class="flex items-center justify-between gap-3" data-help="Відкриває фінансові показники заявок: собівартість, валовий прибуток і маржинальність.">
                                                 <div class="text-sm text-gray-800">Доступність фінансової аналітики</div>
                                                 <label class="permission-switch">
                                                     <input type="hidden" name="analytics_finance_access" value="0">
@@ -391,14 +397,46 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="flex items-center justify-between gap-3 rounded-md border border-gray-300 bg-white p-3" data-help="Керує видимістю вкладки «Замовлення» на сторінці аналітики та доступом до всього її вмісту.">
-                                        <div class="text-sm font-semibold text-gray-800">Замовлення</div>
-                                        <label class="permission-switch">
-                                            <input type="hidden" name="analytics_orders_access" value="0">
-                                            <input type="checkbox" name="analytics_orders_access" value="1" x-model="analyticsOrdersAccess">
-                                            <span class="switch-track"></span><span class="switch-knob"></span>
-                                            <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
-                                        </label>
+                                    <div class="rounded-md border border-gray-300 bg-white p-3">
+                                        <div class="mb-3 text-sm font-semibold text-gray-800">Замовлення</div>
+                                        <div class="space-y-3">
+                                            <div class="flex items-center justify-between gap-3" data-help="Дозволяє бачити верхні KPI-плитки з основними показниками замовлень.">
+                                                <div class="text-sm text-gray-800">Відображення KPI</div>
+                                                <label class="permission-switch">
+                                                    <input type="hidden" name="analytics_orders_show_kpi" value="0">
+                                                    <input type="checkbox" name="analytics_orders_show_kpi" value="1" x-model="analyticsOrdersShowKpi">
+                                                    <span class="switch-track"></span><span class="switch-knob"></span>
+                                                    <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                </label>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-3" data-help="Резервує доступ до графіків аналітики замовлень після їх додавання.">
+                                                <div class="text-sm text-gray-800">Відображення графіків</div>
+                                                <label class="permission-switch">
+                                                    <input type="hidden" name="analytics_orders_show_charts" value="0">
+                                                    <input type="checkbox" name="analytics_orders_show_charts" value="1" x-model="analyticsOrdersShowCharts">
+                                                    <span class="switch-track"></span><span class="switch-knob"></span>
+                                                    <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                </label>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-3" data-help="Дозволяє бачити таблиці замовлень, боржників, переплат і зведення за статусами.">
+                                                <div class="text-sm text-gray-800">Відображення таблиць</div>
+                                                <label class="permission-switch">
+                                                    <input type="hidden" name="analytics_orders_show_tables" value="0">
+                                                    <input type="checkbox" name="analytics_orders_show_tables" value="1" x-model="analyticsOrdersShowTables">
+                                                    <span class="switch-track"></span><span class="switch-knob"></span>
+                                                    <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                </label>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-3" data-help="Відкриває суми, оплати, заборгованість та інші фінансові показники аналітики замовлень.">
+                                                <div class="text-sm text-gray-800">Доступність фінансової аналітики</div>
+                                                <label class="permission-switch">
+                                                    <input type="hidden" name="analytics_orders_finance_access" value="0">
+                                                    <input type="checkbox" name="analytics_orders_finance_access" value="1" x-model="analyticsOrdersFinanceAccess">
+                                                    <span class="switch-track"></span><span class="switch-knob"></span>
+                                                    <span class="switch-text"><span class="switch-text-allow">доступно</span><span class="switch-text-deny">недоступно</span></span>
+                                                </label>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -830,4 +868,3 @@
         })();
     </script>
 </x-app-layout>
-
