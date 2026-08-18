@@ -121,7 +121,7 @@ class ClientPaymentController extends Controller
                 $request->user()?->id
             );
 
-            $this->syncOrderPaymentTotals($order);
+            $this->syncOrderPaymentTotals($order, $request->user()?->id);
 
             return [$payment, $automaticOverpayment];
         });
@@ -266,7 +266,7 @@ class ClientPaymentController extends Controller
                 ]);
 
                 $payments->push($payment);
-                $this->syncOrderPaymentTotals($order);
+                $this->syncOrderPaymentTotals($order, $request->user()?->id);
             }
 
             return [$payments, $total];
@@ -383,9 +383,9 @@ class ClientPaymentController extends Controller
                 $request->user()?->id
             );
 
-            $this->syncOrderPaymentTotals($previousOrder);
+            $this->syncOrderPaymentTotals($previousOrder, $request->user()?->id);
             if ((int) $previousOrder?->id !== (int) $order?->id) {
-                $this->syncOrderPaymentTotals($order);
+                $this->syncOrderPaymentTotals($order, $request->user()?->id);
             }
         });
 
@@ -673,7 +673,7 @@ class ClientPaymentController extends Controller
         ]);
     }
 
-    private function syncOrderPaymentTotals(?Order $order): void
+    private function syncOrderPaymentTotals(?Order $order, ?int $userId = null): void
     {
         if (! $order) {
             return;
@@ -683,10 +683,29 @@ class ClientPaymentController extends Controller
             ->where('order_id', $order->id)
             ->sum('amount_uah');
 
+        $oldStatus = (string) ($order->status ?: Order::STATUS_NEW);
+        $isPaid = abs($paymentsTotal - (float) $order->total_cost) < 0.005;
+        $newStatus = $isPaid && $oldStatus === Order::STATUS_NEW
+            ? Order::STATUS_BLOCKED
+            : $oldStatus;
+
         $order->forceFill([
             'payments_total' => $paymentsTotal,
             'amount_due' => (float) $order->total_cost - $paymentsTotal,
+            'status' => $newStatus,
+            ...($newStatus !== $oldStatus ? ['last_edited_by' => $userId] : []),
         ])->saveQuietly();
+
+        if ($newStatus !== $oldStatus) {
+            $order->histories()->create([
+                'user_id' => $userId,
+                'operation_type' => 'order_updated',
+                'field_name' => 'status',
+                'description' => 'Статус замовлення',
+                'before_value' => ['value' => Order::STATUSES[$oldStatus] ?? $oldStatus],
+                'after_value' => ['value' => Order::STATUSES[$newStatus] ?? $newStatus],
+            ]);
+        }
     }
 
     /**

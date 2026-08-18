@@ -31,6 +31,7 @@ class User extends Authenticatable
         'department_category_id',
         'department_position_id',
         'is_active',
+        'orders_table_columns',
     ];
 
     /**
@@ -55,6 +56,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'force_password_change' => 'boolean',
+            'orders_table_columns' => 'array',
         ];
     }
 

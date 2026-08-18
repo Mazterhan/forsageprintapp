@@ -63,6 +63,7 @@ Route::middleware(['auth', 'permission:orders'])
         Route::post('/', [OrderController::class, 'store'])->name('store');
         Route::get('/create', [OrderController::class, 'create'])->name('create');
         Route::get('/append-candidate', [OrderController::class, 'appendCandidate'])->name('append-candidate');
+        Route::patch('/table-columns', [OrderController::class, 'updateTableColumns'])->name('table-columns.update');
         Route::post('/{order}/append-items', [OrderController::class, 'appendItems'])->whereUuid('order')->name('append-items');
         Route::get('/{order}/edit', [OrderController::class, 'edit'])->whereUuid('order')->name('edit');
         Route::patch('/{order}', [OrderController::class, 'update'])->whereUuid('order')->name('update');

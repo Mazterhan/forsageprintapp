@@ -29,6 +29,17 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrderController extends Controller
 {
+    private const TABLE_COLUMNS = [
+        'date' => 'Дата',
+        'status' => 'Статус',
+        'number' => 'Номер замовлення',
+        'payment' => 'Оплата',
+        'customer' => "Ім'я замовника",
+        'user' => 'Користувач',
+        'amount_due' => 'До сплати',
+        'total_cost' => 'Вартість',
+    ];
+
     public function index(Request $request, PermissionService $permissions)
     {
         $canAccessOrders = $permissions->can($request->user(), 'orders_access');
@@ -167,6 +178,14 @@ class OrderController extends Controller
             default => 20,
         };
 
+        $savedTableColumns = $request->user()?->orders_table_columns;
+        $orderTableColumns = is_array($savedTableColumns)
+            ? array_values(array_intersect($savedTableColumns, array_keys(self::TABLE_COLUMNS)))
+            : array_keys(self::TABLE_COLUMNS);
+        if ($orderTableColumns === []) {
+            $orderTableColumns = array_keys(self::TABLE_COLUMNS);
+        }
+
         return view('orders.index', [
             'orders' => $query->paginate($perPage)->withQueryString(),
             'sort' => $sort,
@@ -182,12 +201,32 @@ class OrderController extends Controller
             'availableClients' => $availableClients,
             'availableUsers' => $availableUsers,
             'availableOrderStatuses' => $availableOrderStatuses,
+            'orderTableColumnDefinitions' => self::TABLE_COLUMNS,
+            'orderTableColumns' => $orderTableColumns,
             'ordersPermissions' => [
                 'calculation' => $permissions->can($request->user(), 'orders_calculation'),
                 'proposals' => $permissions->can($request->user(), 'orders_proposals'),
                 'access' => $canAccessOrders,
                 'clients' => $permissions->can($request->user(), 'orders_clients_manage'),
             ],
+        ]);
+    }
+
+    public function updateTableColumns(Request $request, PermissionService $permissions): JsonResponse
+    {
+        abort_unless($permissions->can($request->user(), 'orders_access'), 403);
+
+        $data = $request->validate([
+            'columns' => ['required', 'array', 'min:1', 'max:'.count(self::TABLE_COLUMNS)],
+            'columns.*' => ['required', 'string', 'distinct', 'in:'.implode(',', array_keys(self::TABLE_COLUMNS))],
+        ]);
+
+        $columns = array_values($data['columns']);
+        $request->user()->forceFill(['orders_table_columns' => $columns])->save();
+
+        return response()->json([
+            'ok' => true,
+            'columns' => $columns,
         ]);
     }
 
@@ -604,7 +643,7 @@ class OrderController extends Controller
         abort_unless($permissions->can($request->user(), 'orders_update'), 403);
 
         $data = $request->validate([
-            'status' => ['required', 'string', 'in:'.implode(',', array_keys(Order::STATUSES))],
+            'status' => ['required', 'string', 'in:'.implode(',', array_keys(Order::selectableStatuses()))],
         ]);
         $newStatus = (string) $data['status'];
         $oldStatus = (string) ($order->status ?: Order::STATUS_NEW);
@@ -792,6 +831,11 @@ class OrderController extends Controller
     {
         $this->authorizeOrderAccess($request, $permissions, $order);
         abort_unless($permissions->can($request->user(), 'orders_update'), 403);
+        abort_if(
+            in_array($order->status, [Order::STATUS_BLOCKED, Order::STATUS_COMPLETED], true),
+            409,
+            'Редагування заблокованого або виконаного замовлення недоступне.'
+        );
 
         $order->ensureItemIds();
 
@@ -816,6 +860,11 @@ class OrderController extends Controller
     {
         $this->authorizeOrderAccess($request, $permissions, $order);
         abort_unless($permissions->can($request->user(), 'orders_update'), 403);
+        abort_if(
+            in_array($order->status, [Order::STATUS_BLOCKED, Order::STATUS_COMPLETED], true),
+            409,
+            'Редагування заблокованого або виконаного замовлення недоступне.'
+        );
 
         $order->ensureItemIds();
 
@@ -823,7 +872,7 @@ class OrderController extends Controller
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'customer_name' => ['required', 'string', 'max:255'],
             'create_client' => ['nullable', 'boolean'],
-            'status' => ['sometimes', 'required', 'string', 'in:'.implode(',', array_keys(Order::STATUSES))],
+            'status' => ['sometimes', 'required', 'string', 'in:'.implode(',', array_keys(Order::selectableStatuses()))],
             'items' => ['required', 'array', 'min:1'],
             'items.*.item_id' => ['nullable', 'string', 'max:100'],
             'items.*.nomenclature' => ['required', 'string', 'max:500'],

@@ -807,6 +807,13 @@ class ClientPaymentTest extends TestCase
         $order->refresh();
         $this->assertSame('878.00', $order->payments_total);
         $this->assertSame('0.00', $order->amount_due);
+        $this->assertSame(Order::STATUS_BLOCKED, $order->status);
+        $this->assertDatabaseHas('order_histories', [
+            'order_id' => $order->id,
+            'user_id' => $user->id,
+            'field_name' => 'status',
+            'description' => 'Статус замовлення',
+        ]);
         $this->actingAs($user)
             ->get(route('orders.show', $order))
             ->assertOk()

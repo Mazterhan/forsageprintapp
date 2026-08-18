@@ -109,6 +109,12 @@ class Order extends Model
         return self::STATUSES[$this->status] ?? self::STATUSES[self::STATUS_NEW];
     }
 
+    /** @return array<string, string> */
+    public static function selectableStatuses(): array
+    {
+        return array_diff_key(self::STATUSES, [self::STATUS_COMPLETED => true]);
+    }
+
     public static function statusStyle(string $status): string
     {
         return match ($status) {

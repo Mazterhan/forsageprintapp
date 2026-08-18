@@ -83,8 +83,9 @@
                             style="width: 158px; min-width: 158px; box-sizing: border-box;"
                             role="listbox"
                         >
-                            @foreach(\App\Models\Order::STATUSES as $statusValue => $statusLabel)
+                            @foreach(\App\Models\Order::selectableStatuses() as $statusValue => $statusLabel)
                                 <button
+                                    data-order-status-option="{{ $statusValue }}"
                                     type="button"
                                     role="option"
                                     @click="chooseStatus(@js($statusValue))"
@@ -159,9 +160,16 @@
                             x-cloak
                             class="absolute right-0 top-full z-40 mt-1 w-full overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-lg"
                         >
-                            <a href="{{ route('orders.edit', $order) }}" class="block px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100">
+                            <button
+                                type="button"
+                                data-edit-url="{{ route('orders.edit', $order) }}"
+                                @click="window.location.assign($el.dataset.editUrl)"
+                                :disabled="selectedStatus === 'blocked' || selectedStatus === 'completed'"
+                                :title="selectedStatus === 'blocked' || selectedStatus === 'completed' ? 'Редагування недоступне для заблокованого або виконаного замовлення' : 'Редагувати замовлення'"
+                                class="block w-full px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                            >
                                 Редагувати
-                            </a>
+                            </button>
                             @if($orderPermissions['merge'] ?? false)
                                 <button data-order-merge-option type="button" @click="openMergeModal()" class="block w-full px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100">
                                     Об'єднати

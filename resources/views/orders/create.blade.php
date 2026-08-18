@@ -196,7 +196,7 @@
                             class="block h-[42px] w-full appearance-none rounded-md border px-2 py-2 text-center text-sm font-semibold shadow-sm focus:ring-1"
                             style="appearance: none; background-image: none;"
                         >
-                            @foreach(\App\Models\Order::STATUSES as $statusValue => $statusLabel)
+                            @foreach(\App\Models\Order::selectableStatuses() as $statusValue => $statusLabel)
                                 <option value="{{ $statusValue }}">{{ $statusLabel }}</option>
                             @endforeach
                         </select>

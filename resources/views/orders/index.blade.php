@@ -33,6 +33,8 @@
             return ['Є переплата', 'border-blue-400 bg-teal-100 text-blue-800'];
         };
         $orderFilters = $orderFilters ?? [];
+        $orderTableColumnDefinitions = $orderTableColumnDefinitions ?? [];
+        $orderTableColumns = $orderTableColumns ?? array_keys($orderTableColumnDefinitions);
         $orderFilterDefinitions = [
             'client_id' => [
                 'label' => "Ім'я замовника",
@@ -122,7 +124,15 @@
 
     @if($ordersPermissions['access'] ?? false)
     <div class="py-12">
-        <div class="max-w-[1700px] mx-auto px-6 sm:px-8 lg:px-12">
+        <div
+            x-data="ordersTableDisplayEditor({
+                definitions: @js($orderTableColumnDefinitions),
+                selected: @js($orderTableColumns),
+                updateUrl: @js(route('orders.table-columns.update')),
+            })"
+            @keydown.escape.window="closeEditor()"
+            class="max-w-[1700px] mx-auto px-6 sm:px-8 lg:px-12"
+        >
             <form method="GET" action="{{ route('orders.index') }}" data-orders-filters class="relative z-30 mb-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
                 <input type="hidden" name="sort" value="{{ $sort }}">
                 <input type="hidden" name="direction" value="{{ $direction }}">
@@ -206,20 +216,30 @@
                 </div>
             </form>
 
-            <div class="mb-4 flex items-center justify-end gap-2">
-                <label for="orders-per-page" class="text-sm text-gray-700 whitespace-nowrap">
-                    Кількість замовлень на сторінці
-                </label>
-                <select
-                    id="orders-per-page"
-                    class="border-gray-300 rounded-md text-sm shadow-sm"
-                    onchange="window.changeOrdersPerPage(this.value)"
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <button
+                    type="button"
+                    data-orders-table-display-button
+                    @click="openEditor()"
+                    class="inline-flex h-[42px] items-center rounded-md border border-indigo-300 bg-white px-4 text-sm font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50"
                 >
-                    <option value="20" @selected($perPageRaw === '20')>20</option>
-                    <option value="50" @selected($perPageRaw === '50')>50</option>
-                    <option value="100" @selected($perPageRaw === '100')>100</option>
-                    <option value="all" @selected($perPageRaw === 'all')>Всі</option>
-                </select>
+                    Редагувати відображення таблиці
+                </button>
+                <div class="flex items-center gap-2">
+                    <label for="orders-per-page" class="text-sm text-gray-700 whitespace-nowrap">
+                        Кількість замовлень на сторінці
+                    </label>
+                    <select
+                        id="orders-per-page"
+                        class="border-gray-300 rounded-md text-sm shadow-sm"
+                        onchange="window.changeOrdersPerPage(this.value)"
+                    >
+                        <option value="20" @selected($perPageRaw === '20')>20</option>
+                        <option value="50" @selected($perPageRaw === '50')>50</option>
+                        <option value="100" @selected($perPageRaw === '100')>100</option>
+                        <option value="all" @selected($perPageRaw === 'all')>Всі</option>
+                    </select>
+                </div>
             </div>
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg w-full">
@@ -228,17 +248,9 @@
                         <table class="orders-table min-w-full text-sm border border-gray-200">
                             <thead>
                                 <tr>
-                                    @foreach([
-                                        'date' => 'Дата',
-                                        'status' => 'Статус',
-                                        'number' => 'Номер замовлення',
-                                        'payment' => 'Оплата',
-                                        'customer' => "Ім'я замовника",
-                                        'user' => 'Користувач',
-                                        'amount_due' => 'До сплати',
-                                        'total_cost' => 'Вартість',
-                                    ] as $column => $label)
-                                        <th class="px-4 py-3 border-b {{ in_array($column, ['amount_due', 'total_cost'], true) ? 'text-right' : 'text-left' }} text-[14px] {{ $column === 'total_cost' ? 'font-bold' : '' }}">
+                                    @foreach($orderTableColumns as $column)
+                                        @php($label = $orderTableColumnDefinitions[$column])
+                                        <th data-order-column="{{ $column }}" class="px-4 py-3 border-b {{ in_array($column, ['amount_due', 'total_cost'], true) ? 'text-right' : 'text-left' }} text-[14px] {{ $column === 'total_cost' ? 'font-bold' : '' }}">
                                             <a class="inline-flex items-center gap-1" href="{{ $sortLink($column) }}">
                                                 {{ $label }}
                                                 @if ($sort === $column)
@@ -255,38 +267,50 @@
                                 @forelse($orders as $order)
                                     @php([$paymentStatusLabel, $paymentStatusClass] = $paymentStatus($order))
                                     <tr class="order-row {{ $loop->odd ? 'row-alt' : 'row-base' }}" tabindex="0">
-                                        <td class="px-4 py-3 border-b">{{ $formatOrderDate($order->updated_at) }}</td>
-                                        <td class="px-4 py-3 border-b">
-                                            <span class="inline-flex whitespace-nowrap rounded-md border px-3 py-1 text-sm font-semibold {{ \App\Models\Order::statusStyle($order->status) }}">
-                                                {{ $order->statusLabel() }}
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-3 border-b">
-                                            <a href="{{ route('orders.show', $order) }}" class="text-indigo-600 hover:text-indigo-900">
-                                                {{ $order->order_number }}
-                                            </a>
-                                        </td>
-                                        <td class="px-4 py-3 border-b">
-                                            <span class="inline-flex whitespace-nowrap rounded-md border px-3 py-1 text-sm font-semibold {{ $paymentStatusClass }}">
-                                                {{ $paymentStatusLabel }}
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-3 border-b">
-                                            @if(($ordersPermissions['clients'] ?? false) && $order->client)
-                                                <a href="{{ route('orders.clients.show', $order->client) }}" class="text-indigo-600 hover:text-indigo-900 hover:underline">
-                                                    {{ $order->client->name ?: ($order->customer_name ?: '—') }}
-                                                </a>
-                                            @else
-                                                {{ $order->customer_name ?: '—' }}
-                                            @endif
-                                        </td>
-                                        <td class="px-4 py-3 border-b">{{ $order->lastEditedBy?->name ?? '—' }}</td>
-                                        <td class="px-4 py-3 border-b text-right">{{ $formatOrderMoney($order->amount_due) }}</td>
-                                        <td class="px-4 py-3 border-b text-right font-bold">{{ $formatOrderMoney($order->total_cost) }}</td>
+                                        @foreach($orderTableColumns as $column)
+                                            @switch($column)
+                                                @case('date')
+                                                    <td class="px-4 py-3 border-b">{{ $formatOrderDate($order->updated_at) }}</td>
+                                                    @break
+                                                @case('status')
+                                                    <td class="px-4 py-3 border-b">
+                                                        <span class="inline-flex whitespace-nowrap rounded-md border px-3 py-1 text-sm font-semibold {{ \App\Models\Order::statusStyle($order->status) }}">{{ $order->statusLabel() }}</span>
+                                                    </td>
+                                                    @break
+                                                @case('number')
+                                                    <td class="px-4 py-3 border-b">
+                                                        <a href="{{ route('orders.show', $order) }}" class="text-indigo-600 hover:text-indigo-900">{{ $order->order_number }}</a>
+                                                    </td>
+                                                    @break
+                                                @case('payment')
+                                                    <td class="px-4 py-3 border-b">
+                                                        <span class="inline-flex whitespace-nowrap rounded-md border px-3 py-1 text-sm font-semibold {{ $paymentStatusClass }}">{{ $paymentStatusLabel }}</span>
+                                                    </td>
+                                                    @break
+                                                @case('customer')
+                                                    <td class="px-4 py-3 border-b">
+                                                        @if(($ordersPermissions['clients'] ?? false) && $order->client)
+                                                            <a href="{{ route('orders.clients.show', $order->client) }}" class="text-indigo-600 hover:text-indigo-900 hover:underline">{{ $order->client->name ?: ($order->customer_name ?: '—') }}</a>
+                                                        @else
+                                                            {{ $order->customer_name ?: '—' }}
+                                                        @endif
+                                                    </td>
+                                                    @break
+                                                @case('user')
+                                                    <td class="px-4 py-3 border-b">{{ $order->lastEditedBy?->name ?? '—' }}</td>
+                                                    @break
+                                                @case('amount_due')
+                                                    <td class="px-4 py-3 border-b text-right">{{ $formatOrderMoney($order->amount_due) }}</td>
+                                                    @break
+                                                @case('total_cost')
+                                                    <td class="px-4 py-3 border-b text-right font-bold">{{ $formatOrderMoney($order->total_cost) }}</td>
+                                                    @break
+                                            @endswitch
+                                        @endforeach
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                                        <td colspan="{{ count($orderTableColumns) }}" class="px-4 py-8 text-center text-gray-500">
                                             Замовлення ще не створено.
                                         </td>
                                     </tr>
@@ -298,11 +322,155 @@
                     <div class="mt-4">{{ $orders->links() }}</div>
                 </div>
             </div>
+
+            <div x-show="showEditor" x-cloak class="fixed inset-0 z-[14000] !mt-0 flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/50" @click="closeEditor()"></div>
+                <div data-orders-table-display-modal class="relative w-[820px] max-w-full rounded-xl border border-gray-200 bg-gray-50 p-6 shadow-2xl">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Редагування відображення таблиці</h3>
+                            <p class="mt-2 max-w-2xl text-sm text-gray-600">
+                                Перенесіть потрібні поля до блоку «Вибрано». Їх порядок зверху вниз визначає послідовність колонок у таблиці.
+                            </p>
+                        </div>
+                        <button type="button" @click="closeEditor()" class="text-2xl leading-none text-gray-400 hover:text-gray-700" aria-label="Закрити">&times;</button>
+                    </div>
+
+                    <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <section class="rounded-lg border border-gray-300 bg-white p-4">
+                            <h4 class="font-semibold text-gray-800">Доступно</h4>
+                            <p class="mt-1 text-xs text-gray-500">Поля, які зараз не відображаються.</p>
+                            <div class="mt-3 min-h-[260px] space-y-2">
+                                <template x-for="column in availableColumns" :key="column">
+                                    <button type="button" @click="selectColumn(column)" class="flex w-full items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm text-gray-700 hover:border-indigo-300 hover:bg-indigo-50">
+                                        <span x-text="definitions[column]"></span>
+                                        <span class="font-bold text-indigo-600" aria-hidden="true">→</span>
+                                    </button>
+                                </template>
+                                <p x-show="availableColumns.length === 0" class="py-8 text-center text-sm text-gray-400">Усі поля вибрано</p>
+                            </div>
+                        </section>
+
+                        <section class="rounded-lg border border-indigo-200 bg-white p-4">
+                            <h4 class="font-semibold text-gray-800">Вибрано</h4>
+                            <p class="mt-1 text-xs text-gray-500">Використовуйте стрілки, щоб змінити черговість.</p>
+                            <div class="mt-3 min-h-[260px] space-y-2">
+                                <template x-for="(column, index) in draftSelected" :key="column">
+                                    <div class="flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-2 text-sm text-gray-800">
+                                        <button type="button" @click="removeColumn(column)" :disabled="draftSelected.length === 1" class="rounded px-1.5 py-1 font-bold text-indigo-600 hover:bg-white disabled:cursor-not-allowed disabled:text-gray-300" title="Прибрати поле" aria-label="Прибрати поле">←</button>
+                                        <span class="min-w-0 flex-1 font-medium" x-text="definitions[column]"></span>
+                                        <button type="button" @click="moveColumn(index, -1)" :disabled="index === 0" class="rounded px-1.5 py-1 text-indigo-700 hover:bg-white disabled:cursor-not-allowed disabled:text-gray-300" title="Перемістити вище" aria-label="Перемістити вище">↑</button>
+                                        <button type="button" @click="moveColumn(index, 1)" :disabled="index === draftSelected.length - 1" class="rounded px-1.5 py-1 text-indigo-700 hover:bg-white disabled:cursor-not-allowed disabled:text-gray-300" title="Перемістити нижче" aria-label="Перемістити нижче">↓</button>
+                                    </div>
+                                </template>
+                            </div>
+                        </section>
+                    </div>
+
+                    <p x-show="saveError" x-cloak x-text="saveError" class="mt-4 rounded-md bg-red-100 px-3 py-2 text-sm text-red-700"></p>
+                    <div class="mt-5 flex justify-end gap-3">
+                        <button type="button" @click="closeEditor()" :disabled="isSaving" class="inline-flex h-[40px] items-center rounded-md border border-gray-300 bg-white px-5 text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-50">Скасувати</button>
+                        <button type="button" @click="applyColumns()" :disabled="isSaving || draftSelected.length === 0" class="inline-flex h-[40px] items-center rounded-md bg-indigo-600 px-5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50" x-text="isSaving ? 'Збереження...' : 'Застосувати'"></button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     @endif
 
     <script>
+        window.ordersTableDisplayEditor = function (config) {
+            return {
+                definitions: config.definitions || {},
+                selected: Array.isArray(config.selected) ? [...config.selected] : [],
+                draftSelected: [],
+                updateUrl: config.updateUrl || '',
+                showEditor: false,
+                isSaving: false,
+                saveError: '',
+
+                get availableColumns() {
+                    return Object.keys(this.definitions).filter((column) => !this.draftSelected.includes(column));
+                },
+
+                openEditor() {
+                    this.draftSelected = [...this.selected];
+                    this.saveError = '';
+                    this.showEditor = true;
+                    document.documentElement.classList.add('overflow-hidden');
+                },
+
+                closeEditor() {
+                    if (this.isSaving || !this.showEditor) {
+                        return;
+                    }
+
+                    this.showEditor = false;
+                    this.saveError = '';
+                    document.documentElement.classList.remove('overflow-hidden');
+                },
+
+                selectColumn(column) {
+                    if (this.definitions[column] && !this.draftSelected.includes(column)) {
+                        this.draftSelected.push(column);
+                    }
+                },
+
+                removeColumn(column) {
+                    if (this.draftSelected.length <= 1) {
+                        return;
+                    }
+
+                    this.draftSelected = this.draftSelected.filter((value) => value !== column);
+                },
+
+                moveColumn(index, direction) {
+                    const target = index + direction;
+                    if (target < 0 || target >= this.draftSelected.length) {
+                        return;
+                    }
+
+                    const columns = [...this.draftSelected];
+                    [columns[index], columns[target]] = [columns[target], columns[index]];
+                    this.draftSelected = columns;
+                },
+
+                async applyColumns() {
+                    if (this.isSaving || this.draftSelected.length === 0) {
+                        return;
+                    }
+
+                    this.isSaving = true;
+                    this.saveError = '';
+                    try {
+                        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                        const response = await fetch(this.updateUrl, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrf,
+                            },
+                            body: JSON.stringify({ columns: this.draftSelected }),
+                        });
+                        const payload = await response.json();
+                        if (!response.ok || !payload?.ok) {
+                            const validationMessage = payload?.errors
+                                ? Object.values(payload.errors).flat()[0]
+                                : null;
+                            throw new Error(validationMessage || payload?.message || 'Не вдалося зберегти налаштування таблиці.');
+                        }
+
+                        this.selected = [...this.draftSelected];
+                        window.location.reload();
+                    } catch (error) {
+                        this.saveError = error?.message || 'Не вдалося зберегти налаштування таблиці.';
+                        this.isSaving = false;
+                    }
+                },
+            };
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
             const form = document.querySelector('[data-orders-filters]');
             if (!form) {
