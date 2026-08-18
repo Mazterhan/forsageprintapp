@@ -301,7 +301,7 @@
                             <tr>
                                 <td class="px-3 py-2 border text-center align-middle font-semibold">{{ $loop->iteration }}</td>
                                 <td class="px-3 py-2 border align-top whitespace-pre-wrap break-words">{{ trim((string) ($item['nomenclature'] ?? '—')) }}</td>
-                                <td class="px-3 py-2 border align-top whitespace-pre-wrap break-words">{{ trim((string) ($item['description'] ?? '')) ?: '—' }}</td>
+                                <td class="px-3 py-2 border align-middle whitespace-pre-wrap break-words">{{ trim((string) ($item['description'] ?? '')) ?: '—' }}</td>
                                 <td class="px-3 py-2 border text-right align-middle">{{ $formatOrderMoney($item['quantity'] ?? 0) }}</td>
                                 <td class="px-3 py-2 border text-right align-middle">{{ $formatOrderMoney($item['unit_cost'] ?? 0) }}</td>
                                 <td class="px-3 py-2 border text-right align-middle font-semibold">{{ $formatOrderMoney($item['sum'] ?? 0) }}</td>

@@ -278,7 +278,7 @@
                                                 class="block min-h-[42px] w-full resize-none overflow-hidden rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                             ></textarea>
                                         </td>
-                                        <td class="w-[220px] border-b border-r border-gray-200 p-2 align-top">
+                                        <td class="w-[220px] border-b border-r border-gray-200 p-2 align-middle">
                                             <textarea
                                                 x-model="item.description"
                                                 data-order-description
