@@ -725,7 +725,7 @@ class DashboardController extends Controller
             })
             ->select('orders.*')
             ->addSelect(DB::raw('COALESCE(dashboard_order_payment_totals.total, 0) as linked_payments_total'))
-            ->with(['client:id,public_id,name', 'lastEditedBy:id,name']);
+            ->with(['client:id,public_id,name', 'createdBy:id,name']);
 
         if ($ownOrdersOnly) {
             $ordersQuery->where('orders.created_by', $user?->id);
@@ -798,7 +798,7 @@ class DashboardController extends Controller
                     ? 'id:'.$order->client_id
                     : 'name:'.mb_strtolower(trim((string) $order->customer_name), 'UTF-8'),
                 'customer' => $order->client?->name ?: ($order->customer_name ?: '—'),
-                'user' => $order->lastEditedBy?->name ?? '—',
+                'user' => $order->createdBy?->name ?? '—',
                 'updated_at' => $order->updated_at,
                 'total_cost' => $totalCost,
                 'payments_total' => $paymentsTotal,

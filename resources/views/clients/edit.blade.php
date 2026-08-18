@@ -378,7 +378,7 @@
                                                         </span>
                                                     </td>
                                                     <td class="border-b px-4 py-3">{{ $clientOrder->customer_name ?: '—' }}</td>
-                                                    <td class="border-b px-4 py-3">{{ $clientOrder->lastEditedBy?->name ?? '—' }}</td>
+                                                    <td class="border-b px-4 py-3">{{ $clientOrder->createdBy?->name ?? '—' }}</td>
                                                     <td class="border-b px-4 py-3 text-right">{{ $formatOrderMoney($clientOrder->amount_due) }}</td>
                                                     <td class="border-b px-4 py-3 text-right font-bold">{{ $formatOrderMoney($clientOrder->total_cost) }}</td>
                                                 </tr>

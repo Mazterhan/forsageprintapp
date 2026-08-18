@@ -279,7 +279,7 @@
                     </div>
                     <div class="space-y-2 text-left w-max shrink-0">
                         <div><span class="font-semibold">Дата створення:</span> {{ $formatOrderDate($order->created_at) }}</div>
-                        <div><span class="font-semibold">Користувач:</span> {{ $order->lastEditedBy?->name ?? '—' }}</div>
+                        <div><span class="font-semibold">Користувач:</span> {{ $order->createdBy?->name ?? '—' }}</div>
                     </div>
                 </div>
             </div>

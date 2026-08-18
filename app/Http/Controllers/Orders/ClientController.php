@@ -265,7 +265,7 @@ class ClientController extends Controller
             'status' => 'orders.status',
             'number' => 'orders.order_number',
             'customer' => 'orders.customer_name',
-            'user' => 'order_editors.name',
+            'user' => 'order_creators.name',
             'amount_due' => 'orders.amount_due',
             'total_cost' => 'orders.total_cost',
         ];
@@ -274,13 +274,13 @@ class ClientController extends Controller
             ->whereNotNull('order_id')
             ->groupBy('order_id');
         $clientOrdersQuery = $client->orders()
-            ->leftJoin('users as order_editors', 'order_editors.id', '=', 'orders.last_edited_by')
+            ->leftJoin('users as order_creators', 'order_creators.id', '=', 'orders.created_by')
             ->leftJoinSub($paymentTotals, 'card_order_payment_totals', function ($join): void {
                 $join->on('card_order_payment_totals.order_id', '=', 'orders.id');
             })
             ->select('orders.*')
             ->addSelect(DB::raw('COALESCE(card_order_payment_totals.total, 0) as linked_payments_total'))
-            ->with('lastEditedBy:id,name');
+            ->with('createdBy:id,name');
 
         if (! $clientPermissions['orders']) {
             $clientOrdersQuery->whereRaw('1 = 0');

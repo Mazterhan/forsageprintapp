@@ -297,7 +297,7 @@
                                                     </td>
                                                     @break
                                                 @case('user')
-                                                    <td class="px-4 py-3 border-b">{{ $order->lastEditedBy?->name ?? '—' }}</td>
+                                                    <td class="px-4 py-3 border-b">{{ $order->createdBy?->name ?? '—' }}</td>
                                                     @break
                                                 @case('amount_due')
                                                     <td class="px-4 py-3 border-b text-right">{{ $formatOrderMoney($order->amount_due) }}</td>

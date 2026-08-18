@@ -110,8 +110,8 @@ class OrderController extends Controller
             ->get(['id', 'name']);
         $availableUsers = User::query()
             ->whereIn('id', (clone $availableOrdersQuery)
-                ->whereNotNull('orders.last_edited_by')
-                ->select('orders.last_edited_by'))
+                ->whereNotNull('orders.created_by')
+                ->select('orders.created_by'))
             ->orderBy('name')
             ->get(['id', 'name']);
         $existingOrderStatuses = (clone $availableOrdersQuery)
@@ -132,13 +132,13 @@ class OrderController extends Controller
         $availablePaymentStatuses = array_intersect_key($paymentStatusLabels, array_flip($availablePaymentStatusKeys));
 
         $query = Order::query()
-            ->leftJoin('users', 'users.id', '=', 'orders.last_edited_by')
+            ->leftJoin('users', 'users.id', '=', 'orders.created_by')
             ->leftJoinSub($paymentTotals, 'order_payment_totals', function ($join): void {
                 $join->on('order_payment_totals.order_id', '=', 'orders.id');
             })
             ->select('orders.*')
             ->addSelect(DB::raw('COALESCE(order_payment_totals.total, 0) as linked_payments_total'))
-            ->with(['lastEditedBy:id,name', 'client:id,public_id,name']);
+            ->with(['createdBy:id,name', 'client:id,public_id,name']);
 
         $applyOrderScope($query);
 
@@ -149,7 +149,7 @@ class OrderController extends Controller
             $query->whereIn('orders.client_id', $selectedClientIds);
         }
         if ($selectedUserIds !== []) {
-            $query->whereIn('orders.last_edited_by', $selectedUserIds);
+            $query->whereIn('orders.created_by', $selectedUserIds);
         }
         if ($selectedOrderStatuses !== []) {
             $query->whereIn('orders.status', $selectedOrderStatuses);
@@ -442,7 +442,7 @@ class OrderController extends Controller
 
         $order->load([
             'client:id,public_id,name',
-            'lastEditedBy:id,name',
+            'createdBy:id,name',
         ]);
 
         if ($canManageOrderPayments) {

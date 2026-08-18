@@ -28,9 +28,11 @@ class OrderIndexTest extends TestCase
     public function test_orders_page_displays_order_table_and_create_link(): void
     {
         $user = $this->createUserWithRole(['can_orders' => true]);
+        $creator = User::factory()->create(['name' => 'Автор замовлення']);
         $editor = User::factory()->create(['name' => 'Останній редактор']);
         $order = Order::factory()->create([
             'customer_name' => 'Тестовий замовник',
+            'created_by' => $creator->id,
             'last_edited_by' => $editor->id,
             'amount_due' => 650.25,
             'total_cost' => 1000.50,
@@ -49,7 +51,8 @@ class OrderIndexTest extends TestCase
             ->assertSee('Вартість')
             ->assertSee($order->order_number)
             ->assertSee('Тестовий замовник')
-            ->assertSee('Останній редактор')
+            ->assertSee('Автор замовлення')
+            ->assertDontSee('Останній редактор')
             ->assertSee('650.25')
             ->assertSee('1 000.50');
 
@@ -242,6 +245,7 @@ class OrderIndexTest extends TestCase
             'client_id' => $firstClient->id,
             'customer_name' => $firstClient->name,
             'last_edited_by' => $firstEditor->id,
+            'created_by' => $firstEditor->id,
             'status' => Order::STATUS_NEW,
             'total_cost' => 1000,
         ]);
@@ -249,6 +253,7 @@ class OrderIndexTest extends TestCase
             'client_id' => $secondClient->id,
             'customer_name' => $secondClient->name,
             'last_edited_by' => $secondEditor->id,
+            'created_by' => $secondEditor->id,
             'status' => Order::STATUS_BLOCKED,
             'total_cost' => 1000,
         ]);
@@ -256,6 +261,7 @@ class OrderIndexTest extends TestCase
             'client_id' => $firstClient->id,
             'customer_name' => $firstClient->name,
             'last_edited_by' => $firstEditor->id,
+            'created_by' => $firstEditor->id,
             'status' => Order::STATUS_COMPLETED,
             'total_cost' => 1000,
         ]);
@@ -727,6 +733,7 @@ class OrderIndexTest extends TestCase
         $order = Order::factory()->create([
             'client_id' => $client->id,
             'customer_name' => 'Замовник для перегляду',
+            'created_by' => $editor->id,
             'last_edited_by' => $editor->id,
             'items' => [
                 [
@@ -1114,6 +1121,7 @@ class OrderIndexTest extends TestCase
     public function test_order_can_be_edited_in_place_and_item_changes_are_recorded(): void
     {
         $user = $this->createUserWithRole(['can_orders' => true]);
+        $creator = User::factory()->create(['name' => 'Незмінний автор замовлення']);
         $client = Client::query()->create([
             'code' => 'FP-000020',
             'name' => 'Замовник редагування',
@@ -1121,6 +1129,7 @@ class OrderIndexTest extends TestCase
         ]);
         $order = Order::factory()->create([
             'client_id' => $client->id,
+            'created_by' => $creator->id,
             'status' => Order::STATUS_NEW,
             'customer_name' => $client->name,
             'last_edited_by' => $user->id,
@@ -1167,6 +1176,7 @@ class OrderIndexTest extends TestCase
         $this->actingAs($user)
             ->patchJson(route('orders.update', $order), [
                 'client_id' => $client->id,
+                'created_by' => $user->id,
                 'customer_name' => $client->name,
                 'status' => Order::STATUS_CANCELLED,
                 'items' => [
@@ -1192,6 +1202,7 @@ class OrderIndexTest extends TestCase
         $this->assertSame('500.00', $order->total_cost);
         $this->assertSame('480.00', $order->amount_due);
         $this->assertSame(Order::STATUS_CANCELLED, $order->status);
+        $this->assertSame($creator->id, $order->created_by);
         $this->assertSame($user->id, $order->last_edited_by);
         $this->assertSame('Змінена позиція', $order->items[0]['nomenclature']);
         $this->assertNotEmpty($order->items[1]['item_id']);
@@ -1220,6 +1231,7 @@ class OrderIndexTest extends TestCase
         $this->actingAs($user)
             ->get(route('orders.show', $order))
             ->assertOk()
+            ->assertSee('Незмінний автор замовлення')
             ->assertSee('Історія змін замовлення')
             ->assertDontSee('Видалення')
             ->assertViewHas('order', fn (Order $loadedOrder): bool => ! $loadedOrder->relationLoaded('histories'));
