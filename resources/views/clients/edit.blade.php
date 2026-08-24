@@ -329,7 +329,7 @@
                                 x-cloak
                                 class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
                             >
-                                <h3 class="mb-4 text-sm font-semibold uppercase text-gray-700">Замовлення</h3>
+                                <h3 class="mb-4 text-sm font-semibold uppercase text-gray-700">Список замовлень</h3>
                                 <div class="overflow-x-auto">
                                     <table class="client-orders-table min-w-full border border-gray-200 text-sm">
                                         <thead>
@@ -339,7 +339,6 @@
                                                     'status' => 'Статус',
                                                     'number' => 'Номер замовлення',
                                                     'payment' => 'Оплата',
-                                                    'customer' => "Ім'я замовника",
                                                     'user' => 'Користувач',
                                                     'amount_due' => 'До сплати',
                                                     'total_cost' => 'Вартість',
@@ -377,14 +376,13 @@
                                                             {{ $orderPaymentStatusLabel }}
                                                         </span>
                                                     </td>
-                                                    <td class="border-b px-4 py-3">{{ $clientOrder->customer_name ?: '—' }}</td>
                                                     <td class="border-b px-4 py-3">{{ $clientOrder->createdBy?->name ?? '—' }}</td>
                                                     <td class="border-b px-4 py-3 text-right">{{ $formatOrderMoney($clientOrder->amount_due) }}</td>
                                                     <td class="border-b px-4 py-3 text-right font-bold">{{ $formatOrderMoney($clientOrder->total_cost) }}</td>
                                                 </tr>
                                             @empty
                                                 <tr>
-                                                    <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                                                    <td colspan="7" class="px-4 py-8 text-center text-gray-500">
                                                         Замовлення ще не створено.
                                                     </td>
                                                 </tr>
