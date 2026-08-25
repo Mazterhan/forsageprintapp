@@ -272,7 +272,7 @@
                                                 data-order-nomenclature
                                                 :name="`items[${itemIndex}][nomenclature]`"
                                                 @input="onNomenclatureInput(item, $event)"
-                                                maxlength="500"
+                                                maxlength="2000"
                                                 rows="1"
                                                 placeholder="Введіть номенклатуру"
                                                 class="block min-h-[42px] w-full resize-none overflow-hidden rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -528,7 +528,7 @@
                 },
 
                 onNomenclatureInput(item, event) {
-                    item.nomenclature = String(event.currentTarget.value || '').slice(0, 500);
+                    item.nomenclature = String(event.currentTarget.value || '').slice(0, 2000);
                     event.currentTarget.value = item.nomenclature;
                     this.resizeItemTextarea(event.currentTarget);
                     this.ensureBlankOrderItem();

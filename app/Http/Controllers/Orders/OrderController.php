@@ -282,7 +282,7 @@ class OrderController extends Controller
 
         $data = $request->validate([
             'items' => ['required', 'array', 'min:1'],
-            'items.*.nomenclature' => ['required', 'string', 'max:500'],
+            'items.*.nomenclature' => ['required', 'string', 'max:2000'],
             'items.*.description' => ['nullable', 'string', 'max:200'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_cost' => ['required', 'integer', 'min:1'],
@@ -345,7 +345,7 @@ class OrderController extends Controller
             'customer_name' => ['required', 'string', 'max:255'],
             'create_client' => ['nullable', 'boolean'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.nomenclature' => ['required', 'string', 'max:500'],
+            'items.*.nomenclature' => ['required', 'string', 'max:2000'],
             'items.*.description' => ['nullable', 'string', 'max:200'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_cost' => ['required', 'integer', 'min:1'],
@@ -875,7 +875,7 @@ class OrderController extends Controller
             'status' => ['sometimes', 'required', 'string', 'in:'.implode(',', array_keys(Order::selectableStatuses()))],
             'items' => ['required', 'array', 'min:1'],
             'items.*.item_id' => ['nullable', 'string', 'max:100'],
-            'items.*.nomenclature' => ['required', 'string', 'max:500'],
+            'items.*.nomenclature' => ['required', 'string', 'max:2000'],
             'items.*.description' => ['nullable', 'string', 'max:200'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_cost' => ['required', 'integer', 'min:1'],
