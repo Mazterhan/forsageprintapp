@@ -491,7 +491,8 @@ class OrderController extends Controller
             : 0;
         $orderPaymentsTotal = (float) $order->payments()->sum('amount_uah');
         $orderPaymentBalanceAllowsNew = $orderPaymentsTotal <= 0 || $orderPaymentsTotal < (float) $order->total_cost;
-        $canAddOrderPayment = $order->status === Order::STATUS_NEW && $orderPaymentBalanceAllowsNew;
+        $canAddOrderPayment = in_array($order->status, [Order::STATUS_NEW, Order::STATUS_BLOCKED], true)
+            && $orderPaymentBalanceAllowsNew;
         $canMergeOrder = $canUpdateOrder
             && $order->client_id
             && $order->status === Order::STATUS_NEW

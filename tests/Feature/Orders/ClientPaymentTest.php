@@ -704,7 +704,7 @@ class ClientPaymentTest extends TestCase
             ->get(route('orders.show', $order))
             ->assertOk()
             ->assertSee('viewPayment(', false)
-            ->assertSee('<fieldset :disabled="isReadOnlyPayment || (paymentsBlocked && !isEditing)">', false)
+            ->assertSee('<fieldset :disabled="isReadOnlyPayment">', false)
             ->assertSee('x-show="isReadOnlyPayment && canEditViewedPayment"', false)
             ->assertSee('Для внесеного платежу, дельта переплати за замовлення була зарахована до переплати Клієнта', false);
 
@@ -1072,26 +1072,33 @@ class ClientPaymentTest extends TestCase
             ->assertJsonValidationErrors('order_public_id');
     }
 
-    public function test_non_new_order_statuses_block_new_payments_and_are_excluded_from_selectors(): void
+    public function test_blocked_orders_with_amount_due_accept_direct_payments_but_not_overpayment_spending(): void
     {
         $user = $this->createUserWithRole([
             'can_orders' => true,
             'orders_clients_manage' => true,
         ]);
         $client = Client::factory()->create();
-        $newOrder = Order::factory()->create(['client_id' => $client->id, 'status' => Order::STATUS_NEW]);
-        $blockedOrder = Order::factory()->create(['client_id' => $client->id, 'status' => Order::STATUS_BLOCKED]);
-        $completedOrder = Order::factory()->create(['client_id' => $client->id, 'status' => Order::STATUS_COMPLETED]);
-        $cancelledOrder = Order::factory()->create(['client_id' => $client->id, 'status' => Order::STATUS_CANCELLED]);
+        $newOrder = Order::factory()->create(['client_id' => $client->id, 'status' => Order::STATUS_NEW, 'total_cost' => 1000]);
+        $blockedOrder = Order::factory()->create(['client_id' => $client->id, 'status' => Order::STATUS_BLOCKED, 'total_cost' => 1000]);
+        $completedOrder = Order::factory()->create(['client_id' => $client->id, 'status' => Order::STATUS_COMPLETED, 'total_cost' => 1000]);
+        $cancelledOrder = Order::factory()->create(['client_id' => $client->id, 'status' => Order::STATUS_CANCELLED, 'total_cost' => 1000]);
 
         $this->actingAs($user)
-            ->getJson(route('orders.clients.payments.orders', $client))
+            ->getJson(route('orders.clients.payments.orders', ['client' => $client, 'payment_source' => 'direct']))
+            ->assertOk()
+            ->assertJsonCount(2, 'orders')
+            ->assertJsonFragment(['id' => $newOrder->public_id])
+            ->assertJsonFragment(['id' => $blockedOrder->public_id])
+            ->assertJsonMissing(['id' => $completedOrder->public_id])
+            ->assertJsonMissing(['id' => $cancelledOrder->public_id]);
+
+        $this->actingAs($user)
+            ->getJson(route('orders.clients.payments.orders', ['client' => $client, 'payment_source' => 'overpayment']))
             ->assertOk()
             ->assertJsonCount(1, 'orders')
             ->assertJsonFragment(['id' => $newOrder->public_id])
-            ->assertJsonMissing(['id' => $blockedOrder->public_id])
-            ->assertJsonMissing(['id' => $completedOrder->public_id])
-            ->assertJsonMissing(['id' => $cancelledOrder->public_id]);
+            ->assertJsonMissing(['id' => $blockedOrder->public_id]);
 
         $paymentPayload = [
             'amount' => 100,
@@ -1102,7 +1109,38 @@ class ClientPaymentTest extends TestCase
             'payment_source' => 'direct',
             'return_context' => 'client',
         ];
-        foreach ([$blockedOrder, $completedOrder, $cancelledOrder] as $order) {
+        $this->actingAs($user)
+            ->postJson(route('orders.clients.payments.store', $client), [
+                ...$paymentPayload,
+                'order_public_id' => $blockedOrder->public_id,
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('client_payments', [
+            'order_id' => $blockedOrder->id,
+            'amount_uah' => 100,
+            'is_from_overpayment' => false,
+        ]);
+
+        ClientPayment::query()->create([
+            'client_id' => $client->id,
+            'amount' => 1000,
+            'amount_uah' => 1000,
+            'currency' => 'UAH',
+            'payment_type' => 'prepayment',
+            'paid_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('orders.clients.payments.store', $client), [
+                ...$paymentPayload,
+                'payment_source' => 'overpayment',
+                'order_public_id' => $blockedOrder->public_id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('order_public_id');
+
+        foreach ([$completedOrder, $cancelledOrder] as $order) {
             $this->actingAs($user)
                 ->postJson(route('orders.clients.payments.store', $client), [
                     ...$paymentPayload,
@@ -1117,7 +1155,8 @@ class ClientPaymentTest extends TestCase
             ->assertOk()
             ->assertSee('data-order-payments-blocked="true"', false)
             ->assertSee('paymentsBlocked: true', false)
-            ->assertSee('Внесення платежів недоступне для заблокованих замовлень. Розблокуйте замовлення');
+            ->assertSee('Списання з переплати недоступне для заблокованих замовлень. Розблокуйте замовлення')
+            ->assertSee('canAddPayment: true', false);
 
         $this->actingAs($user)
             ->get(route('orders.show', $cancelledOrder))

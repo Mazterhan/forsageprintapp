@@ -394,7 +394,7 @@
                             </button>
                         </div>
 
-                        <fieldset :disabled="isReadOnlyPayment || (paymentsBlocked && !isEditing)">
+                        <fieldset :disabled="isReadOnlyPayment">
 
                         <div class="mt-4 grid grid-cols-1 gap-4" :class="isForeignCurrency() ? 'md:grid-cols-5' : 'md:grid-cols-4'">
                             <div>
@@ -443,8 +443,8 @@
                         </fieldset>
 
                         <div class="mt-4 flex flex-wrap items-center gap-3">
-                            <p x-show="paymentsBlocked && !isEditing" x-cloak class="mr-auto text-sm font-semibold text-amber-600">
-                                Внесення платежів недоступне для заблокованих замовлень. Розблокуйте замовлення
+                            <p x-show="paymentsBlocked && canSpendOverpayment && !isEditing" x-cloak class="mr-auto text-sm font-semibold text-amber-600">
+                                Списання з переплати недоступне для заблокованих замовлень. Розблокуйте замовлення
                             </p>
                             <div class="ml-auto flex flex-wrap justify-end gap-3">
                             <button x-show="isEditing" x-cloak type="button" @click="resetForm()" :disabled="isSaving" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50" x-text="isReadOnlyPayment ? 'Повернутися до платежів' : 'Скасувати редагування'"></button>
@@ -453,7 +453,7 @@
                                 Списати з переплати
                             </button>
                             @endif
-                            <button x-show="!isReadOnlyPayment" x-cloak type="button" @click="submitPayment(isEditing ? null : false)" :disabled="paymentsBlocked || isSaving" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+                            <button x-show="!isReadOnlyPayment" x-cloak type="button" @click="submitPayment(isEditing ? null : false)" :disabled="isSaving || (!isEditing && !canAddPayment)" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
                                 <span x-text="isSaving ? 'Збереження...' : (isEditing ? 'Зберегти зміни' : 'Внести платіж')"></span>
                             </button>
                             </div>
@@ -794,7 +794,7 @@
 
                 handleOrderStatusChanged(status) {
                     this.paymentsBlocked = status === 'blocked';
-                    this.canAddPayment = status === 'new' && this.paymentBalanceAllowsNew;
+                    this.canAddPayment = ['new', 'blocked'].includes(status) && this.paymentBalanceAllowsNew;
                     if (status === 'cancelled') {
                         this.closeModal();
                     }
@@ -882,14 +882,6 @@
                     if (this.isSaving) {
                         return;
                     }
-                    if (!this.isEditing && this.paymentsBlocked) {
-                        this.paymentError = 'Внесення платежів недоступне для заблокованих замовлень. Розблокуйте замовлення';
-                        return;
-                    }
-                    if (!this.isEditing && !this.canAddPayment) {
-                        this.paymentError = 'Новий платіж недоступний: замовлення вже сплачено або має переплату.';
-                        return;
-                    }
 
                     if (!this.isEditing && typeof fromOverpayment === 'boolean') {
                         if (fromOverpayment && !this.canSpendOverpayment) {
@@ -897,6 +889,14 @@
                             return;
                         }
                         this.form.fromOverpayment = fromOverpayment;
+                    }
+                    if (!this.isEditing && this.form.fromOverpayment && this.paymentsBlocked) {
+                        this.paymentError = 'Списання з переплати недоступне для заблокованих замовлень. Розблокуйте замовлення';
+                        return;
+                    }
+                    if (!this.isEditing && !this.canAddPayment) {
+                        this.paymentError = 'Новий платіж недоступний: замовлення вже сплачено або має переплату.';
+                        return;
                     }
 
                     this.paymentError = this.validate();

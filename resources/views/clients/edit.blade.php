@@ -1036,7 +1036,9 @@
 
                     this.isLoadingPaymentOrders = true;
                     try {
-                        const response = await fetch(this.paymentOrdersUrl, {
+                        const ordersUrl = new URL(this.paymentOrdersUrl, window.location.origin);
+                        ordersUrl.searchParams.set('payment_source', this.paymentForm.fromOverpayment ? 'overpayment' : 'direct');
+                        const response = await fetch(ordersUrl.toString(), {
                             method: 'GET',
                             headers: {
                                 'Accept': 'application/json',
