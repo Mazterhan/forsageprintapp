@@ -740,7 +740,7 @@ class PublicUrlRegressionTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee(route('orders.proposals.show', $proposal), false)
-            ->assertSee(route('orders.proposals.show', $autosavedProposal), false)
+            ->assertDontSee(route('orders.proposals.show', $autosavedProposal), false)
             ->assertDontSee('href="'.url('/orders/proposals/'.$proposal->id).'"', false);
     }
 }

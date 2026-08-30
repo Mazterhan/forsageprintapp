@@ -376,7 +376,7 @@ class OrderIndexTest extends TestCase
             ->assertSee('x-show="hasNomenclatureItem() && (isEdit || hasCustomerName())"', false)
             ->assertSee('Додати до існуючого замовлення')
             ->assertSee(str_replace('/', '\\/', route('orders.append-candidate')), false)
-            ->assertSee('maxlength="500"', false)
+            ->assertSee('maxlength="2000"', false)
             ->assertSee('data-order-description', false)
             ->assertSee('maxlength="200"', false)
             ->assertDontSee('placeholder="Введіть опис"', false)
