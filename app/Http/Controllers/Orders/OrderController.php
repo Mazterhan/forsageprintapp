@@ -1242,14 +1242,22 @@ class OrderController extends Controller
             ->map(fn ($value) => round((float) ($value ?? 0), 2))
             ->toArray();
 
-        $specialFlmCodes = DB::table('special_flm_set_items')
+        $specialFlmRows = DB::table('special_flm_set_items')
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->pluck('internal_code')
-            ->map(fn ($code) => trim((string) $code))
-            ->filter(fn ($code) => $code !== '')
+            ->get(['internal_code', 'has_lamination'])
+            ->filter(fn ($row) => trim((string) $row->internal_code) !== '')
             ->values()
             ->all();
+
+        $specialFlmCodes = collect($specialFlmRows)
+            ->map(fn ($row) => trim((string) $row->internal_code))
+            ->values()
+            ->all();
+
+        $specialFlmLaminationByCode = collect($specialFlmRows)
+            ->mapWithKeys(fn ($row) => [trim((string) $row->internal_code) => (bool) $row->has_lamination])
+            ->toArray();
 
         $typeCategoryMatrix = ProductTypeCategoryRule::query()
             ->with(['productType:id', 'productCategory:id,name'])
@@ -1277,6 +1285,7 @@ class OrderController extends Controller
             'servicePriceByCode' => $servicePriceByCode,
             'servicePurchasePriceByCode' => $servicePurchasePriceByCode,
             'specialFlmCodes' => $specialFlmCodes,
+            'specialFlmLaminationByCode' => $specialFlmLaminationByCode,
             'typeCategoryMatrix' => $typeCategoryMatrix,
             'proposalId' => $proposal?->id,
             'initialState' => $proposal?->payload,

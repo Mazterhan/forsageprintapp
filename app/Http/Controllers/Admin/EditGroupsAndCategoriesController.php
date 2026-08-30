@@ -121,11 +121,12 @@ class EditGroupsAndCategoriesController extends Controller
         $savedRows = DB::table('special_flm_set_items')
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->get(['price_item_id', 'internal_code', 'name'])
+            ->get(['price_item_id', 'internal_code', 'name', 'has_lamination'])
             ->map(fn ($item) => [
                 'price_item_id' => (int) $item->price_item_id,
                 'code' => (string) $item->internal_code,
                 'name' => (string) $item->name,
+                'has_lamination' => (bool) $item->has_lamination,
             ])
             ->all();
 
@@ -165,13 +166,23 @@ class EditGroupsAndCategoriesController extends Controller
         $data = $request->validate([
             'price_item_ids' => ['nullable', 'array'],
             'price_item_ids.*' => ['nullable', 'integer', 'exists:price_items,id'],
+            'has_lamination' => ['nullable', 'array'],
+            'has_lamination.*' => ['nullable', 'boolean'],
         ]);
 
-        $ids = collect($data['price_item_ids'] ?? [])
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn (int $id) => $id > 0)
-            ->unique()
+        $laminationFlags = collect($data['has_lamination'] ?? []);
+        $selectedRows = collect($data['price_item_ids'] ?? [])
+            ->map(function ($id, int $index) use ($laminationFlags) {
+                return [
+                    'id' => (int) $id,
+                    'has_lamination' => (bool) $laminationFlags->get($index, false),
+                ];
+            })
+            ->filter(fn (array $row) => $row['id'] > 0)
+            ->unique('id')
             ->values();
+
+        $ids = $selectedRows->pluck('id')->values();
 
         $items = PriceItem::query()
             ->whereIn('id', $ids)
@@ -189,9 +200,9 @@ class EditGroupsAndCategoriesController extends Controller
 
         $userId = $request->user()?->id;
 
-        DB::transaction(function () use ($validIds, $items, $userId): void {
+        DB::transaction(function () use ($validIds, $items, $selectedRows, $userId): void {
             $existing = DB::table('special_flm_set_items')
-                ->get(['price_item_id', 'internal_code', 'name'])
+                ->get(['price_item_id', 'internal_code', 'name', 'has_lamination'])
                 ->keyBy('price_item_id');
 
             $nextIdSet = $validIds->flip();
@@ -213,10 +224,12 @@ class EditGroupsAndCategoriesController extends Controller
             foreach ($validIds as $index => $priceItemId) {
                 $item = $items->get($priceItemId);
                 $existingRow = $existing->get($priceItemId);
+                $selectedRow = $selectedRows->firstWhere('id', $priceItemId);
                 $payload = [
                     'price_item_id' => $item->id,
                     'internal_code' => (string) $item->internal_code,
                     'name' => (string) $item->name,
+                    'has_lamination' => $existingRow ? (bool) $existingRow->has_lamination : (bool) ($selectedRow['has_lamination'] ?? false),
                     'sort_order' => $index + 1,
                     'updated_by' => $userId,
                     'updated_at' => now(),

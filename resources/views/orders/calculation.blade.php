@@ -44,6 +44,7 @@
                     servicePriceByCode: @js($servicePriceByCode),
                     servicePurchasePriceByCode: @js($servicePurchasePriceByCode),
                     specialFlmCodes: @js($specialFlmCodes ?? []),
+                    specialFlmLaminationByCode: @js($specialFlmLaminationByCode ?? []),
                     typeCategoryMatrix: @js($typeCategoryMatrix),
                     proposalId: @js($proposalId ?? null),
                     initialState: @js($initialState ?? null),
@@ -1123,6 +1124,7 @@
                 servicePriceByCode: config.servicePriceByCode || {},
                 servicePurchasePriceByCode: config.servicePurchasePriceByCode || {},
                 specialFlmCodes: (config.specialFlmCodes || []).map((item) => (item || '').toString().trim().toUpperCase()).filter((item) => item !== ''),
+                specialFlmLaminationByCode: Object.fromEntries(Object.entries(config.specialFlmLaminationByCode || {}).map(([code, value]) => [(code || '').toString().trim().toUpperCase(), Boolean(value)])),
                 typeCategoryMatrix: config.typeCategoryMatrix || {},
                 proposalId: config.proposalId || null,
                 initialState: config.initialState || null,
@@ -3321,6 +3323,11 @@
                     return (this.specialFlmCodes || []).includes(code);
                 },
 
+                hasSpecialFlmLamination(material) {
+                    const code = this.normalizeCode(this.getMaterialCode(material));
+                    return Boolean((this.specialFlmLaminationByCode || {})[code]);
+                },
+
                 isFilmMaterialRestrictedByType(material) {
                     return this.isSpecialFlmMaterial(material);
                 },
@@ -4278,6 +4285,10 @@
                 resolveCuttingServiceCode(product) {
                     const cuttingMode = String(product?.services?.cutting || '').trim();
                     if (cuttingMode === 'Плотер') {
+                        if (this.isSpecialFlmMaterial(product.material)) {
+                            return this.hasSpecialFlmLamination(product.material) ? 'SERV-008' : 'SERV-007';
+                        }
+
                         const laminationMode = String(product?.services?.lamination || '').trim();
                         const isLaminated = laminationMode === 'Одностороннє' || laminationMode === 'Двостороннє';
 
