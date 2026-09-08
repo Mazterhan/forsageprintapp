@@ -55,9 +55,9 @@ class DashboardController extends Controller
         $timezone = 'Europe/Kiev';
         $now = now($timezone);
 
-        $period = (string) $request->query('period', 'mtd');
+        $period = (string) $request->query('period', 'ytd');
         if (! in_array($period, ['all', 'ytd', 'mtd', 'wtd', 'custom'], true)) {
-            $period = 'mtd';
+            $period = 'ytd';
         }
 
         $from = null;
@@ -91,8 +91,8 @@ class DashboardController extends Controller
                 }
 
                 if ($periodError) {
-                    $period = 'mtd';
-                    $from = $now->copy()->startOfMonth()->startOfDay();
+                    $period = 'ytd';
+                    $from = $now->copy()->startOfYear()->startOfDay();
                     $to = $now->copy()->endOfDay();
                 }
             } else {
@@ -649,9 +649,9 @@ class DashboardController extends Controller
         $user = $request->user();
         $timezone = 'Europe/Kiev';
         $now = now($timezone);
-        $period = (string) $request->query('period', 'mtd');
+        $period = (string) $request->query('period', 'ytd');
         if (! in_array($period, ['all', 'ytd', 'mtd', 'wtd', 'custom'], true)) {
-            $period = 'mtd';
+            $period = 'ytd';
         }
 
         $from = null;
@@ -685,8 +685,8 @@ class DashboardController extends Controller
                 }
 
                 if ($periodError) {
-                    $period = 'mtd';
-                    $from = $now->copy()->startOfMonth()->startOfDay();
+                    $period = 'ytd';
+                    $from = $now->copy()->startOfYear()->startOfDay();
                     $to = $now->copy()->endOfDay();
                 }
             } else {

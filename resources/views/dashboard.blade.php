@@ -6,7 +6,7 @@
     </x-slot>
 
     @php
-        $period = $filters['period'] ?? 'mtd';
+        $period = $filters['period'] ?? 'ytd';
         $selectedClientIds = collect($filters['client_id'] ?? [])->map(static fn ($value) => (int) $value)->all();
         $selectedClientNames = $clients
             ->filter(fn ($client) => in_array((int) $client->id, $selectedClientIds, true))
