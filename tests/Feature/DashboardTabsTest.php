@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\ClientPayment;
 use App\Models\Order;
 use App\Models\OrderProposal;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesRoles;
 use Tests\TestCase;
@@ -31,7 +32,82 @@ class DashboardTabsTest extends TestCase
             ->assertSee(route('dashboard', ['tab' => 'orders']), false)
             ->assertSee('Кількість замовлень')
             ->assertViewIs('dashboard-orders')
-            ->assertViewHas('activeTab', 'orders');
+            ->assertViewHas('activeTab', 'orders')
+            ->assertViewHas('filters', fn (array $filters): bool => $filters['period'] === 'ytd');
+    }
+
+    public function test_both_dashboard_tabs_offer_and_calculate_the_new_period_presets(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-07 12:34:00', 'Europe/Kiev'));
+
+        try {
+            $user = $this->analyticsUser();
+            $presetLabels = [
+                'З початку поточного тижня',
+                'З початку поточного місяця',
+                'З початку поточного кварталу',
+                'З початку поточного року',
+                'За останні 90 днів',
+                'За останні 180 днів',
+                'За весь період',
+                'Кастомний період',
+            ];
+            $expectedRanges = [
+                'last_90_days' => ['2026-05-10', '2026-08-07'],
+                'last_180_days' => ['2026-02-09', '2026-08-07'],
+                'qtd' => ['2026-07-01', '2026-08-07'],
+            ];
+
+            foreach (['orders', 'proposals'] as $tab) {
+                $this->actingAs($user)
+                    ->get(route('dashboard', ['tab' => $tab]))
+                    ->assertOk()
+                    ->assertSee('data-dashboard-period-block', false)
+                    ->assertSee('data-auto-submit-period', false)
+                    ->assertSee('data-custom-period-error', false)
+                    ->assertSee('class="grid grid-cols-2 gap-3"', false)
+                    ->assertSeeInOrder($presetLabels)
+                    ->assertViewHas('filters', fn (array $filters): bool => $filters['period'] === 'ytd');
+
+                foreach ($expectedRanges as $period => [$from, $to]) {
+                    $this->actingAs($user)
+                        ->get(route('dashboard', ['tab' => $tab, 'period' => $period]))
+                        ->assertOk()
+                        ->assertViewHas('filters', fn (array $filters): bool => $filters['period'] === $period
+                            && $filters['from'] === $from
+                            && $filters['to'] === $to);
+                }
+            }
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_incomplete_custom_period_is_blocked_in_browser_and_has_an_accurate_server_fallback(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-09 12:00:00', 'Europe/Kiev'));
+
+        try {
+            $user = $this->analyticsUser();
+
+            foreach (['orders', 'proposals'] as $tab) {
+                $this->actingAs($user)
+                    ->get(route('dashboard', [
+                        'tab' => $tab,
+                        'period' => 'custom',
+                        'from' => '2026-09-01',
+                        'to' => '',
+                    ]))
+                    ->assertOk()
+                    ->assertSee('Для кастомного періоду потрібно вказати обидві дати:', false)
+                    ->assertSee('Кастомний період не застосовано. Показано дані з початку поточного року.', false)
+                    ->assertViewHas('filters', fn (array $filters): bool => $filters['period'] === 'ytd'
+                        && $filters['from'] === '2026-01-01'
+                        && $filters['to'] === '2026-09-09');
+            }
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_analytics_page_can_be_opened_without_exposing_tabs_or_filters(): void

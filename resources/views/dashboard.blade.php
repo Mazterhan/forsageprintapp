@@ -165,6 +165,13 @@
             .dashboard-shell {
                 flex-direction: row;
                 align-items: flex-start;
+                margin-left: -40px;
+            }
+        }
+
+        @media (min-width: 1800px) {
+            .dashboard-shell {
+                margin-left: max(-98px, calc(860px - 50vw));
             }
         }
 
@@ -175,7 +182,7 @@
 
         @media (min-width: 1280px) {
             .dashboard-filters {
-                width: 242px;
+                width: 340px;
                 position: sticky;
                 top: 1.5rem;
             }
@@ -194,6 +201,10 @@
 
         .dashboard-panel {
             transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .dashboard-filters {
+            transition: none;
         }
 
         .dashboard-help-target {
@@ -237,7 +248,7 @@
 
         .dashboard-chart-card:hover,
         .dashboard-kpi-card:hover,
-        .dashboard-panel:hover {
+        .dashboard-panel:not(.dashboard-filters):hover {
             transform: translateY(-2px);
             box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
         }
@@ -388,26 +399,37 @@
                 <aside class="dashboard-filters dashboard-panel bg-white border border-gray-200 rounded-lg shadow-sm p-4 h-fit">
                     <form method="GET" action="{{ route('dashboard') }}" class="space-y-4">
                         <input type="hidden" name="tab" value="proposals">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Період</label>
-                            <select id="dashboardPeriodSelect" name="period" class="w-full border-gray-300 rounded-md shadow-sm text-sm">
-                                <option value="all" @selected($period === 'all')>За весь період</option>
-                                <option value="ytd" @selected($period === 'ytd')>З початку поточного року</option>
-                                <option value="mtd" @selected($period === 'mtd')>З початку поточного місяця</option>
-                                <option value="wtd" @selected($period === 'wtd')>З початку поточного тижня</option>
-                                <option value="custom" @selected($period === 'custom')>Кастомний період</option>
-                            </select>
-                        </div>
+                        <div data-dashboard-period-block class="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Період</label>
+                                <select id="dashboardPeriodSelect" name="period" data-auto-submit-period class="w-full border-gray-300 rounded-md shadow-sm text-sm">
+                                    <option value="wtd" @selected($period === 'wtd')>З початку поточного тижня</option>
+                                    <option value="mtd" @selected($period === 'mtd')>З початку поточного місяця</option>
+                                    <option value="qtd" @selected($period === 'qtd')>З початку поточного кварталу</option>
+                                    <option value="ytd" @selected($period === 'ytd')>З початку поточного року</option>
+                                    <option value="last_90_days" @selected($period === 'last_90_days')>За останні 90 днів</option>
+                                    <option value="last_180_days" @selected($period === 'last_180_days')>За останні 180 днів</option>
+                                    <option value="all" @selected($period === 'all')>За весь період</option>
+                                    <option value="custom" @selected($period === 'custom')>Кастомний період</option>
+                                </select>
+                            </div>
 
-                        <div class="grid grid-cols-1 gap-3">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Від</label>
-                                <input id="dashboardFromDate" type="date" name="from" value="{{ $filters['from'] ?? '' }}" class="w-full border-gray-300 rounded-md shadow-sm text-sm">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="min-w-0">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Від</label>
+                                    <input id="dashboardFromDate" type="date" name="from" value="{{ $filters['from'] ?? '' }}" class="w-full min-w-0 border-gray-300 rounded-md shadow-sm text-sm">
+                                </div>
+                                <div class="min-w-0">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">До</label>
+                                    <input id="dashboardToDate" type="date" name="to" value="{{ $filters['to'] ?? '' }}" class="w-full min-w-0 border-gray-300 rounded-md shadow-sm text-sm">
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">До</label>
-                                <input id="dashboardToDate" type="date" name="to" value="{{ $filters['to'] ?? '' }}" class="w-full border-gray-300 rounded-md shadow-sm text-sm">
-                            </div>
+
+                            <div
+                                id="dashboardCustomPeriodError"
+                                data-custom-period-error
+                                class="text-xs text-red-600 {{ empty($periodError) ? 'hidden' : '' }}"
+                            >{{ $periodError ?? '' }}</div>
                         </div>
 
                         <div>
@@ -443,10 +465,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        @if(!empty($periodError))
-                            <div class="text-xs text-red-600">{{ $periodError }}</div>
-                        @endif
 
                         <div class="pt-2 flex items-center gap-2">
                             <button type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm font-semibold text-white hover:bg-gray-700">
@@ -795,6 +813,8 @@
             const periodSelect = document.getElementById('dashboardPeriodSelect');
             const fromInput = document.getElementById('dashboardFromDate');
             const toInput = document.getElementById('dashboardToDate');
+            const periodForm = periodSelect?.form;
+            const customPeriodError = document.getElementById('dashboardCustomPeriodError');
             const clientDropdown = document.getElementById('dashboardClientDropdown');
             const clientDropdownToggle = document.getElementById('dashboardClientDropdownToggle');
             const clientDropdownLabel = document.getElementById('dashboardClientDropdownLabel');
@@ -861,13 +881,60 @@
                 }
             }
 
+            function setCustomPeriodError(visible) {
+                [fromInput, toInput].forEach((input) => {
+                    const invalid = visible && !input?.value;
+                    input?.classList.toggle('border-red-500', invalid);
+                    input?.setAttribute('aria-invalid', invalid ? 'true' : 'false');
+                });
+
+                if (!customPeriodError) {
+                    return;
+                }
+
+                customPeriodError.textContent = visible
+                    ? 'Для кастомного періоду потрібно вказати обидві дати: "Від" і "До".'
+                    : '';
+                customPeriodError.classList.toggle('hidden', !visible);
+            }
+
+            function validateCustomPeriod() {
+                const invalid = periodSelect?.value === 'custom' && (!fromInput?.value || !toInput?.value);
+                setCustomPeriodError(invalid);
+
+                if (invalid) {
+                    (!fromInput?.value ? fromInput : toInput)?.focus();
+                }
+
+                return !invalid;
+            }
+
+            periodSelect?.addEventListener('change', () => {
+                if (periodSelect.value !== 'custom') {
+                    setCustomPeriodError(false);
+                    periodSelect.form?.requestSubmit();
+                }
+            });
+
+            periodForm?.addEventListener('submit', (event) => {
+                if (!validateCustomPeriod()) {
+                    event.preventDefault();
+                }
+            });
+
             if (fromInput) {
-                fromInput.addEventListener('change', syncCustomPeriod);
+                fromInput.addEventListener('change', () => {
+                    syncCustomPeriod();
+                    if (!customPeriodError?.classList.contains('hidden')) validateCustomPeriod();
+                });
                 fromInput.addEventListener('input', syncCustomPeriod);
             }
 
             if (toInput) {
-                toInput.addEventListener('change', syncCustomPeriod);
+                toInput.addEventListener('change', () => {
+                    syncCustomPeriod();
+                    if (!customPeriodError?.classList.contains('hidden')) validateCustomPeriod();
+                });
                 toInput.addEventListener('input', syncCustomPeriod);
             }
 

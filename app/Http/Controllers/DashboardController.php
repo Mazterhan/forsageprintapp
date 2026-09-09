@@ -56,7 +56,7 @@ class DashboardController extends Controller
         $now = now($timezone);
 
         $period = (string) $request->query('period', 'ytd');
-        if (! in_array($period, ['all', 'ytd', 'mtd', 'wtd', 'custom'], true)) {
+        if (! in_array($period, ['all', 'ytd', 'qtd', 'last_90_days', 'last_180_days', 'mtd', 'wtd', 'custom'], true)) {
             $period = 'ytd';
         }
 
@@ -67,6 +67,15 @@ class DashboardController extends Controller
         if ($period !== 'all') {
             if ($period === 'ytd') {
                 $from = $now->copy()->startOfYear()->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'qtd') {
+                $from = $now->copy()->startOfQuarter()->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'last_90_days') {
+                $from = $now->copy()->subDays(89)->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'last_180_days') {
+                $from = $now->copy()->subDays(179)->startOfDay();
                 $to = $now->copy()->endOfDay();
             } elseif ($period === 'wtd') {
                 $from = $now->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
@@ -94,6 +103,7 @@ class DashboardController extends Controller
                     $period = 'ytd';
                     $from = $now->copy()->startOfYear()->startOfDay();
                     $to = $now->copy()->endOfDay();
+                    $periodError .= ' Кастомний період не застосовано. Показано дані з початку поточного року.';
                 }
             } else {
                 $from = $now->copy()->startOfMonth()->startOfDay();
@@ -650,7 +660,7 @@ class DashboardController extends Controller
         $timezone = 'Europe/Kiev';
         $now = now($timezone);
         $period = (string) $request->query('period', 'ytd');
-        if (! in_array($period, ['all', 'ytd', 'mtd', 'wtd', 'custom'], true)) {
+        if (! in_array($period, ['all', 'ytd', 'qtd', 'last_90_days', 'last_180_days', 'mtd', 'wtd', 'custom'], true)) {
             $period = 'ytd';
         }
 
@@ -661,6 +671,15 @@ class DashboardController extends Controller
         if ($period !== 'all') {
             if ($period === 'ytd') {
                 $from = $now->copy()->startOfYear()->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'qtd') {
+                $from = $now->copy()->startOfQuarter()->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'last_90_days') {
+                $from = $now->copy()->subDays(89)->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'last_180_days') {
+                $from = $now->copy()->subDays(179)->startOfDay();
                 $to = $now->copy()->endOfDay();
             } elseif ($period === 'wtd') {
                 $from = $now->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
@@ -688,6 +707,7 @@ class DashboardController extends Controller
                     $period = 'ytd';
                     $from = $now->copy()->startOfYear()->startOfDay();
                     $to = $now->copy()->endOfDay();
+                    $periodError .= ' Кастомний період не застосовано. Показано дані з початку поточного року.';
                 }
             } else {
                 $from = $now->copy()->startOfMonth()->startOfDay();
