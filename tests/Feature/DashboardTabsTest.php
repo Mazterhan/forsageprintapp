@@ -15,7 +15,7 @@ class DashboardTabsTest extends TestCase
     use CreatesRoles;
     use RefreshDatabase;
 
-    public function test_dashboard_defaults_to_proposals_tab_and_keeps_its_filters_scoped(): void
+    public function test_dashboard_defaults_to_orders_tab_and_keeps_its_filters_scoped(): void
     {
         $user = $this->analyticsUser();
 
@@ -25,11 +25,13 @@ class DashboardTabsTest extends TestCase
             ->assertSee('Аналітика')
             ->assertSee('Заявки')
             ->assertSee('Замовлення')
-            ->assertSee('value="proposals"', false)
+            ->assertSeeInOrder(['value="orders"', 'value="proposals"'], false)
             ->assertSee('aria-selected="true"', false)
-            ->assertSee('<input type="hidden" name="tab" value="proposals">', false)
-            ->assertSee(route('dashboard', ['tab' => 'proposals']), false)
-            ->assertSee('Кількість заявок');
+            ->assertSee('<input type="hidden" name="tab" value="orders">', false)
+            ->assertSee(route('dashboard', ['tab' => 'orders']), false)
+            ->assertSee('Кількість замовлень')
+            ->assertViewIs('dashboard-orders')
+            ->assertViewHas('activeTab', 'orders');
     }
 
     public function test_analytics_page_can_be_opened_without_exposing_tabs_or_filters(): void
@@ -233,8 +235,8 @@ class DashboardTabsTest extends TestCase
         $this->actingAs($user)
             ->get(route('dashboard', ['tab' => 'unsupported']))
             ->assertOk()
-            ->assertSee('Кількість заявок')
-            ->assertDontSee('Кількість замовлень');
+            ->assertSee('Кількість замовлень')
+            ->assertDontSee('Кількість заявок');
     }
 
     public function test_orders_analytics_respects_own_order_scope_in_all_server_data(): void

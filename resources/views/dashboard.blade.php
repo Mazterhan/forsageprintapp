@@ -2,7 +2,7 @@
     @section('title', __('Аналітика'))
 
     <x-slot name="header">
-        @include('dashboard.partials.header-tabs', ['activeTab' => $activeTab ?? 'proposals'])
+        @include('dashboard.partials.header-tabs', ['activeTab' => $activeTab ?? 'orders'])
     </x-slot>
 
     @php

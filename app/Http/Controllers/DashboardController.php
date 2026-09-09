@@ -42,7 +42,7 @@ class DashboardController extends Controller
 
         $activeTab = $requestedTab !== ''
             ? $requestedTab
-            : ($canViewProposalsAnalytics ? 'proposals' : 'orders');
+            : ($canViewOrdersAnalytics ? 'orders' : 'proposals');
 
         if ($activeTab === 'orders') {
             abort_unless($canViewOrdersAnalytics, 403, 'У вас немає доступу до аналітики замовлень.');
