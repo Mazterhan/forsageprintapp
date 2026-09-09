@@ -59,9 +59,14 @@ class DashboardTabsTest extends TestCase
             ];
 
             foreach (['orders', 'proposals'] as $tab) {
+                $expectedTitle = $tab === 'orders'
+                    ? 'Аналітика — Замовлення'
+                    : 'Аналітика — Заявки';
+
                 $this->actingAs($user)
                     ->get(route('dashboard', ['tab' => $tab]))
                     ->assertOk()
+                    ->assertSee('<title>'.$expectedTitle.'</title>', false)
                     ->assertSee('data-dashboard-period-block', false)
                     ->assertSee('data-auto-submit-period', false)
                     ->assertSee('data-auto-submit-custom-period', false)

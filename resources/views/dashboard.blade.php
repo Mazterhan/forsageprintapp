@@ -1,5 +1,5 @@
 <x-app-layout>
-    @section('title', __('Аналітика'))
+    @section('title', __('Аналітика — Заявки'))
 
     <x-slot name="header">
         @include('dashboard.partials.header-tabs', ['activeTab' => $activeTab ?? 'orders'])
