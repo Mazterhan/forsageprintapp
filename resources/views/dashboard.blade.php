@@ -414,7 +414,7 @@
                                 </select>
                             </div>
 
-                            <div class="grid grid-cols-2 gap-3">
+                            <div data-auto-submit-custom-period class="grid grid-cols-2 gap-3">
                                 <div class="min-w-0">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Від</label>
                                     <input id="dashboardFromDate" type="date" name="from" value="{{ $filters['from'] ?? '' }}" class="w-full min-w-0 border-gray-300 rounded-md shadow-sm text-sm">
@@ -909,6 +909,20 @@
                 return !invalid;
             }
 
+            function applyCustomPeriodWhenReady() {
+                syncCustomPeriod();
+
+                if (periodSelect?.value === 'custom' && fromInput?.value && toInput?.value) {
+                    setCustomPeriodError(false);
+                    periodForm?.requestSubmit();
+                    return;
+                }
+
+                if (!customPeriodError?.classList.contains('hidden')) {
+                    validateCustomPeriod();
+                }
+            }
+
             periodSelect?.addEventListener('change', () => {
                 if (periodSelect.value !== 'custom') {
                     setCustomPeriodError(false);
@@ -923,18 +937,12 @@
             });
 
             if (fromInput) {
-                fromInput.addEventListener('change', () => {
-                    syncCustomPeriod();
-                    if (!customPeriodError?.classList.contains('hidden')) validateCustomPeriod();
-                });
+                fromInput.addEventListener('change', applyCustomPeriodWhenReady);
                 fromInput.addEventListener('input', syncCustomPeriod);
             }
 
             if (toInput) {
-                toInput.addEventListener('change', () => {
-                    syncCustomPeriod();
-                    if (!customPeriodError?.classList.contains('hidden')) validateCustomPeriod();
-                });
+                toInput.addEventListener('change', applyCustomPeriodWhenReady);
                 toInput.addEventListener('input', syncCustomPeriod);
             }
 

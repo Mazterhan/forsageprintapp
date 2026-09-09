@@ -254,7 +254,7 @@
                                 </select>
                             </div>
 
-                            <div class="grid grid-cols-2 gap-3">
+                            <div data-auto-submit-custom-period class="grid grid-cols-2 gap-3">
                                 <div class="min-w-0">
                                     <label for="ordersAnalyticsFrom" class="mb-1 block text-sm font-medium text-gray-700">Від</label>
                                     <input id="ordersAnalyticsFrom" type="date" name="from" value="{{ $filters['from'] ?? '' }}" class="w-full min-w-0 rounded-md border-gray-300 text-sm shadow-sm">
@@ -610,6 +610,20 @@
                 return !invalid;
             }
 
+            function applyCustomPeriodWhenReady() {
+                syncCustomPeriod();
+
+                if (periodSelect?.value === 'custom' && fromInput?.value && toInput?.value) {
+                    setCustomPeriodError(false);
+                    periodForm?.requestSubmit();
+                    return;
+                }
+
+                if (!customPeriodError?.classList.contains('hidden')) {
+                    validateCustomPeriod();
+                }
+            }
+
             function syncClientLabel() {
                 if (!clientLabel) return;
                 const checked = Array.from(clientCheckboxes).filter((checkbox) => checkbox.checked);
@@ -633,15 +647,9 @@
                     event.preventDefault();
                 }
             });
-            fromInput?.addEventListener('change', () => {
-                syncCustomPeriod();
-                if (!customPeriodError?.classList.contains('hidden')) validateCustomPeriod();
-            });
+            fromInput?.addEventListener('change', applyCustomPeriodWhenReady);
             fromInput?.addEventListener('input', syncCustomPeriod);
-            toInput?.addEventListener('change', () => {
-                syncCustomPeriod();
-                if (!customPeriodError?.classList.contains('hidden')) validateCustomPeriod();
-            });
+            toInput?.addEventListener('change', applyCustomPeriodWhenReady);
             toInput?.addEventListener('input', syncCustomPeriod);
             clientToggle?.addEventListener('click', () => clientDropdown?.classList.toggle('is-open'));
             clientCheckboxes.forEach((checkbox) => checkbox.addEventListener('change', syncClientLabel));

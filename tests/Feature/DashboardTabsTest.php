@@ -64,6 +64,7 @@ class DashboardTabsTest extends TestCase
                     ->assertOk()
                     ->assertSee('data-dashboard-period-block', false)
                     ->assertSee('data-auto-submit-period', false)
+                    ->assertSee('data-auto-submit-custom-period', false)
                     ->assertSee('data-custom-period-error', false)
                     ->assertSee('class="grid grid-cols-2 gap-3"', false)
                     ->assertSeeInOrder($presetLabels)
