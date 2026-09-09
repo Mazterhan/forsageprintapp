@@ -310,34 +310,6 @@
                             </div>
 
                             <div x-show="product.material && product.servicesEnabledRaw === '1'" class="mt-4 space-y-3">
-                                <div x-show="isServiceBlockVisible(product, 'lamination')" class="border border-gray-200 rounded-md p-3 space-y-2">
-                                    <div class="flex flex-wrap items-center gap-3">
-                                        <div class="font-medium text-gray-700">Ламінування</div>
-                                        <select x-model="product.services.lamination" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
-                                            <option value="Без">Без</option>
-                                            <option value="Одностороннє">Одностороннє</option>
-                                            <option value="Двостороннє">Двостороннє</option>
-                                        </select>
-                                    </div>
-                                    <div x-show="product.services.lamination !== 'Без'" class="flex flex-wrap items-end gap-3">
-                                        <div class="text-sm text-gray-700">Ширина(м)</div>
-                                        <input type="text" :value="getFirstPositionValue(product, 'width', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
-                                        <div class="text-sm text-gray-700">Висота(м)</div>
-                                        <input type="text" :value="getFirstPositionValue(product, 'height', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
-                                        <div class="text-sm text-gray-700">Кількість(шт)</div>
-                                        <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
-                                        <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
-                                            @if($showPurchaseFields)
-                                                <span class="text-sm text-gray-700">Собівартість:</span>
-                                                <input type="text" :value="getLaminationPurchaseCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700" title="Собівартість">
-                                                <span class="text-sm text-gray-700">Вартість:</span>
-                                            @endif
-                                            <input type="text" :value="getLaminationCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
-                                            <span class="text-sm text-gray-700">грн</span>
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <div x-show="isServiceBlockVisible(product, 'cutting')" class="border border-gray-200 rounded-md p-3 space-y-2">
                                     <div class="flex flex-wrap items-center gap-3">
                                         <div class="font-medium text-gray-700">Порізка</div>
@@ -871,6 +843,34 @@
                                                 <input type="text" :value="getRollingCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
                                                 <span class="text-sm text-gray-700">грн</span>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div x-show="isServiceBlockVisible(product, 'lamination')" class="border border-gray-200 rounded-md p-3 space-y-2">
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <div class="font-medium text-gray-700">Ламінування</div>
+                                        <select x-model="product.services.lamination" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                                            <option value="Без">Без</option>
+                                            <option value="Одностороннє">Одностороннє</option>
+                                            <option value="Двостороннє">Двостороннє</option>
+                                        </select>
+                                    </div>
+                                    <div x-show="product.services.lamination !== 'Без'" class="flex flex-wrap items-end gap-3">
+                                        <div class="text-sm text-gray-700">Ширина(м)</div>
+                                        <input type="text" :value="getFirstPositionValue(product, 'width', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="text-sm text-gray-700">Висота(м)</div>
+                                        <input type="text" :value="getFirstPositionValue(product, 'height', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="text-sm text-gray-700">Кількість(шт)</div>
+                                        <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            @if($showPurchaseFields)
+                                                <span class="text-sm text-gray-700">Собівартість:</span>
+                                                <input type="text" :value="getLaminationPurchaseCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700" title="Собівартість">
+                                                <span class="text-sm text-gray-700">Вартість:</span>
+                                            @endif
+                                            <input type="text" :value="getLaminationCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <span class="text-sm text-gray-700">грн</span>
                                         </div>
                                     </div>
                                 </div>
