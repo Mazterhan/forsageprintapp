@@ -59,11 +59,16 @@ class PriceItemChangeHistoryTest extends TestCase
             ->assertSee('name="name"', false)
             ->assertSee('Історія змін позиції')
             ->assertSee('id="price-item-save-button"', false)
+            ->assertSee('id="price-item-cancel-button"', false)
             ->assertSee('price-field-changed', false)
             ->assertSee('Підтвердіть, що внесені зміни у картку товару (поля підсвічені зеленим кольором) мають бути збережені.', false);
 
         $this->assertMatchesRegularExpression(
             '/<button[^>]*id="price-item-save-button"[^>]*disabled[^>]*>/s',
+            $response->getContent()
+        );
+        $this->assertMatchesRegularExpression(
+            '/<button[^>]*id="price-item-cancel-button"[^>]*disabled[^>]*>/s',
             $response->getContent()
         );
 
@@ -242,5 +247,21 @@ class PriceItemChangeHistoryTest extends TestCase
             'user_id' => $user->id,
         ]);
         $this->assertDatabaseCount('price_item_histories', 0);
+    }
+
+    public function test_cancel_button_is_hidden_without_item_edit_permission(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_price' => true,
+            'price_card_access' => true,
+            'price_card_edit' => false,
+        ]);
+        $item = PriceItem::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('price.show', $item))
+            ->assertOk()
+            ->assertDontSee('id="price-item-save-button"', false)
+            ->assertDontSee('id="price-item-cancel-button"', false);
     }
 }

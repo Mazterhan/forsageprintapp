@@ -1271,6 +1271,22 @@ class OrderController extends Controller
             })
             ->toArray();
 
+        $initialState = $proposal?->payload;
+        if (is_array($initialState) && isset($initialState['products']) && is_array($initialState['products'])) {
+            foreach ($initialState['products'] as &$product) {
+                if (! is_array($product)) {
+                    continue;
+                }
+
+                $material = trim((string) ($product['material'] ?? ''));
+                $currentThicknessOptions = $thicknessByMaterial[$material] ?? [];
+                if (count($currentThicknessOptions) === 1) {
+                    $product['thickness'] = (string) $currentThicknessOptions[0];
+                }
+            }
+            unset($product);
+        }
+
         return view('orders.calculation', [
             'clients' => $clients,
             'productTypes' => $productTypes,
@@ -1288,7 +1304,7 @@ class OrderController extends Controller
             'specialFlmLaminationByCode' => $specialFlmLaminationByCode,
             'typeCategoryMatrix' => $typeCategoryMatrix,
             'proposalId' => $proposal?->id,
-            'initialState' => $proposal?->payload,
+            'initialState' => $initialState,
             'editLockToken' => isset($editToken) ? $editToken : null,
             'editLockHeartbeatUrl' => $proposal ? route('orders.proposals.edit-lock.heartbeat', $proposal) : null,
             'editLockReleaseUrl' => $proposal ? route('orders.proposals.edit-lock.release', $proposal) : null,

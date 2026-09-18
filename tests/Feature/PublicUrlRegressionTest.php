@@ -153,6 +153,11 @@ class PublicUrlRegressionTest extends TestCase
             'orders_proposals' => true,
             'orders_edit' => true,
         ]);
+        PriceItem::factory()->create([
+            'name' => 'Тестовий матеріал',
+            'material_type' => 'Листовий',
+            'thickness_mm' => 5,
+        ]);
         $proposal = OrderProposal::factory()->forUser($user)->create();
         $token = 'public-edit-token';
 
@@ -166,13 +171,16 @@ class PublicUrlRegressionTest extends TestCase
 
         $sessionKey = "order_proposal_edit_tokens.{$proposal->id}";
 
-        $this->withSession([$sessionKey => $token])
+        $response = $this->withSession([$sessionKey => $token])
             ->actingAs($user)
             ->get(route('orders.calculation', [
                 'proposal' => $proposal->public_id,
                 'edit_token' => $token,
             ]))
             ->assertOk();
+
+        $this->assertSame('5.00', data_get($response->viewData('initialState'), 'products.0.thickness'));
+        $this->assertSame('3.00', data_get($proposal->refresh()->payload, 'products.0.thickness'));
 
         $this->withSession([$sessionKey => $token])
             ->actingAs($user)

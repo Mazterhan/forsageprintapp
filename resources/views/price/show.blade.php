@@ -187,15 +187,21 @@
                                 id="price-item-save-button"
                                 form="price-item-update-form"
                                 type="submit"
-                                class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-800"
+                                class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md text-sm text-white hover:bg-indigo-700 disabled:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-800"
                                 disabled
                             >
                                 {{ __('Зберегти') }}
                             </button>
+                            <button
+                                id="price-item-cancel-button"
+                                type="button"
+                                data-return-url="{{ route('price.index') }}"
+                                class="inline-flex items-center px-4 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100"
+                                disabled
+                            >
+                                {{ __('Скасувати') }}
+                            </button>
                         @endif
-                        <a href="{{ route('price.index') }}" class="inline-flex items-center px-4 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-200">
-                            {{ __('Скасувати') }}
-                        </a>
                         @if ($canDeactivatePrice)
                             <form method="POST" action="{{ route('price.toggle', $item) }}">
                                 @csrf
@@ -343,6 +349,7 @@
             const markupPercentInput = document.getElementById('markup_percent');
             const updateForm = document.getElementById('price-item-update-form');
             const saveButton = document.getElementById('price-item-save-button');
+            const cancelButton = document.getElementById('price-item-cancel-button');
             const nameInput = document.getElementById('name');
             const thicknessInput = document.getElementById('thickness_mm');
             const commentInput = document.getElementById('comment');
@@ -367,6 +374,9 @@
 
                 if (saveButton) {
                     saveButton.disabled = !isDirty;
+                }
+                if (cancelButton) {
+                    cancelButton.disabled = !isDirty;
                 }
             };
 
@@ -452,6 +462,20 @@
                 isDirty = false;
                 if (saveButton) {
                     saveButton.disabled = true;
+                }
+                if (cancelButton) {
+                    cancelButton.disabled = true;
+                }
+            });
+
+            cancelButton?.addEventListener('click', () => {
+                if (cancelButton.disabled) {
+                    return;
+                }
+
+                const returnUrl = String(cancelButton.dataset.returnUrl || '');
+                if (returnUrl !== '') {
+                    window.location.href = returnUrl;
                 }
             });
 
