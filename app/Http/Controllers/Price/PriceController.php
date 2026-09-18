@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Price;
 
 use App\Http\Controllers\Controller;
 use App\Models\PriceItem;
+use App\Models\PriceItemChangeHistory;
 use App\Models\PriceItemHistory;
 use App\Models\ProductCategory;
 use App\Services\PermissionService;
@@ -208,7 +209,7 @@ class PriceController extends Controller
         $categoryCode = $categoryRecord?->code ? strtoupper(trim((string) $categoryRecord->code)) : null;
         $forCustomerMaterial = $modelType === 'Послуга' ? (bool) ($data['for_customer_material'] ?? false) : false;
 
-        DB::transaction(function () use ($data, $modelType, $category, $materialType, $categoryCode, $forCustomerMaterial): void {
+        DB::transaction(function () use ($data, $modelType, $category, $materialType, $categoryCode, $forCustomerMaterial, $request): void {
             $name = trim((string) $data['name']);
             $nameAlreadyUsed = PriceItem::query()
                 ->where('name', $name)
@@ -225,7 +226,7 @@ class PriceController extends Controller
                 ]);
             }
 
-            PriceItem::create([
+            $priceItem = PriceItem::create([
                 'internal_code' => $this->generateInternalCode($modelType, $categoryCode, $forCustomerMaterial),
                 'name' => $name,
                 'model_type' => $modelType,
@@ -245,6 +246,14 @@ class PriceController extends Controller
                 'is_active' => true,
                 'visible' => true,
             ]);
+
+            PriceItemChangeHistory::query()->create([
+                'price_item_id' => $priceItem->id,
+                'field' => 'created',
+                'old_value' => null,
+                'new_value' => $priceItem->name,
+                'user_id' => $request->user()?->id,
+            ]);
         });
 
         return redirect()
@@ -255,6 +264,7 @@ class PriceController extends Controller
     public function show(Request $request, PriceItem $priceItem, PermissionService $permissions): View
     {
         $canUseHistory = $permissions->can($request->user(), 'price_card_history');
+        $priceItem->load(['changeHistories.user']);
         if ($canUseHistory) {
             $priceItem->load(['histories.user']);
         }
@@ -263,6 +273,7 @@ class PriceController extends Controller
             'item' => $priceItem,
             'title' => $priceItem->name ?: __('Позиція'),
             'history' => $canUseHistory ? $priceItem->histories : collect(),
+            'changeHistory' => $priceItem->changeHistories,
             'pricePermissions' => [
                 'can_edit' => $permissions->can($request->user(), 'price_card_edit'),
                 'can_deactivate' => $permissions->can($request->user(), 'price_deactivate_item'),
@@ -275,29 +286,108 @@ class PriceController extends Controller
 
     public function update(Request $request, PriceItem $priceItem): RedirectResponse
     {
-        $data = Validator::make($request->all(), [
+        $validator = Validator::make($request->all(), [
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
             'service_price' => ['nullable', 'numeric', 'min:0'],
             'purchase_price' => ['nullable', 'numeric', 'min:0'],
+            'thickness_mm' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'comment' => ['nullable', 'string', 'max:2000'],
-        ])->validate();
+        ])->after(function ($validator) use ($request, $priceItem): void {
+            if ($request->has('name')) {
+                $name = trim((string) $request->input('name'));
+                if ($name === '') {
+                    $validator->errors()->add('name', __('Поле "Назва" є обовʼязковим.'));
+                } else {
+                    $nameAlreadyUsed = PriceItem::query()
+                        ->whereKeyNot($priceItem->getKey())
+                        ->where('name', $name)
+                        ->where(function ($query): void {
+                            $query->where('visible', true)
+                                ->orWhere('is_active', true);
+                        })
+                        ->exists();
 
-        $newServicePrice = $this->parseDecimal($data['service_price']);
-        $newPurchasePrice = $this->parseDecimal($data['purchase_price']);
-        $newComment = trim((string) ($data['comment'] ?? ''));
+                    if ($nameAlreadyUsed) {
+                        $validator->errors()->add('name', __('Позиція з такою назвою вже існує.'));
+                    }
+                }
+            }
+
+            if (! $request->has('thickness_mm')) {
+                return;
+            }
+
+            if ($priceItem->material_type !== 'Листовий') {
+                $validator->errors()->add('thickness_mm', __('Товщину можна змінювати лише для листового матеріалу.'));
+                return;
+            }
+
+            $thicknessRaw = trim((string) $request->input('thickness_mm'));
+            if ($thicknessRaw === '') {
+                $validator->errors()->add('thickness_mm', __('Поле "Товщина (мм)" є обовʼязковим для типу "Листовий".'));
+                return;
+            }
+
+            $normalizedThickness = str_replace(',', '.', $thicknessRaw);
+            if (preg_match('/^\d+(\.\d{1})?$/', $normalizedThickness) !== 1) {
+                $validator->errors()->add('thickness_mm', __('Поле "Товщина (мм)" має містити число з точністю до 1 знака після крапки.'));
+            }
+        });
+
+        $data = $validator->validate();
+
+        $newName = trim((string) ($data['name'] ?? $priceItem->name));
+        $newServicePrice = array_key_exists('service_price', $data)
+            ? $this->parseDecimal($data['service_price'])
+            : (float) $priceItem->service_price;
+        $newPurchasePrice = array_key_exists('purchase_price', $data)
+            ? $this->parseDecimal($data['purchase_price'])
+            : (float) $priceItem->purchase_price;
+        $newThickness = $priceItem->material_type === 'Листовий' && array_key_exists('thickness_mm', $data)
+            ? $this->parseThicknessDecimal($data['thickness_mm'])
+            : ($priceItem->thickness_mm !== null ? (float) $priceItem->thickness_mm : null);
+        $newComment = array_key_exists('comment', $data)
+            ? trim((string) $data['comment'])
+            : $priceItem->comment;
         $newComment = $newComment !== '' ? $newComment : null;
-        $hasChanges = $this->hasPriceChanges($priceItem, $newServicePrice, $newPurchasePrice);
+        $hasPriceChanges = $this->hasPriceChanges($priceItem, $newServicePrice, $newPurchasePrice);
+        $hasNameChanges = $priceItem->name !== $newName;
+        $oldThickness = $priceItem->thickness_mm !== null ? round((float) $priceItem->thickness_mm, 1) : null;
+        $hasThicknessChanges = $oldThickness === null
+            ? $newThickness !== null
+            : ($newThickness === null || $oldThickness !== round($newThickness, 1));
         $hasCommentChanges = ($priceItem->comment ?? null) !== $newComment;
 
-        if ($hasChanges || $hasCommentChanges) {
-            $priceItem->update([
-                'service_price' => $newServicePrice,
-                'purchase_price' => $newPurchasePrice,
-                'comment' => $newComment,
-            ]);
+        if ($hasPriceChanges || $hasNameChanges || $hasThicknessChanges || $hasCommentChanges) {
+            DB::transaction(function () use ($priceItem, $newName, $newServicePrice, $newPurchasePrice, $newThickness, $newComment, $hasPriceChanges, $hasNameChanges, $hasThicknessChanges, $hasCommentChanges, $request): void {
+                $itemChanges = [];
+                if ($hasNameChanges) {
+                    $itemChanges['name'] = [$priceItem->name, $newName];
+                }
+                if ($hasThicknessChanges) {
+                    $itemChanges['thickness_mm'] = [
+                        $priceItem->thickness_mm !== null ? (string) (float) $priceItem->thickness_mm : null,
+                        $newThickness !== null ? (string) (float) $newThickness : null,
+                    ];
+                }
+                if ($hasCommentChanges) {
+                    $itemChanges['comment'] = [$priceItem->comment, $newComment];
+                }
 
-            if ($hasChanges) {
-                $this->recordHistory($priceItem, $newServicePrice, $newPurchasePrice, (int) $request->user()->id);
-            }
+                $priceItem->update([
+                    'name' => $newName,
+                    'service_price' => $newServicePrice,
+                    'purchase_price' => $newPurchasePrice,
+                    'thickness_mm' => $newThickness,
+                    'comment' => $newComment,
+                ]);
+
+                if ($hasPriceChanges) {
+                    $this->recordHistory($priceItem, $newServicePrice, $newPurchasePrice, (int) $request->user()->id);
+                }
+
+                $this->recordItemChanges($priceItem, $itemChanges, (int) $request->user()->id);
+            });
         }
 
         return redirect()
@@ -374,18 +464,27 @@ class PriceController extends Controller
             ->with('status', __('Ціну оновлено з історії.'));
     }
 
-    public function toggle(PriceItem $priceItem): RedirectResponse
+    public function toggle(Request $request, PriceItem $priceItem): RedirectResponse
     {
-        $priceItem->update([
-            'is_active' => ! $priceItem->is_active,
-        ]);
+        DB::transaction(function () use ($request, $priceItem): void {
+            $oldStatus = $priceItem->is_active;
+            $newStatus = ! $oldStatus;
+
+            $priceItem->update([
+                'is_active' => $newStatus,
+            ]);
+
+            $this->recordItemChanges($priceItem, [
+                'is_active' => [$oldStatus ? '1' : '0', $newStatus ? '1' : '0'],
+            ], (int) $request->user()->id);
+        });
 
         return redirect()
             ->route('price.index')
             ->with('status', __('Статус позиції оновлено.'));
     }
 
-    public function hide(PriceItem $priceItem): RedirectResponse
+    public function hide(Request $request, PriceItem $priceItem): RedirectResponse
     {
         if ($priceItem->is_active) {
             return redirect()
@@ -393,9 +492,15 @@ class PriceController extends Controller
                 ->withErrors(['status' => __('Спочатку деактивуйте позицію.')]);
         }
 
-        $priceItem->update([
-            'visible' => false,
-        ]);
+        DB::transaction(function () use ($request, $priceItem): void {
+            $priceItem->update([
+                'visible' => false,
+            ]);
+
+            $this->recordItemChanges($priceItem, [
+                'visible' => ['1', '0'],
+            ], (int) $request->user()->id);
+        });
 
         return redirect()
             ->route('price.index')
@@ -480,5 +585,21 @@ class PriceController extends Controller
             'markup_percent' => $markupPercent,
             'user_id' => $userId,
         ]);
+    }
+
+    /**
+     * @param array<string, array{0: mixed, 1: mixed}> $changes
+     */
+    private function recordItemChanges(PriceItem $item, array $changes, int $userId): void
+    {
+        foreach ($changes as $field => [$oldValue, $newValue]) {
+            PriceItemChangeHistory::query()->create([
+                'price_item_id' => $item->id,
+                'field' => $field,
+                'old_value' => $oldValue,
+                'new_value' => $newValue,
+                'user_id' => $userId,
+            ]);
+        }
     }
 }

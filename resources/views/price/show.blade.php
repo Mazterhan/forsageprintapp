@@ -8,6 +8,17 @@
         $canViewPurchasePrice = (bool) ($pricePermissions['can_view_purchase'] ?? false);
         $canUsePriceHistory = (bool) ($pricePermissions['can_history'] ?? false);
     @endphp
+    <style>
+        .price-field-changed {
+            background-color: #dcfce7 !important;
+            border-color: #22c55e !important;
+        }
+
+        .price-field-changed:focus {
+            border-color: #16a34a !important;
+            --tw-ring-color: #22c55e !important;
+        }
+    </style>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
             {{ $item->name }}
@@ -46,8 +57,18 @@
                 <div class="p-6 text-gray-900 space-y-6">
                     <div class="flex items-end gap-4">
                         <div class="flex-1 min-w-0">
-                            <x-input-label :value="__('Назва')" />
-                            <x-text-input type="text" class="mt-1 block w-full" :value="$item->name" disabled />
+                            <x-input-label for="name" :value="__('Назва')" />
+                            <x-text-input
+                                id="name"
+                                name="name"
+                                form="price-item-update-form"
+                                type="text"
+                                class="mt-1 block w-full"
+                                :value="old('name', $item->name)"
+                                :data-original-value="$item->name"
+                                :disabled="!$canEditPrice"
+                            />
+                            <x-input-error class="mt-2" :messages="$errors->get('name')" />
                         </div>
                         <div class="w-44 shrink-0">
                             <x-input-label :value="__('Модель позиції')" />
@@ -84,6 +105,7 @@
                                     type="text"
                                     class="mt-1 block w-full"
                                     :value="old('service_price', $formatCellNumber($item->service_price))"
+                                    :data-original-value="$formatCellNumber($item->service_price)"
                                     :disabled="!$canEditPrice"
                                 />
                                 <x-input-error class="mt-2" :messages="$errors->get('service_price')" />
@@ -97,6 +119,8 @@
                                         type="text"
                                         class="mt-1 block w-full"
                                         :value="old('purchase_price', $formatCellNumber($item->purchase_price))"
+                                        :data-original-value="$formatCellNumber($item->purchase_price)"
+                                        :disabled="!$canEditPrice"
                                     />
                                     <x-input-error class="mt-2" :messages="$errors->get('purchase_price')" />
                                 </div>
@@ -109,6 +133,10 @@
                                         value="{{ $item->purchase_price !== null && (float) $item->purchase_price > 0 && $item->service_price !== null
                                             ? $formatCellNumber((((float) $item->service_price - (float) $item->purchase_price) / (float) $item->purchase_price) * 100)
                                             : '' }}"
+                                        data-original-value="{{ $item->purchase_price !== null && (float) $item->purchase_price > 0 && $item->service_price !== null
+                                            ? $formatCellNumber((((float) $item->service_price - (float) $item->purchase_price) / (float) $item->purchase_price) * 100)
+                                            : '' }}"
+                                        :disabled="!$canEditPrice"
                                     />
                                 </div>
                             @endif
@@ -122,8 +150,19 @@
                         </div>
                         @if ($item->material_type === 'Листовий')
                             <div class="md:col-span-4">
-                                <x-input-label :value="__('Товщина (мм)')" />
-                                <x-text-input type="text" class="mt-1 block w-full" :value="$formatCellNumber($item->thickness_mm)" disabled />
+                                <x-input-label for="thickness_mm" :value="__('Товщина (мм)')" />
+                                <x-text-input
+                                    id="thickness_mm"
+                                    name="thickness_mm"
+                                    form="price-item-update-form"
+                                    type="text"
+                                    inputmode="decimal"
+                                    class="mt-1 block w-full"
+                                    :value="old('thickness_mm', $formatCellNumber($item->thickness_mm))"
+                                    :data-original-value="$formatCellNumber($item->thickness_mm)"
+                                    :disabled="!$canEditPrice"
+                                />
+                                <x-input-error class="mt-2" :messages="$errors->get('thickness_mm')" />
                             </div>
                         @endif
                     </div>
@@ -136,6 +175,7 @@
                             form="price-item-update-form"
                             rows="3"
                             class="mt-1 block w-full min-w-0 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm resize-y"
+                            data-original-value="{{ $item->comment }}"
                             @disabled(! $canEditPrice)
                         >{{ old('comment', $item->comment) }}</textarea>
                         <x-input-error class="mt-2" :messages="$errors->get('comment')" />
@@ -143,7 +183,13 @@
 
                     <div class="flex items-center gap-4">
                         @if ($canEditPrice)
-                            <button form="price-item-update-form" type="submit" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700">
+                            <button
+                                id="price-item-save-button"
+                                form="price-item-update-form"
+                                type="submit"
+                                class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md text-sm text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-800"
+                                disabled
+                            >
                                 {{ __('Зберегти') }}
                             </button>
                         @endif
@@ -226,6 +272,67 @@
                     </div>
                 </div>
             @endif
+
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 text-gray-900">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ __('Історія змін позиції') }}</h3>
+                    @php
+                        $changeFieldLabels = [
+                            'created' => __('Створення позиції'),
+                            'name' => __('Назва'),
+                            'thickness_mm' => __('Товщина (мм)'),
+                            'comment' => __('Коментар'),
+                            'is_active' => __('Статус'),
+                            'visible' => __('Відображення позиції'),
+                        ];
+                        $formatChangeValue = static function (string $field, $value) use ($formatCellNumber): string {
+                            if ($value === null || $value === '') {
+                                return '—';
+                            }
+                            if ($field === 'is_active') {
+                                return (string) $value === '1' ? __('Активна') : __('Неактивна');
+                            }
+                            if ($field === 'visible') {
+                                return (string) $value === '1' ? __('Відображається') : __('Прихована');
+                            }
+                            if ($field === 'thickness_mm') {
+                                return $formatCellNumber($value);
+                            }
+                            return (string) $value;
+                        };
+                    @endphp
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead>
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Дата</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Поле</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Попереднє значення</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Нове значення</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Користувач</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                @forelse ($changeHistory as $row)
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">{{ optional($row->created_at)->format('Y-m-d H:i') }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $changeFieldLabels[$row->field] ?? $row->field }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700 whitespace-pre-wrap break-words">{{ $formatChangeValue($row->field, $row->old_value) }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700 whitespace-pre-wrap break-words">{{ $formatChangeValue($row->field, $row->new_value) }}</td>
+                                        <td class="px-4 py-2 text-sm text-gray-700">{{ $row->user?->name ?? __('Не визначено') }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="px-4 py-6 text-center text-sm text-gray-500">
+                                            {{ __('Історія порожня.') }}
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -235,15 +342,32 @@
             const purchasePriceInput = document.getElementById('purchase_price');
             const markupPercentInput = document.getElementById('markup_percent');
             const updateForm = document.getElementById('price-item-update-form');
+            const saveButton = document.getElementById('price-item-save-button');
+            const nameInput = document.getElementById('name');
+            const thicknessInput = document.getElementById('thickness_mm');
             const commentInput = document.getElementById('comment');
-            const watchedFields = [servicePriceInput, purchasePriceInput, commentInput].filter((field) => field && !field.disabled);
+            const watchedFields = [nameInput, servicePriceInput, purchasePriceInput, markupPercentInput, thicknessInput, commentInput]
+                .filter((field) => field && !field.disabled);
             let isSyncing = false;
             let isDirty = false;
+            let isSubmitting = false;
 
-            const initialValues = new Map(watchedFields.map((field) => [field, String(field.value ?? '')]));
+            const initialValues = new Map(watchedFields.map((field) => [
+                field,
+                String(field.dataset.originalValue ?? field.value ?? ''),
+            ]));
 
             const updateDirtyState = () => {
-                isDirty = watchedFields.some((field) => String(field.value ?? '') !== initialValues.get(field));
+                isDirty = false;
+                watchedFields.forEach((field) => {
+                    const isChanged = String(field.value ?? '') !== initialValues.get(field);
+                    field.classList.toggle('price-field-changed', isChanged);
+                    isDirty = isDirty || isChanged;
+                });
+
+                if (saveButton) {
+                    saveButton.disabled = !isDirty;
+                }
             };
 
             const parseNumber = (value) => {
@@ -258,6 +382,19 @@
                 const rounded = round2(value);
                 if (Math.abs(rounded - Math.round(rounded)) < 0.00001) return String(Math.round(rounded));
                 return String(rounded).replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'');
+            };
+
+            const sanitizeThicknessValue = (raw) => {
+                let value = String(raw ?? '').replace(',', '.').replace(/[^0-9.]/g, '');
+                const firstDot = value.indexOf('.');
+                if (firstDot !== -1) {
+                    value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, '');
+                    value = value.slice(0, firstDot + 2);
+                }
+                if (value.startsWith('.')) {
+                    value = `0${value}`;
+                }
+                return value;
             };
 
             const syncMarkup = () => {
@@ -290,18 +427,41 @@
                 syncServicePrice();
             });
             markupPercentInput?.addEventListener('input', syncServicePrice);
+            thicknessInput?.addEventListener('input', (event) => {
+                event.target.value = sanitizeThicknessValue(event.target.value);
+            });
 
             watchedFields.forEach((field) => {
                 field.addEventListener('input', updateDirtyState);
             });
 
-            markupPercentInput?.addEventListener('input', updateDirtyState);
+            updateForm?.addEventListener('submit', (event) => {
+                updateDirtyState();
+                if (!isDirty) {
+                    event.preventDefault();
+                    return;
+                }
 
-            updateForm?.addEventListener('submit', () => {
+                const confirmed = window.confirm('Підтвердіть, що внесені зміни у картку товару (поля підсвічені зеленим кольором) мають бути збережені.');
+                if (!confirmed) {
+                    event.preventDefault();
+                    return;
+                }
+
+                isSubmitting = true;
                 isDirty = false;
+                if (saveButton) {
+                    saveButton.disabled = true;
+                }
             });
 
+            updateDirtyState();
+
             window.addEventListener('beforeunload', (event) => {
+                if (isSubmitting) {
+                    return;
+                }
+
                 updateDirtyState();
                 if (!isDirty) {
                     return;
