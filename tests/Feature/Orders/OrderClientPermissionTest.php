@@ -248,6 +248,34 @@ class OrderClientPermissionTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_client_order_section_create_button_prefills_the_selected_client(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_orders' => true,
+            'orders_access' => true,
+            'orders_clients_manage' => true,
+        ]);
+        $client = Client::factory()->create([
+            'name' => 'Замовник для нового замовлення',
+            'status' => 'active',
+        ]);
+        $createUrl = route('orders.create', ['client' => $client->public_id]);
+
+        $this->actingAs($user)
+            ->get(route('orders.clients.show', ['client' => $client, 'section' => 'orders']))
+            ->assertOk()
+            ->assertSee('Список замовлень')
+            ->assertSee('Створити')
+            ->assertSee('href="'.$createUrl.'"', false);
+
+        $this->actingAs($user)
+            ->get($createUrl)
+            ->assertOk()
+            ->assertViewHas('selectedClient', fn (?Client $selectedClient): bool => $selectedClient?->is($client) === true)
+            ->assertSee('initialClientId: '.$client->id, false)
+            ->assertSee('initialClientName:', false);
+    }
+
     public function test_order_payment_permission_cannot_be_used_for_client_prepayments_or_foreign_orders(): void
     {
         $user = $this->createUserWithRole([

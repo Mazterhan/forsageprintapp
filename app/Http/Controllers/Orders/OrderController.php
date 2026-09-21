@@ -234,6 +234,15 @@ class OrderController extends Controller
     {
         abort_unless($permissions->can($request->user(), 'orders_access'), 403);
 
+        $selectedClient = null;
+        $selectedClientPublicId = trim((string) $request->query('client', ''));
+        if ($selectedClientPublicId !== '') {
+            $selectedClient = Client::query()
+                ->where('public_id', $selectedClientPublicId)
+                ->where('status', 'active')
+                ->first(['id', 'name']);
+        }
+
         $clients = Client::query()
             ->where('status', 'active')
             ->orderBy('name')
@@ -241,6 +250,7 @@ class OrderController extends Controller
 
         return view('orders.create', [
             'clients' => $clients,
+            'selectedClient' => $selectedClient,
         ]);
     }
 

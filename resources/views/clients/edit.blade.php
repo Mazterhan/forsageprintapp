@@ -329,7 +329,15 @@
                                 x-cloak
                                 class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
                             >
-                                <h3 class="mb-4 text-sm font-semibold uppercase text-gray-700">Список замовлень</h3>
+                                <div class="mb-4 flex items-center justify-between gap-4">
+                                    <h3 class="text-sm font-semibold uppercase text-gray-700">Список замовлень</h3>
+                                    <a
+                                        href="{{ route('orders.create', ['client' => $client->public_id]) }}"
+                                        class="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                    >
+                                        Створити
+                                    </a>
+                                </div>
                                 <div class="overflow-x-auto">
                                     <table class="client-orders-table min-w-full border border-gray-200 text-sm">
                                         <thead>

@@ -1,12 +1,15 @@
 <x-app-layout>
     @php
         $order = $order ?? null;
+        $selectedClient = $selectedClient ?? null;
         $isEdit = $order !== null;
         $pageTitle = $isEdit
             ? __('Редагування замовлення :number', ['number' => $order->order_number])
             : __('Створити замовлення для');
         $saveUrl = $isEdit ? route('orders.update', $order) : route('orders.store');
         $backUrl = $isEdit ? route('orders.show', $order) : route('orders.index');
+        $initialClientId = $isEdit ? $order->client_id : ($selectedClient?->id);
+        $initialClientName = $isEdit ? ($order->customer_name ?? '') : ($selectedClient?->name ?? '');
 
         if ($isEdit && (float) $order->payments_total > (float) $order->total_cost) {
             $initialPaymentStatus = ['label' => 'Є переплата', 'className' => 'border-blue-400 bg-teal-100 text-blue-800'];
@@ -33,7 +36,11 @@
             @else
                 <div
                     id="order-create-client-picker"
-                    x-data="orderCreateForm({ clients: @js($clients) })"
+                    x-data="orderCreateForm({
+                        clients: @js($clients),
+                        initialClientId: @js($initialClientId),
+                        initialClientName: @js($initialClientName),
+                    })"
                     class="flex min-w-0 flex-1 flex-wrap items-center gap-4"
                 >
                     <h2 class="shrink-0 font-semibold text-xl text-gray-800 leading-tight">
@@ -108,8 +115,8 @@
                 appendCandidateUrl: @js($isEdit ? '' : route('orders.append-candidate')),
                 saveMethod: @js($isEdit ? 'PATCH' : 'POST'),
                 isEdit: @js($isEdit),
-                initialClientId: @js($order?->client_id),
-                initialClientName: @js($order?->customer_name ?? ''),
+                initialClientId: @js($initialClientId),
+                initialClientName: @js($initialClientName),
                 initialItems: @js($order?->items ?? []),
                 initialOrderStatus: @js($order?->status ?? \App\Models\Order::STATUS_NEW),
                 paymentsTotal: @js((float) ($order?->payments_total ?? 0)),
