@@ -31,6 +31,101 @@ class ClientPaymentTest extends TestCase
         ]);
     }
 
+    public function test_targeted_payment_rollback_migration_deletes_only_the_approved_payments(): void
+    {
+        $client = Client::factory()->create([
+            'public_id' => 'e97b6dd6-9a2d-4cee-b2aa-cef5e404f2e8',
+        ]);
+        $targetOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'total_cost' => 7460,
+            'payments_total' => 7460,
+            'amount_due' => 0,
+        ]);
+        $previousOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'total_cost' => 2570,
+            'payments_total' => 2570,
+            'amount_due' => 0,
+        ]);
+        $prepayment = ClientPayment::query()->create([
+            'client_id' => $client->id,
+            'amount' => 7000,
+            'amount_uah' => 7000,
+            'currency' => 'UAH',
+            'payment_type' => 'prepayment',
+            'paid_at' => now(),
+        ]);
+        $previousOverpaymentUse = ClientPayment::query()->create([
+            'client_id' => $client->id,
+            'order_id' => $previousOrder->id,
+            'amount' => 2570,
+            'amount_uah' => 2570,
+            'currency' => 'UAH',
+            'payment_type' => 'order',
+            'is_from_overpayment' => true,
+            'paid_at' => now(),
+        ]);
+        $directPayment = new ClientPayment([
+            'client_id' => $client->id,
+            'order_id' => $targetOrder->id,
+            'amount' => 4430,
+            'amount_uah' => 4430,
+            'currency' => 'UAH',
+            'payment_type' => 'order',
+            'paid_at' => now(),
+        ]);
+        $directPayment->public_id = '27023889-8c37-46cf-b555-741c6f737e98';
+        $directPayment->save();
+
+        $overpaymentPayment = new ClientPayment([
+            'client_id' => $client->id,
+            'order_id' => $targetOrder->id,
+            'amount' => 3030,
+            'amount_uah' => 3030,
+            'currency' => 'UAH',
+            'payment_type' => 'order',
+            'is_from_overpayment' => true,
+            'paid_at' => now(),
+        ]);
+        $overpaymentPayment->public_id = '8b2ce1ff-cc23-4a97-ba6d-7a1d13a27557';
+        $overpaymentPayment->save();
+        $unrelatedPayment = ClientPayment::query()->create([
+            'client_id' => Client::factory()->create()->id,
+            'amount' => 100,
+            'amount_uah' => 100,
+            'currency' => 'UAH',
+            'payment_type' => 'prepayment',
+            'paid_at' => now(),
+        ]);
+
+        $migration = require database_path('migrations/2026_09_22_120000_rollback_two_targeted_client_payments.php');
+        $migration->up();
+
+        $this->assertDatabaseMissing('client_payments', ['id' => $directPayment->id]);
+        $this->assertDatabaseMissing('client_payments', ['id' => $overpaymentPayment->id]);
+        $this->assertDatabaseHas('client_payments', ['id' => $prepayment->id]);
+        $this->assertDatabaseHas('client_payments', ['id' => $previousOverpaymentUse->id]);
+        $this->assertDatabaseHas('client_payments', ['id' => $unrelatedPayment->id]);
+        $this->assertSame('0.00', $targetOrder->fresh()->payments_total);
+        $this->assertSame('7460.00', $targetOrder->fresh()->amount_due);
+
+        $availableOverpayment = (int) ClientPayment::query()
+            ->where('client_id', $client->id)
+            ->where('payment_type', 'prepayment')
+            ->sum('amount_uah') - (int) ClientPayment::query()
+                ->where('client_id', $client->id)
+                ->where('is_from_overpayment', true)
+                ->sum('amount_uah');
+        $this->assertSame(4430, $availableOverpayment);
+
+        $migration->up();
+
+        $this->assertDatabaseHas('client_payments', ['id' => $prepayment->id]);
+        $this->assertSame('0.00', $targetOrder->fresh()->payments_total);
+        $this->assertSame('7460.00', $targetOrder->fresh()->amount_due);
+    }
+
     public function test_client_card_displays_payment_controls_modal_and_only_client_orders(): void
     {
         $user = $this->createUserWithRole([
