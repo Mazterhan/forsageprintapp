@@ -230,7 +230,7 @@
                                             <button
                                                 type="button"
                                                 @click="openOverpaymentPayment()"
-                                                class="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 shadow-sm hover:bg-blue-100"
+                                                class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
                                             >
                                                 Списати з переплати
                                             </button>

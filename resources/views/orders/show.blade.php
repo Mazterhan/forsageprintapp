@@ -449,7 +449,7 @@
                             <div class="ml-auto flex flex-wrap justify-end gap-3">
                             <button x-show="isEditing" x-cloak type="button" @click="resetForm()" :disabled="isSaving" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50" x-text="isReadOnlyPayment ? 'Повернутися до платежів' : 'Скасувати редагування'"></button>
                             @if($canSpendOrderOverpayment)
-                            <button x-show="!isEditing && overpaymentTotal > 0" x-cloak type="button" @click="submitPayment(true)" :disabled="paymentsBlocked || isSaving || isOverpaymentSpendAmountInvalid()" class="rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50">
+                            <button x-show="!isEditing && overpaymentTotal > 0" x-cloak type="button" @click="submitPayment(true)" :disabled="paymentsBlocked || isSaving || isOverpaymentSpendAmountInvalid()" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
                                 Списати з переплати
                             </button>
                             @endif
