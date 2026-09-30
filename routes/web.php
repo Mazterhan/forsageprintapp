@@ -138,6 +138,15 @@ Route::middleware(['auth', 'permission:orders|orders_clients_edit'])
         Route::patch('/clients/{client}/deactivate', [ClientController::class, 'deactivate'])->whereUuid('client')->name('clients.deactivate');
     });
 
+Route::middleware(['auth', 'permission:orders|orders_update'])
+    ->prefix('orders')
+    ->name('orders.')
+    ->group(function () {
+        Route::patch('/clients/{client}/hide-cancelled-orders', [ClientController::class, 'hideCancelledOrders'])
+            ->whereUuid('client')
+            ->name('clients.hide-cancelled-orders');
+    });
+
 Route::middleware(['auth', 'permission:orders'])
     ->prefix('orders')
     ->name('orders.')

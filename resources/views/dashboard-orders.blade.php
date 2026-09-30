@@ -23,6 +23,8 @@
             ? $value->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i')
             : '—';
         $orderCount = max(1, (int) ($kpi['order_count'] ?? 0));
+        $paymentStatusAnalyticsOrders = $paymentStatusAnalyticsOrders ?? $analyticsOrders;
+        $orderStatusAnalyticsOrders = $orderStatusAnalyticsOrders ?? $analyticsOrders;
 
         $kpiCards = [
             ['label' => 'Кількість замовлень', 'value' => number_format((int) ($kpi['order_count'] ?? 0), 0, '.', ' ')],
@@ -68,7 +70,8 @@
 
             return $result;
         })->values();
-        $modalOrders = $analyticsOrders->map(function (array $row) use ($showFinance, $canOpenOrder, $canOpenClient): array {
+        $buildModalOrders = static function ($orders) use ($showFinance, $canOpenOrder, $canOpenClient) {
+            return $orders->map(function (array $row) use ($showFinance, $canOpenOrder, $canOpenClient): array {
             $result = [
                 'updated_at' => $row['updated_at']?->timestamp ?? 0,
                 'updated_at_label' => $row['updated_at']?->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i') ?? '—',
@@ -93,7 +96,10 @@
             }
 
             return $result;
-        })->values();
+            })->values();
+        };
+        $modalPaymentOrders = $buildModalOrders($paymentStatusAnalyticsOrders);
+        $modalOrderStatusOrders = $buildModalOrders($orderStatusAnalyticsOrders);
     @endphp
 
     <style>
@@ -704,7 +710,8 @@
             const analyticsData = {
                 debtors: @json($showTables ? $modalDebtors : []),
                 investors: @json($showTables ? $modalInvestors : []),
-                orders: @json($showTables ? $modalOrders : []),
+                paymentStatusOrders: @json($showTables ? $modalPaymentOrders : []),
+                orderStatusOrders: @json($showTables ? $modalOrderStatusOrders : []),
             };
             const showFinance = @json($showFinance);
             const modal = document.getElementById('ordersAnalyticsModal');
@@ -839,7 +846,8 @@
                     const byPayment = type === 'payment-status';
                     const statusKey = byPayment ? 'payment_status' : 'order_status';
                     const labelKey = byPayment ? 'payment_status_label' : 'order_status_label';
-                    modalRows = analyticsData.orders.filter((row) => row[statusKey] === status);
+                    const orders = byPayment ? analyticsData.paymentStatusOrders : analyticsData.orderStatusOrders;
+                    modalRows = orders.filter((row) => row[statusKey] === status);
                     modalColumns = orderColumns;
                     modalTitle.textContent = `${byPayment ? 'Замовлення зі статусом оплати' : 'Замовлення зі статусом'} «${modalRows[0]?.[labelKey] || status}»`;
                     sortKey = 'updated_at';

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Models\Client;
+use App\Models\Order;
 use App\Models\OrderProposal;
 use App\Models\User;
 use App\Services\PermissionService;
@@ -42,6 +43,7 @@ class ClientController extends Controller
                 $join->on('client_order_payment_totals.order_id', '=', 'orders.id');
             })
             ->whereNotNull('orders.client_id')
+            ->whereNull('orders.hidden_at')
             ->groupBy('orders.client_id')
             ->selectRaw('orders.client_id, COUNT(*) as orders_count')
             ->selectRaw('SUM(CASE WHEN COALESCE(client_order_payment_totals.total, 0) <= 0 THEN 1 ELSE 0 END) as unpaid_orders_count')
@@ -193,6 +195,7 @@ class ClientController extends Controller
             'overpayments' => $permissions->can($user, 'orders_clients_overpayments_manage'),
             'payments_edit' => $permissions->can($user, 'orders_clients_payments_edit'),
             'orders' => $permissions->can($user, 'orders_access'),
+            'orders_update' => $permissions->can($user, 'orders_update'),
         ];
 
         $client->load([
@@ -288,6 +291,12 @@ class ClientController extends Controller
             $clientOrdersQuery->where('orders.created_by', $user?->id);
         }
 
+        $canHideCancelledOrders = $clientPermissions['orders'] && $clientPermissions['orders_update'];
+        $hasVisibleCancelledOrders = $canHideCancelledOrders
+            && (clone $clientOrdersQuery)
+                ->where('orders.status', Order::STATUS_CANCELLED)
+                ->exists();
+
         if ($orderSort === 'date') {
             $clientOrdersQuery->orderBy('orders.updated_at', $orderDirection);
         } elseif ($orderSort === 'payment') {
@@ -319,7 +328,47 @@ class ClientController extends Controller
             'orderSort' => $orderSort,
             'orderDirection' => $orderDirection,
             'clientPermissions' => $clientPermissions,
+            'canHideCancelledOrders' => $canHideCancelledOrders,
+            'hasVisibleCancelledOrders' => $hasVisibleCancelledOrders,
         ]);
+    }
+
+    public function hideCancelledOrders(Request $request, Client $client, PermissionService $permissions)
+    {
+        $user = $request->user();
+        abort_unless(
+            $permissions->can($user, 'orders_access') && $permissions->can($user, 'orders_update'),
+            403,
+        );
+
+        $data = $request->validate([
+            'order_public_ids' => ['required', 'array', 'min:1'],
+            'order_public_ids.*' => ['required', 'uuid'],
+        ]);
+        $orderPublicIds = collect($data['order_public_ids'])->unique()->values();
+
+        $ordersQuery = $client->orders()
+            ->where('status', Order::STATUS_CANCELLED)
+            ->whereIn('public_id', $orderPublicIds);
+        if ($permissions->orderScope($user) === 'own') {
+            $ordersQuery->where('created_by', $user?->id);
+        }
+
+        $ordersToHide = $ordersQuery->get(['id']);
+        abort_unless($ordersToHide->count() === $orderPublicIds->count(), 422);
+
+        DB::transaction(function () use ($ordersToHide, $user): void {
+            Order::query()
+                ->whereIn('id', $ordersToHide->pluck('id'))
+                ->update([
+                    'hidden_at' => now(),
+                    'hidden_by' => $user?->id,
+                ]);
+        });
+
+        return redirect()
+            ->route('orders.clients.show', ['client' => $client, 'section' => 'orders'])
+            ->with('status', 'Скасовані замовлення приховано.');
     }
 
     public function update(UpdateClientRequest $request, Client $client)

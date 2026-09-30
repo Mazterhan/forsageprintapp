@@ -512,4 +512,62 @@ class OrderClientPermissionTest extends TestCase
             ])
             ->assertOk();
     }
+
+    public function test_cancelled_client_orders_can_be_hidden_without_deleting_them(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_orders' => true,
+            'orders_access' => true,
+            'orders_scope' => 'own',
+            'orders_update' => true,
+            'orders_clients_manage' => true,
+        ]);
+        $client = Client::factory()->create();
+        $cancelledOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'created_by' => $user->id,
+            'status' => Order::STATUS_CANCELLED,
+        ]);
+        $activeOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'created_by' => $user->id,
+            'status' => Order::STATUS_NEW,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('orders.clients.show', ['client' => $client, 'section' => 'orders']))
+            ->assertOk()
+            ->assertSee('Видалити')
+            ->assertSee($cancelledOrder->order_number)
+            ->assertSee($activeOrder->order_number)
+            ->assertSee('hide-cancelled-orders-form', false);
+
+        $this->actingAs($user)
+            ->patch(route('orders.clients.hide-cancelled-orders', $client), [
+                'order_public_ids' => [$activeOrder->public_id],
+            ])
+            ->assertUnprocessable();
+
+        $this->assertNull(Order::withoutGlobalScopes()->findOrFail($activeOrder->id)->hidden_at);
+
+        $this->actingAs($user)
+            ->patch(route('orders.clients.hide-cancelled-orders', $client), [
+                'order_public_ids' => [$cancelledOrder->public_id],
+            ])
+            ->assertRedirect(route('orders.clients.show', ['client' => $client, 'section' => 'orders']));
+
+        $hiddenOrder = Order::withoutGlobalScopes()->findOrFail($cancelledOrder->id);
+        $this->assertNotNull($hiddenOrder->hidden_at);
+        $this->assertSame($user->id, $hiddenOrder->hidden_by);
+
+        $this->actingAs($user)
+            ->get(route('orders.clients.show', ['client' => $client, 'section' => 'orders']))
+            ->assertOk()
+            ->assertDontSee($cancelledOrder->order_number)
+            ->assertSee($activeOrder->order_number)
+            ->assertDontSee('Видалити');
+        $this->actingAs($user)
+            ->get(route('orders.show', $cancelledOrder))
+            ->assertNotFound();
+    }
 }

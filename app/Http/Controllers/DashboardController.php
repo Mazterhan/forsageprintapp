@@ -796,18 +796,30 @@ class DashboardController extends Controller
                 default => 'overpaid',
             };
 
-            $statusStats[$status]['count']++;
-            $statusStats[$status]['total_cost'] += $totalCost;
-            $statusStats[$status]['payments_total'] += $paymentsTotal;
-            $statusStats[$status]['amount_due'] += $amountDue;
-
             $orderStatus = array_key_exists((string) $order->status, Order::STATUSES)
                 ? (string) $order->status
                 : Order::STATUS_NEW;
-            $orderStatusStats[$orderStatus]['count']++;
-            $orderStatusStats[$orderStatus]['total_cost'] += $totalCost;
-            $orderStatusStats[$orderStatus]['payments_total'] += $paymentsTotal;
-            $orderStatusStats[$orderStatus]['amount_due'] += $amountDue;
+
+            if ($orderStatus !== Order::STATUS_CANCELLED) {
+                $statusStats[$status]['count']++;
+                $statusStats[$status]['total_cost'] += $totalCost;
+                $statusStats[$status]['payments_total'] += $paymentsTotal;
+                $statusStats[$status]['amount_due'] += $amountDue;
+            }
+
+            $isMergedSourceOrder = $orderStatus === Order::STATUS_CANCELLED
+                && is_array($order->items)
+                && $order->items === []
+                && abs($totalCost) < 0.005
+                && abs($paymentsTotal) < 0.005
+                && abs($amountDue) < 0.005;
+
+            if (! $isMergedSourceOrder) {
+                $orderStatusStats[$orderStatus]['count']++;
+                $orderStatusStats[$orderStatus]['total_cost'] += $totalCost;
+                $orderStatusStats[$orderStatus]['payments_total'] += $paymentsTotal;
+                $orderStatusStats[$orderStatus]['amount_due'] += $amountDue;
+            }
 
             return [
                 'public_id' => $order->public_id,
@@ -824,19 +836,29 @@ class DashboardController extends Controller
                 'payments_total' => $paymentsTotal,
                 'amount_due' => $amountDue,
                 'status' => $status,
+                'is_debtor' => in_array($status, ['unpaid', 'partial'], true) && $amountDue > 0,
                 'status_label' => $statusStats[$status]['label'],
                 'status_class' => $statusStats[$status]['className'],
                 'order_status' => $orderStatus,
                 'order_status_label' => $orderStatusStats[$orderStatus]['label'],
                 'order_status_class' => $orderStatusStats[$orderStatus]['className'],
+                'is_merged_source_order' => $isMergedSourceOrder,
             ];
         });
+
+        $ordersForPeriodList = $analyticsOrders
+            ->reject(static fn (array $order): bool => $order['order_status'] === Order::STATUS_CANCELLED)
+            ->values();
+        $ordersForPaymentStatusDetails = $ordersForPeriodList;
+        $ordersForStatusDetails = $analyticsOrders
+            ->reject(static fn (array $order): bool => $order['is_merged_source_order'])
+            ->values();
 
         $orderCount = $analyticsOrders->count();
         $totalCost = $analyticsOrders->sum('total_cost');
         $paymentsTotal = $analyticsOrders->sum('payments_total');
-        $debtorClients = $analyticsOrders
-            ->filter(static fn (array $order): bool => (float) $order['amount_due'] > 0)
+        $debtorClients = $ordersForPeriodList
+            ->filter(static fn (array $order): bool => $order['is_debtor'])
             ->groupBy('client_key')
             ->map(function ($clientOrders): array {
                 $firstOrder = $clientOrders->first();
@@ -915,7 +937,9 @@ class DashboardController extends Controller
             )),
             'debtorClients' => $debtorClients,
             'investorClients' => $investorClients,
-            'analyticsOrders' => $analyticsOrders->take(100)->values(),
+            'analyticsOrders' => $ordersForPeriodList->take(100)->values(),
+            'paymentStatusAnalyticsOrders' => $ordersForPaymentStatusDetails,
+            'orderStatusAnalyticsOrders' => $ordersForStatusDetails,
             'dashboardPermissions' => [
                 'show_kpi' => $permissions->can($user, 'analytics_orders_show_kpi'),
                 'show_charts' => $permissions->can($user, 'analytics_orders_show_charts'),

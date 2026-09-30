@@ -244,8 +244,15 @@ class DashboardTabsTest extends TestCase
             ->assertSee('Замовлення у вибраному періоді')
             ->assertDontSee($proposal->proposal_number);
         $response
-            ->assertViewHas('debtorClients', fn ($debtors): bool => $debtors->count() === 2
-                && (float) $debtors->sum('debt_total') === 1800.0)
+            ->assertViewHas('debtorClients', function ($debtors) use ($client): bool {
+                $partialPaymentDebtor = $debtors->firstWhere('client_name', $client->name);
+
+                return $debtors->count() === 2
+                    && (float) $debtors->sum('debt_total') === 1800.0
+                    && (int) ($partialPaymentDebtor['orders_count'] ?? 0) === 1
+                    && (float) ($partialPaymentDebtor['payments_total'] ?? 0) === 200.0
+                    && (float) ($partialPaymentDebtor['debt_total'] ?? 0) === 800.0;
+            })
             ->assertViewHas('investorClients', fn ($investors): bool => $investors->count() === 1
                 && (float) $investors->first()['overpayment_total'] === 1200.0)
             ->assertViewHas('kpi', fn (array $kpi): bool => $kpi['debtor_clients'] === 2
@@ -256,6 +263,102 @@ class DashboardTabsTest extends TestCase
         foreach ($orders as $order) {
             $response->assertSee($order->order_number);
         }
+    }
+
+    public function test_cancelled_orders_are_excluded_from_payment_status_analytics_debtors_and_period_list_while_merged_sources_are_excluded_from_order_status_summary(): void
+    {
+        $user = $this->analyticsUser();
+        $client = Client::factory()->create(['name' => 'Клієнт скасованих замовлень']);
+        $activeOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'last_edited_by' => $user->id,
+            'status' => Order::STATUS_NEW,
+            'total_cost' => 1000,
+            'payments_total' => 0,
+            'amount_due' => 1000,
+        ]);
+        $cancelledOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'last_edited_by' => $user->id,
+            'status' => Order::STATUS_CANCELLED,
+            'total_cost' => 500,
+            'payments_total' => 0,
+            'amount_due' => 500,
+        ]);
+        $mergedSourceOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'last_edited_by' => $user->id,
+            'status' => Order::STATUS_CANCELLED,
+            'items' => [],
+            'total_cost' => 0,
+            'payments_total' => 0,
+            'amount_due' => 0,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->get(route('dashboard', ['tab' => 'orders', 'period' => 'all']))
+            ->assertOk();
+
+        $response
+            ->assertViewHas('analyticsOrders', fn ($orders): bool => $orders->pluck('number')->all() === [$activeOrder->order_number])
+            ->assertViewHas('debtorClients', fn ($debtors): bool => $debtors->count() === 1
+                && (float) $debtors->first()['debt_total'] === 1000.0)
+            ->assertViewHas('paymentStatusAnalyticsOrders', fn ($orders): bool => $orders->pluck('number')->all() === [$activeOrder->order_number])
+            ->assertViewHas('statusStats', function (array $statuses): bool {
+                $unpaid = collect($statuses)->firstWhere('key', 'unpaid');
+
+                return (int) ($unpaid['count'] ?? 0) === 1
+                    && (float) ($unpaid['total_cost'] ?? 0) === 1000.0
+                    && (float) ($unpaid['amount_due'] ?? 0) === 1000.0;
+            })
+            ->assertViewHas('orderStatusAnalyticsOrders', fn ($orders): bool => $orders->pluck('number')->sort()->values()->all() === collect([
+                $activeOrder->order_number,
+                $cancelledOrder->order_number,
+            ])->sort()->values()->all())
+            ->assertViewHas('orderStatusStats', function (array $statuses): bool {
+                $cancelled = collect($statuses)->firstWhere('key', Order::STATUS_CANCELLED);
+
+                return (int) ($cancelled['count'] ?? 0) === 1
+                    && (float) ($cancelled['total_cost'] ?? 0) === 500.0
+                    && (float) ($cancelled['amount_due'] ?? 0) === 500.0;
+            });
+
+        $this->assertNotSame($cancelledOrder->order_number, $activeOrder->order_number);
+        $this->assertNotSame($mergedSourceOrder->order_number, $activeOrder->order_number);
+    }
+
+    public function test_hidden_cancelled_orders_are_excluded_from_all_order_dashboard_analytics(): void
+    {
+        $user = $this->analyticsUser();
+        $client = Client::factory()->create(['name' => 'Клієнт прихованого замовлення']);
+        $visibleOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'created_by' => $user->id,
+            'status' => Order::STATUS_NEW,
+            'total_cost' => 1000,
+        ]);
+        $hiddenCancelledOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'created_by' => $user->id,
+            'status' => Order::STATUS_CANCELLED,
+            'total_cost' => 500,
+            'hidden_at' => now(),
+            'hidden_by' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('dashboard', ['tab' => 'orders', 'period' => 'all']))
+            ->assertOk()
+            ->assertViewHas('analyticsOrders', fn ($orders): bool => $orders->pluck('number')->all() === [$visibleOrder->order_number])
+            ->assertViewHas('paymentStatusAnalyticsOrders', fn ($orders): bool => $orders->pluck('number')->all() === [$visibleOrder->order_number])
+            ->assertViewHas('orderStatusAnalyticsOrders', fn ($orders): bool => $orders->pluck('number')->all() === [$visibleOrder->order_number]);
+
+        $this->assertNotNull(Order::withoutGlobalScopes()->findOrFail($hiddenCancelledOrder->id)->hidden_at);
     }
 
     public function test_orders_tables_show_top_ten_and_only_actual_clickable_statuses(): void
