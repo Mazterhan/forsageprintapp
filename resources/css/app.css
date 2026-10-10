@@ -10,3 +10,44 @@
 .order-status-blink {
     animation: orderStatusBlink 1.2s ease-in-out infinite;
 }
+
+@media screen and (max-width: 639px) and (display-mode: browser) {
+    #price-filter-form > div {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    #price-filter-form #search {
+        width: 100% !important;
+        min-width: 0;
+    }
+
+    [data-mobile-price-fields] {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    [data-mobile-price-fields] > div {
+        width: 100%;
+        min-width: 0;
+        flex: none;
+    }
+
+    [data-mobile-header],
+    [data-mobile-header] > div {
+        flex-wrap: wrap;
+        min-width: 0;
+        max-width: 100%;
+        gap: 0.75rem;
+    }
+
+    [data-mobile-order-table] {
+        overflow-x: auto;
+    }
+
+    [data-mobile-calculation] .ml-auto.shrink-0 {
+        flex-wrap: wrap;
+        flex-shrink: 1;
+        max-width: 100%;
+    }
+}

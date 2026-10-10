@@ -7,7 +7,7 @@
                 ? $perPageHeaderSelectedRaw
                 : '20';
         @endphp
-        <div x-data="{}" class="flex items-center justify-between">
+        <div data-mobile-header x-data="{}" class="flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ __('Збережені заявки') }}</h2>
                 @if($canManageProposals ?? false)

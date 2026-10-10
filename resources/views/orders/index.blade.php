@@ -64,7 +64,7 @@
     @endphp
 
     <x-slot name="header">
-        <div class="flex items-center justify-between">
+        <div data-mobile-header class="flex items-center justify-between">
             <div class="flex items-center gap-4">
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                     {{ __('Замовлення') }}

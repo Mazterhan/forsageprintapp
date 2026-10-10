@@ -29,6 +29,7 @@
     <div class="py-12">
         <div class="max-w-[1700px] mx-auto px-6 sm:px-8 lg:px-12">
             <div
+                data-mobile-calculation
                 class="space-y-5 overflow-visible"
                 x-data="orderCalculation({
                     clients: @js($clients),

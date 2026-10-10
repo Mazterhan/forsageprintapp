@@ -55,7 +55,7 @@
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 space-y-6">
-                    <div class="flex items-end gap-4">
+                    <div data-mobile-price-fields class="flex items-end gap-4">
                         <div class="flex-1 min-w-0">
                             <x-input-label for="name" :value="__('Назва')" />
                             <x-text-input

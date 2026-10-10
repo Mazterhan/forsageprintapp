@@ -300,7 +300,7 @@
                 </div>
             </div>
 
-            <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
+            <div data-mobile-order-table class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                 <table class="min-w-full table-fixed text-sm border-b border-gray-200">
                     <thead style="background-color: #D3D4D4;">
                         <tr>
