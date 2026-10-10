@@ -111,6 +111,11 @@ class Order extends Model
         return $this->hasMany(ClientPayment::class);
     }
 
+    public function activeEditLock(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(OrderEditLock::class)->where('heartbeat_at', '>', now()->subMinutes(5));
+    }
+
     public function statusLabel(): string
     {
         return self::STATUSES[$this->status] ?? self::STATUSES[self::STATUS_NEW];

@@ -414,6 +414,9 @@
                                                         <a href="{{ route('orders.show', $clientOrder) }}" class="text-indigo-600 hover:text-indigo-900">
                                                             {{ $clientOrder->order_number }}
                                                         </a>
+                                                        @if($clientOrder->activeEditLock)
+                                                            <span class="order-status-blink ml-2 inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">Редагується</span>
+                                                        @endif
                                                     </td>
                                                     <td class="border-b px-4 py-3">
                                                         <span class="inline-flex whitespace-nowrap rounded-md border px-3 py-1 text-sm font-semibold {{ $orderPaymentStatusClass }}">

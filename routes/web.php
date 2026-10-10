@@ -66,6 +66,9 @@ Route::middleware(['auth', 'permission:orders'])
         Route::patch('/table-columns', [OrderController::class, 'updateTableColumns'])->name('table-columns.update');
         Route::post('/{order}/append-items', [OrderController::class, 'appendItems'])->whereUuid('order')->name('append-items');
         Route::get('/{order}/edit', [OrderController::class, 'edit'])->whereUuid('order')->name('edit');
+        Route::get('/{order}/edit-lock', [OrderController::class, 'editLockStatus'])->whereUuid('order')->name('edit-lock.status');
+        Route::patch('/{order}/edit-lock', [OrderController::class, 'editLockHeartbeat'])->whereUuid('order')->name('edit-lock.heartbeat');
+        Route::delete('/{order}/edit-lock', [OrderController::class, 'editLockRelease'])->whereUuid('order')->name('edit-lock.release');
         Route::patch('/{order}', [OrderController::class, 'update'])->whereUuid('order')->name('update');
         Route::patch('/{order}/status', [OrderController::class, 'updateStatus'])->whereUuid('order')->name('status.update');
         Route::get('/{order}/merge-candidates', [OrderController::class, 'mergeCandidates'])->whereUuid('order')->name('merge-candidates');

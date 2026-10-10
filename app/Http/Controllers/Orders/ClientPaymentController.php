@@ -55,6 +55,7 @@ class ClientPaymentController extends Controller
             ->groupBy('order_id');
 
         $orders = $client->orders()
+            ->whereDoesntHave('activeEditLock')
             ->leftJoinSub($paymentTotals, 'selectable_order_payment_totals', function ($join): void {
                 $join->on('selectable_order_payment_totals.order_id', '=', 'orders.id');
             })
@@ -110,6 +111,9 @@ class ClientPaymentController extends Controller
         $this->authorizeOverpaymentOperation($request, $permissions, $data);
 
         [$payment, $automaticOverpayment] = DB::transaction(function () use ($request, $client, $data, $order): array {
+            if ($order) {
+                app(\App\Services\OrderEditLockService::class)->guard($order);
+            }
             $this->ensureValidOverpaymentBalance($client, $data);
             $this->ensureOrderCanAcceptNewPayment($order, (bool) $data['is_from_overpayment']);
 
@@ -206,6 +210,7 @@ class ClientPaymentController extends Controller
             foreach ($selectedPublicIds as $publicId) {
                 /** @var Order $order */
                 $order = $orders->get($publicId);
+                app(\App\Services\OrderEditLockService::class)->guard($order);
                 if ($order->status !== Order::STATUS_NEW) {
                     throw ValidationException::withMessages([
                         'order_public_ids' => sprintf(
@@ -330,6 +335,9 @@ class ClientPaymentController extends Controller
         }
 
         DB::transaction(function () use ($request, $clientPayment, $data, $order, $previousOrder): void {
+            foreach (collect([$previousOrder, $order])->filter()->unique('id')->sortBy('id') as $affectedOrder) {
+                app(\App\Services\OrderEditLockService::class)->guard($affectedOrder);
+            }
             $this->ensureValidOverpaymentBalance($clientPayment->client, $data, $clientPayment);
             if ((int) $previousOrder?->id !== (int) $order?->id) {
                 $this->ensureOrderCanAcceptNewPayment($order, (bool) $data['is_from_overpayment']);

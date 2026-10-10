@@ -280,6 +280,9 @@
                                                 @case('number')
                                                     <td class="px-4 py-3 border-b">
                                                         <a href="{{ route('orders.show', $order) }}" class="text-indigo-600 hover:text-indigo-900">{{ $order->order_number }}</a>
+                                                        @if($order->activeEditLock)
+                                                            <span class="order-status-blink ml-2 inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">Редагується</span>
+                                                        @endif
                                                     </td>
                                                     @break
                                                 @case('payment')

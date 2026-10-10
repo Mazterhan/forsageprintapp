@@ -115,6 +115,8 @@
                 appendCandidateUrl: @js($isEdit ? '' : route('orders.append-candidate')),
                 saveMethod: @js($isEdit ? 'PATCH' : 'POST'),
                 isEdit: @js($isEdit),
+                editLockToken: @js($editLockToken ?? ''),
+                editLockUrl: @js($isEdit ? route('orders.edit-lock.heartbeat', $order) : ''),
                 initialClientId: @js($initialClientId),
                 initialClientName: @js($initialClientName),
                 initialItems: @js($order?->items ?? []),
@@ -456,6 +458,10 @@
                 appendCandidateUrl: config.appendCandidateUrl || '',
                 saveMethod: config.saveMethod || 'POST',
                 isEdit: Boolean(config.isEdit),
+                editLockToken: config.editLockToken || '',
+                editLockUrl: config.editLockUrl || '',
+                editLockTimer: null,
+                editLockLost: false,
                 selectedClientId: config.initialClientId ? String(config.initialClientId) : '',
                 selectedClientQuery: config.initialClientName || '',
                 initialOrderStatus: config.initialOrderStatus || 'new',
@@ -526,6 +532,21 @@
                 },
 
                 init() {
+                    if (this.editLockToken) {
+                        const editorUrl = new URL(window.location.href);
+                        editorUrl.searchParams.set('edit_token', this.editLockToken);
+                        window.history.replaceState(null, '', editorUrl);
+                        this.editLockTimer = window.setInterval(() => this.heartbeatEditLock(), 60000);
+                        window.addEventListener('pagehide', () => {
+                            window.clearInterval(this.editLockTimer);
+                            fetch(this.editLockUrl, {
+                                method: 'DELETE',
+                                keepalive: true,
+                                headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''},
+                                body: JSON.stringify({edit_lock_token: this.editLockToken}),
+                            }).catch(() => {});
+                        });
+                    }
                     this.orderItems = this.initialItems.map((item) => this.createOrderItem(item));
                     if (this.orderItems.length === 0) {
                         this.orderItems = [this.createOrderItem()];
@@ -544,6 +565,23 @@
                         quantity: source.quantity ? String(source.quantity) : '1',
                         unitCost: source.unit_cost ? String(source.unit_cost) : '',
                     };
+                },
+
+                async heartbeatEditLock() {
+                    try {
+                        const response = await fetch(this.editLockUrl, {
+                            method: 'PATCH',
+                            headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''},
+                            body: JSON.stringify({edit_lock_token: this.editLockToken}),
+                        });
+                        if (!response.ok) {
+                            this.editLockLost = true;
+                            window.clearInterval(this.editLockTimer);
+                            this.showWarning('Право редагування втрачено. Збереження недоступне. Відкрийте редагування зі сторінки замовлення.');
+                        }
+                    } catch (error) {
+                        return;
+                    }
                 },
 
                 removeOrderItem(itemIndex) {
@@ -821,6 +859,10 @@
                 },
 
                 async saveOrder(createClient) {
+                    if (this.editLockLost) {
+                        this.showWarning('Право редагування втрачено. Відкрийте редагування зі сторінки замовлення.');
+                        return;
+                    }
                     if (this.isSaving || !this.saveUrl) {
                         return;
                     }
@@ -847,6 +889,7 @@
                                 customer_name: String(this.selectedClientQuery || '').trim(),
                                 create_client: Boolean(createClient),
                                 status: this.orderStatus,
+                                edit_lock_token: this.editLockToken,
                                 items,
                             }),
                         });

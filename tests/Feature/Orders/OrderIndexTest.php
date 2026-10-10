@@ -680,6 +680,7 @@ class OrderIndexTest extends TestCase
         $this->actingAs($user)
             ->patchJson(route('orders.update', $order), [
                 'client_id' => $otherClient->id,
+                'edit_lock_token' => $order->activeEditLock()->first()?->lock_token,
                 'customer_name' => $otherClient->name,
                 'items' => [[
                     'item_id' => $order->items[0]['item_id'],
@@ -835,7 +836,7 @@ class OrderIndexTest extends TestCase
         $this->actingAs($user)
             ->get(route('orders.show', $order))
             ->assertOk()
-            ->assertSee(":disabled=\"selectedStatus === 'blocked' || selectedStatus === 'completed'\"", false)
+            ->assertSee(":disabled=\"selectedStatus === 'blocked' || selectedStatus === 'completed' || locked\"", false)
             ->assertSee('Редагування недоступне для заблокованого або виконаного замовлення');
 
         $this->actingAs($user)
@@ -873,7 +874,7 @@ class OrderIndexTest extends TestCase
             ->assertOk()
             ->assertSee("initialStatus: 'completed'", false)
             ->assertDontSee('data-order-status-option="completed"', false)
-            ->assertSee(":disabled=\"selectedStatus === 'blocked' || selectedStatus === 'completed'\"", false);
+            ->assertSee(":disabled=\"selectedStatus === 'blocked' || selectedStatus === 'completed' || locked\"", false);
 
         $this->actingAs($user)
             ->get(route('orders.edit', $order))
@@ -1182,6 +1183,7 @@ class OrderIndexTest extends TestCase
                 'created_by' => $user->id,
                 'customer_name' => $client->name,
                 'status' => Order::STATUS_CANCELLED,
+                'edit_lock_token' => $order->activeEditLock()->first()?->lock_token,
                 'items' => [
                     [
                         'item_id' => 'existing-item',
@@ -1311,6 +1313,7 @@ class OrderIndexTest extends TestCase
                         'unit_cost' => 200,
                     ],
                 ],
+                'edit_lock_token' => $order->activeEditLock()->first()?->lock_token,
             ])
             ->assertOk();
 

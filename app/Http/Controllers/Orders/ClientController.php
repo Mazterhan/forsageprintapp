@@ -208,6 +208,7 @@ class ClientController extends Controller
             $client->load([
                 'payments' => fn ($query) => $query->latest('paid_at'),
                 'payments.order:id,public_id,order_number,amount_due',
+                'payments.order.activeEditLock',
                 'payments.createdBy:id,name',
                 'payments.updatedBy:id,name',
                 'payments.histories.user:id,name',
@@ -244,6 +245,7 @@ class ClientController extends Controller
                 'fromOverpayment' => $payment->is_from_overpayment,
                 'isAutomatic' => $payment->is_automatic,
                 'canEdit' => $clientPermissions['payments_edit']
+                    && ! $payment->order?->activeEditLock
                     && ! $payment->is_automatic
                     && (! $touchesOverpayment || $clientPermissions['overpayments']),
                 'automaticOverpaymentId' => $payment->automaticOverpayment?->public_id,
@@ -283,7 +285,7 @@ class ClientController extends Controller
             })
             ->select('orders.*')
             ->addSelect(DB::raw('COALESCE(card_order_payment_totals.total, 0) as linked_payments_total'))
-            ->with('createdBy:id,name');
+            ->with(['createdBy:id,name', 'activeEditLock']);
 
         if (! $clientPermissions['orders']) {
             $clientOrdersQuery->whereRaw('1 = 0');
@@ -358,6 +360,9 @@ class ClientController extends Controller
         abort_unless($ordersToHide->count() === $orderPublicIds->count(), 422);
 
         DB::transaction(function () use ($ordersToHide, $user): void {
+            foreach ($ordersToHide->sortBy('id') as $orderToHide) {
+                app(\App\Services\OrderEditLockService::class)->guard($orderToHide);
+            }
             Order::query()
                 ->whereIn('id', $ordersToHide->pluck('id'))
                 ->update([

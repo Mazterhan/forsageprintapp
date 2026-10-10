@@ -47,11 +47,15 @@
                 updateUrl: @js($canUpdateOrder ? route('orders.status.update', $order) : ''),
                 mergeCandidatesUrl: @js(($orderPermissions['merge'] ?? false) ? route('orders.merge-candidates', $order) : ''),
                 mergeUrl: @js(($orderPermissions['merge'] ?? false) ? route('orders.merge', $order) : ''),
+                lockUrl: @js(route('orders.edit-lock.status', $order)),
+                locked: @js($order->activeEditLock !== null),
+                lockUser: @js($order->activeEditLock?->user?->name ?? '—'),
             })"
             @beforeunload.window="warnAboutUnsavedStatus($event)"
             class="flex flex-wrap items-center justify-between gap-3"
         >
-            <div data-order-heading-inline class="flex min-w-0 flex-wrap items-center gap-3">
+            <div class="min-w-0 space-y-1">
+              <div data-order-heading-inline class="flex min-w-0 flex-wrap items-center gap-3">
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                     {{ __('Замовлення :number', ['number' => $order->order_number]) }}
                 </h2>
@@ -66,7 +70,7 @@
                         <button
                             type="button"
                             @click="showStatusDropdown = !showStatusDropdown"
-                            :disabled="isSavingStatus"
+                            :disabled="isSavingStatus || locked"
                             aria-label="Статус замовлення"
                             aria-haspopup="listbox"
                             :aria-expanded="showStatusDropdown"
@@ -108,6 +112,11 @@
                 <span class="inline-flex h-[34px] w-[158px] items-center justify-center whitespace-nowrap rounded-md border px-2 py-1 text-sm font-semibold {{ $paymentStatusClass }}">
                     {{ $paymentStatusLabel }}
                 </span>
+              </div>
+                <div x-show="locked" x-cloak class="space-y-1">
+                    <div class="order-status-blink text-sm font-semibold text-blue-700">Замовлення знаходиться на редагуванні</div>
+                    <div class="text-sm text-gray-700"><span class="font-semibold">Користувачем:</span> <span x-text="lockUser"></span></div>
+                </div>
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
@@ -138,7 +147,7 @@
                         data-order-payments-blocked="{{ $paymentsBlockedByOrderStatus ? 'true' : 'false' }}"
                         type="button"
                         @click="$dispatch('open-order-payments')"
-                        :disabled="selectedStatus === 'cancelled' || @js(! $order->client_id)"
+                        :disabled="locked || selectedStatus === 'cancelled' || @js(! $order->client_id)"
                         :title="selectedStatus === 'cancelled' ? 'Платежі недоступні для скасованого замовлення' : @js($order->client_id ? 'Відкрити платежі замовлення' : 'Для замовлення не вказано клієнта')"
                         class="inline-flex h-[38px] items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -164,14 +173,14 @@
                                 type="button"
                                 data-edit-url="{{ route('orders.edit', $order) }}"
                                 @click="window.location.assign($el.dataset.editUrl)"
-                                :disabled="selectedStatus === 'blocked' || selectedStatus === 'completed'"
+                                :disabled="selectedStatus === 'blocked' || selectedStatus === 'completed' || locked"
                                 :title="selectedStatus === 'blocked' || selectedStatus === 'completed' ? 'Редагування недоступне для заблокованого або виконаного замовлення' : 'Редагувати замовлення'"
                                 class="block w-full px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
                             >
                                 Редагувати
                             </button>
                             @if($orderPermissions['merge'] ?? false)
-                                <button data-order-merge-option type="button" @click="openMergeModal()" class="block w-full px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100">
+                                <button data-order-merge-option type="button" @click="openMergeModal()" :disabled="locked" :title="locked ? 'Замовлення знаходиться на редагуванні. Об’єднання тимчасово недоступне.' : 'Об’єднати замовлення'" class="block w-full px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400">
                                     Об'єднати
                                 </button>
                             @endif
@@ -230,7 +239,7 @@
                         <button
                             type="button"
                             @click="mergeOrder()"
-                            :disabled="!selectedMergeOrderId || isMergingOrder"
+                            :disabled="locked || !selectedMergeOrderId || isMergingOrder"
                             class="inline-flex h-[40px] items-center rounded-md bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                             x-text="isMergingOrder ? 'Об’єднання...' : 'Об’єднати'"
                         ></button>
@@ -255,6 +264,7 @@
                 canAddPayment: @js($canAddOrderPayment),
                 paymentBalanceAllowsNew: @js($orderPaymentBalanceAllowsNew),
                 paymentsBlocked: @js($paymentsBlockedByOrderStatus),
+                editLocked: @js($order->activeEditLock !== null),
                 canSpendOverpayment: @js($canSpendOrderOverpayment),
                 canEditPayments: @js($canEditOrderPayments),
                 payments: @js($paymentModalData),
@@ -262,9 +272,15 @@
             })"
             @open-order-payments.window="openModal()"
             @order-status-changed.window="handleOrderStatusChanged($event.detail.status)"
+            @order-edit-lock-changed.window="editLocked = $event.detail.locked; if (editLocked) closeModal()"
             @keydown.escape.window="closeModal()"
             class="max-w-[1700px] mx-auto space-y-4 px-6 sm:px-8 lg:px-12"
         >
+            @if (session('status'))
+                <div class="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                    {{ session('status') }}
+                </div>
+            @endif
             <div class="bg-white shadow-sm sm:rounded-lg p-4 text-sm text-gray-800">
                 <div class="flex flex-row items-start justify-between gap-6 w-full">
                     <div class="flex-1 min-w-0">
@@ -555,6 +571,22 @@
     <script>
         function orderStatusEditor(config) {
             return {
+                locked: Boolean(config.locked),
+                lockUser: config.lockUser || '—',
+                init() {
+                    this.lockTimer = window.setInterval(async () => {
+                        try {
+                            const response = await fetch(config.lockUrl, {headers: {'Accept': 'application/json'}, cache: 'no-store'});
+                            if (response.ok) {
+                                const state = await response.json();
+                                this.locked = state.locked;
+                                this.lockUser = state.user || '—';
+                                window.dispatchEvent(new CustomEvent('order-edit-lock-changed', {detail: {locked: this.locked}}));
+                            }
+                        } catch (error) { return; }
+                    }, 10000);
+                },
+                destroy() { window.clearInterval(this.lockTimer); },
                 savedStatus: config.initialStatus || 'new',
                 selectedStatus: config.initialStatus || 'new',
                 statusLabels: config.statusLabels || {},
@@ -582,7 +614,7 @@
 
                 chooseStatus(status) {
                     this.showStatusDropdown = false;
-                    if (status === this.selectedStatus || this.isSavingStatus) {
+                    if (this.locked || status === this.selectedStatus || this.isSavingStatus) {
                         return;
                     }
 
@@ -609,6 +641,9 @@
                 },
 
                 async openMergeModal() {
+                    if (this.locked) {
+                        return;
+                    }
                     this.showOptions = false;
                     this.showMergeModal = true;
                     this.selectedMergeOrderId = '';
@@ -636,7 +671,7 @@
                 },
 
                 async mergeOrder() {
-                    if (!this.selectedMergeOrderId || this.isMergingOrder || !this.mergeUrl) {
+                    if (this.locked || !this.selectedMergeOrderId || this.isMergingOrder || !this.mergeUrl) {
                         return;
                     }
 
@@ -742,6 +777,7 @@
                 canAddPayment: Boolean(config.canAddPayment),
                 paymentBalanceAllowsNew: Boolean(config.paymentBalanceAllowsNew),
                 paymentsBlocked: Boolean(config.paymentsBlocked),
+                editLocked: Boolean(config.editLocked),
                 canSpendOverpayment: Boolean(config.canSpendOverpayment),
                 canEditPayments: Boolean(config.canEditPayments),
                 today: config.today || '',
@@ -764,13 +800,14 @@
                 activeHistories: [],
 
                 init() {
-                    if (config.openOnLoad) {
+                    if (config.openOnLoad && !this.editLocked) {
                         this.showModal = true;
                         this.loadRates();
                     }
                 },
 
                 openModal() {
+                    if (this.editLocked) return;
                     this.resetForm();
                     this.showModal = true;
                     this.loadRates();
@@ -879,6 +916,10 @@
                 },
 
                 async submitPayment(fromOverpayment = null) {
+                    if (this.editLocked) {
+                        this.paymentError = 'Замовлення знаходиться на редагуванні. Платежі тимчасово недоступні.';
+                        return;
+                    }
                     if (this.isSaving) {
                         return;
                     }

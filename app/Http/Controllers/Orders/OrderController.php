@@ -14,6 +14,7 @@ use App\Models\ProductType;
 use App\Models\ProductTypeCategoryRule;
 use App\Models\User;
 use App\Services\PermissionService;
+use App\Services\OrderEditLockService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -138,7 +139,7 @@ class OrderController extends Controller
             })
             ->select('orders.*')
             ->addSelect(DB::raw('COALESCE(order_payment_totals.total, 0) as linked_payments_total'))
-            ->with(['createdBy:id,name', 'client:id,public_id,name']);
+            ->with(['createdBy:id,name', 'client:id,public_id,name', 'activeEditLock']);
 
         $applyOrderScope($query);
 
@@ -314,6 +315,7 @@ class OrderController extends Controller
 
         $updatedOrder = DB::transaction(function () use ($request, $order, $newItems): Order {
             $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->id);
+            app(OrderEditLockService::class)->guard($lockedOrder);
             $paymentsTotal = (float) $lockedOrder->payments()->sum('amount_uah');
 
             if ($lockedOrder->status !== Order::STATUS_NEW || $paymentsTotal > 0) {
@@ -550,11 +552,13 @@ class OrderController extends Controller
     {
         $this->authorizeOrderAccess($request, $permissions, $order);
         abort_unless($permissions->can($request->user(), 'orders_update'), 403);
+        abort_if($order->activeEditLock()->exists(), 409, OrderEditLockService::MESSAGE);
         abort_if(! $order->client_id || $order->status !== Order::STATUS_NEW || $order->payments()->sum('amount_uah') > 0, 409);
 
         $query = Order::query()
             ->where('client_id', $order->client_id)
             ->whereKeyNot($order->id)
+            ->whereDoesntHave('activeEditLock')
             ->where('status', Order::STATUS_NEW)
             ->whereRaw('(SELECT COALESCE(SUM(client_payments.amount_uah), 0) FROM client_payments WHERE client_payments.order_id = orders.id) <= 0')
             ->with('createdBy:id,name')
@@ -599,6 +603,8 @@ class OrderController extends Controller
             $target = $lockedOrders->get($targetOrder->id);
 
             abort_if(! $source || ! $target || $source->id === $target->id, 422, 'Оберіть інше замовлення для об’єднання.');
+            app(OrderEditLockService::class)->guard($source);
+            app(OrderEditLockService::class)->guard($target);
             abort_if((int) $source->client_id !== (int) $target->client_id, 422, 'Замовлення належать різним клієнтам.');
 
             $sourcePayments = (float) $source->payments()->sum('amount_uah');
@@ -661,6 +667,7 @@ class OrderController extends Controller
 
         if ($newStatus !== $oldStatus) {
             DB::transaction(function () use ($request, $order, $oldStatus, $newStatus): void {
+                app(OrderEditLockService::class)->guard($order);
                 $order->update([
                     'status' => $newStatus,
                     'last_edited_by' => $request->user()?->id,
@@ -838,6 +845,37 @@ class OrderController extends Controller
         return $response;
     }
 
+    public function editLockStatus(Request $request, Order $order, PermissionService $permissions): JsonResponse
+    {
+        $this->authorizeOrderAccess($request, $permissions, $order);
+        $lock = app(OrderEditLockService::class)->active($order);
+
+        return response()->json(['locked' => $lock !== null, 'user' => $lock?->user?->name]);
+    }
+
+    public function editLockHeartbeat(Request $request, Order $order, PermissionService $permissions): JsonResponse
+    {
+        $this->authorizeOrderAccess($request, $permissions, $order);
+        abort_unless($permissions->can($request->user(), 'orders_update'), 403);
+        $token = (string) $request->input('edit_lock_token', '');
+        DB::transaction(function () use ($request, $order, $token): void {
+            app(OrderEditLockService::class)->guard($order, $request->user()->id, $token);
+            $lock = app(OrderEditLockService::class)->active($order);
+            abort_unless($lock && hash_equals($lock->lock_token, $token), 409, OrderEditLockService::MESSAGE);
+            $lock->update(['heartbeat_at' => now()]);
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function editLockRelease(Request $request, Order $order, PermissionService $permissions): JsonResponse
+    {
+        $this->authorizeOrderAccess($request, $permissions, $order);
+        app(OrderEditLockService::class)->release($order, $request->user()->id, (string) $request->input('edit_lock_token', ''));
+
+        return response()->json(['ok' => true]);
+    }
+
     public function edit(Request $request, Order $order, PermissionService $permissions)
     {
         $this->authorizeOrderAccess($request, $permissions, $order);
@@ -848,6 +886,15 @@ class OrderController extends Controller
             'Редагування заблокованого або виконаного замовлення недоступне.'
         );
 
+        try {
+            $lock = app(OrderEditLockService::class)->acquire($order, $request->user()->id, (string) $request->query('edit_token', ''));
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
+            if ($exception->getStatusCode() !== 409) {
+                throw $exception;
+            }
+
+            return redirect()->route('orders.show', $order)->with('status', OrderEditLockService::MESSAGE);
+        }
         $order->ensureItemIds();
 
         $clients = Client::query()
@@ -864,6 +911,7 @@ class OrderController extends Controller
         return view('orders.create', [
             'clients' => $clients,
             'order' => $order,
+            'editLockToken' => $lock->lock_token,
         ]);
     }
 
@@ -918,6 +966,7 @@ class OrderController extends Controller
         $newStatus = (string) ($data['status'] ?? $oldStatus);
 
         DB::transaction(function () use ($request, $order, $client, $customerName, $normalizedItems, $totalCost, $oldStatus, $newStatus): void {
+            app(OrderEditLockService::class)->guard($order, $request->user()->id, (string) $request->input('edit_lock_token', ''));
             $paymentsTotal = (float) $order->payments()->sum('amount_uah');
             $order->update([
                 'status' => $newStatus,
@@ -938,6 +987,7 @@ class OrderController extends Controller
                 'last_order_at' => now(),
                 'updated_by' => $request->user()?->id,
             ]);
+            app(OrderEditLockService::class)->release($order, $request->user()->id, (string) $request->input('edit_lock_token', ''));
         });
 
         return response()->json([
