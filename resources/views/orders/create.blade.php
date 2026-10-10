@@ -124,7 +124,7 @@
             })"
             @order-create-client-changed.window="handleClientSelectionChanged($event.detail)"
             @resize.window.debounce.100ms="resizeAllItemTextFields()"
-            @beforeunload.window="warnAboutUnsavedStatus($event)"
+            @beforeunload.window="warnAboutUnsavedChanges($event)"
             class="max-w-[1700px] mx-auto space-y-5 px-6 sm:px-8 lg:px-12"
         >
             @if ($isEdit)
@@ -470,6 +470,7 @@
                 initialItems: Array.isArray(config.initialItems) ? config.initialItems : [],
                 orderItems: [],
                 isSaving: false,
+                unsavedBaselineHash: '',
                 isCheckingAppendCandidate: false,
                 appendCandidate: null,
                 appendCandidateTimer: null,
@@ -477,10 +478,6 @@
                 warningMessage: '',
                 showWarningModal: false,
                 showCreateClientModal: false,
-
-                get statusDirty() {
-                    return this.isEdit && this.orderStatus !== this.initialOrderStatus;
-                },
 
                 orderStatusClass(status) {
                     if (status === 'blocked') {
@@ -496,8 +493,31 @@
                     return 'border-blue-400 bg-teal-100 text-blue-800 focus:border-blue-400 focus:ring-blue-300';
                 },
 
-                warnAboutUnsavedStatus(event) {
-                    if (!this.statusDirty) {
+                getComparableOrderState() {
+                    return {
+                        status: String(this.orderStatus || ''),
+                        items: this.getEnteredOrderItems().map((item) => ({
+                            itemId: String(item.itemId || ''),
+                            nomenclature: String(item.nomenclature || '').trim(),
+                            description: String(item.description || '').trim(),
+                            quantity: String(Number.parseInt(item.quantity, 10) || 0),
+                            unitCost: String(Number.parseInt(item.unitCost, 10) || 0),
+                        })),
+                    };
+                },
+
+                resetUnsavedChangesBaseline() {
+                    this.unsavedBaselineHash = JSON.stringify(this.getComparableOrderState());
+                },
+
+                hasUnsavedChanges() {
+                    return this.isEdit
+                        && this.unsavedBaselineHash !== ''
+                        && JSON.stringify(this.getComparableOrderState()) !== this.unsavedBaselineHash;
+                },
+
+                warnAboutUnsavedChanges(event) {
+                    if (this.isSaving || !this.hasUnsavedChanges()) {
                         return;
                     }
 
@@ -512,6 +532,7 @@
                     }
                     this.ensureBlankOrderItem();
                     this.resizeAllItemTextFields();
+                    this.$nextTick(() => this.resetUnsavedChangesBaseline());
                 },
 
                 createOrderItem(source = {}) {
@@ -842,6 +863,7 @@
 
                         if (payload.redirect_url) {
                             this.initialOrderStatus = this.orderStatus;
+                            this.resetUnsavedChangesBaseline();
                             window.location.href = payload.redirect_url;
                         }
                     } catch (error) {
