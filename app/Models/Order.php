@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -45,6 +46,8 @@ class Order extends Model
         'last_edited_by' => 'integer',
         'client_id' => 'integer',
         'created_by' => 'integer',
+        'hidden_by' => 'integer',
+        'hidden_at' => 'datetime',
         'items' => 'array',
         'payments_total' => 'decimal:2',
         'amount_due' => 'decimal:2',
@@ -53,6 +56,10 @@ class Order extends Model
 
     protected static function booted(): void
     {
+        static::addGlobalScope('visible', static function (Builder $query): void {
+            $query->whereNull('orders.hidden_at');
+        });
+
         static::created(function (Order $order): void {
             if (blank($order->order_number)) {
                 $order->forceFill([
@@ -107,6 +114,12 @@ class Order extends Model
     public function statusLabel(): string
     {
         return self::STATUSES[$this->status] ?? self::STATUSES[self::STATUS_NEW];
+    }
+
+    /** @return array<string, string> */
+    public static function selectableStatuses(): array
+    {
+        return array_diff_key(self::STATUSES, [self::STATUS_COMPLETED => true]);
     }
 
     public static function statusStyle(string $status): string

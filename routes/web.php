@@ -63,6 +63,7 @@ Route::middleware(['auth', 'permission:orders'])
         Route::post('/', [OrderController::class, 'store'])->name('store');
         Route::get('/create', [OrderController::class, 'create'])->name('create');
         Route::get('/append-candidate', [OrderController::class, 'appendCandidate'])->name('append-candidate');
+        Route::patch('/table-columns', [OrderController::class, 'updateTableColumns'])->name('table-columns.update');
         Route::post('/{order}/append-items', [OrderController::class, 'appendItems'])->whereUuid('order')->name('append-items');
         Route::get('/{order}/edit', [OrderController::class, 'edit'])->whereUuid('order')->name('edit');
         Route::patch('/{order}', [OrderController::class, 'update'])->whereUuid('order')->name('update');
@@ -135,6 +136,15 @@ Route::middleware(['auth', 'permission:orders|orders_clients_edit'])
         Route::get('/clients/{client}/edit', [ClientController::class, 'edit'])->whereUuid('client')->name('clients.edit');
         Route::patch('/clients/{client}', [ClientController::class, 'update'])->whereUuid('client')->name('clients.update');
         Route::patch('/clients/{client}/deactivate', [ClientController::class, 'deactivate'])->whereUuid('client')->name('clients.deactivate');
+    });
+
+Route::middleware(['auth', 'permission:orders|orders_update'])
+    ->prefix('orders')
+    ->name('orders.')
+    ->group(function () {
+        Route::patch('/clients/{client}/hide-cancelled-orders', [ClientController::class, 'hideCancelledOrders'])
+            ->whereUuid('client')
+            ->name('clients.hide-cancelled-orders');
     });
 
 Route::middleware(['auth', 'permission:orders'])

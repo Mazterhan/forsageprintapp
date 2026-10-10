@@ -42,7 +42,7 @@ class DashboardController extends Controller
 
         $activeTab = $requestedTab !== ''
             ? $requestedTab
-            : ($canViewProposalsAnalytics ? 'proposals' : 'orders');
+            : ($canViewOrdersAnalytics ? 'orders' : 'proposals');
 
         if ($activeTab === 'orders') {
             abort_unless($canViewOrdersAnalytics, 403, 'У вас немає доступу до аналітики замовлень.');
@@ -55,9 +55,9 @@ class DashboardController extends Controller
         $timezone = 'Europe/Kiev';
         $now = now($timezone);
 
-        $period = (string) $request->query('period', 'mtd');
-        if (! in_array($period, ['all', 'ytd', 'mtd', 'wtd', 'custom'], true)) {
-            $period = 'mtd';
+        $period = (string) $request->query('period', 'ytd');
+        if (! in_array($period, ['all', 'ytd', 'qtd', 'last_90_days', 'last_180_days', 'mtd', 'wtd', 'custom'], true)) {
+            $period = 'ytd';
         }
 
         $from = null;
@@ -67,6 +67,15 @@ class DashboardController extends Controller
         if ($period !== 'all') {
             if ($period === 'ytd') {
                 $from = $now->copy()->startOfYear()->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'qtd') {
+                $from = $now->copy()->startOfQuarter()->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'last_90_days') {
+                $from = $now->copy()->subDays(89)->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'last_180_days') {
+                $from = $now->copy()->subDays(179)->startOfDay();
                 $to = $now->copy()->endOfDay();
             } elseif ($period === 'wtd') {
                 $from = $now->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
@@ -91,9 +100,10 @@ class DashboardController extends Controller
                 }
 
                 if ($periodError) {
-                    $period = 'mtd';
-                    $from = $now->copy()->startOfMonth()->startOfDay();
+                    $period = 'ytd';
+                    $from = $now->copy()->startOfYear()->startOfDay();
                     $to = $now->copy()->endOfDay();
+                    $periodError .= ' Кастомний період не застосовано. Показано дані з початку поточного року.';
                 }
             } else {
                 $from = $now->copy()->startOfMonth()->startOfDay();
@@ -649,9 +659,9 @@ class DashboardController extends Controller
         $user = $request->user();
         $timezone = 'Europe/Kiev';
         $now = now($timezone);
-        $period = (string) $request->query('period', 'mtd');
-        if (! in_array($period, ['all', 'ytd', 'mtd', 'wtd', 'custom'], true)) {
-            $period = 'mtd';
+        $period = (string) $request->query('period', 'ytd');
+        if (! in_array($period, ['all', 'ytd', 'qtd', 'last_90_days', 'last_180_days', 'mtd', 'wtd', 'custom'], true)) {
+            $period = 'ytd';
         }
 
         $from = null;
@@ -661,6 +671,15 @@ class DashboardController extends Controller
         if ($period !== 'all') {
             if ($period === 'ytd') {
                 $from = $now->copy()->startOfYear()->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'qtd') {
+                $from = $now->copy()->startOfQuarter()->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'last_90_days') {
+                $from = $now->copy()->subDays(89)->startOfDay();
+                $to = $now->copy()->endOfDay();
+            } elseif ($period === 'last_180_days') {
+                $from = $now->copy()->subDays(179)->startOfDay();
                 $to = $now->copy()->endOfDay();
             } elseif ($period === 'wtd') {
                 $from = $now->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
@@ -685,9 +704,10 @@ class DashboardController extends Controller
                 }
 
                 if ($periodError) {
-                    $period = 'mtd';
-                    $from = $now->copy()->startOfMonth()->startOfDay();
+                    $period = 'ytd';
+                    $from = $now->copy()->startOfYear()->startOfDay();
                     $to = $now->copy()->endOfDay();
+                    $periodError .= ' Кастомний період не застосовано. Показано дані з початку поточного року.';
                 }
             } else {
                 $from = $now->copy()->startOfMonth()->startOfDay();
@@ -725,7 +745,7 @@ class DashboardController extends Controller
             })
             ->select('orders.*')
             ->addSelect(DB::raw('COALESCE(dashboard_order_payment_totals.total, 0) as linked_payments_total'))
-            ->with(['client:id,public_id,name', 'lastEditedBy:id,name']);
+            ->with(['client:id,public_id,name', 'createdBy:id,name']);
 
         if ($ownOrdersOnly) {
             $ordersQuery->where('orders.created_by', $user?->id);
@@ -776,18 +796,30 @@ class DashboardController extends Controller
                 default => 'overpaid',
             };
 
-            $statusStats[$status]['count']++;
-            $statusStats[$status]['total_cost'] += $totalCost;
-            $statusStats[$status]['payments_total'] += $paymentsTotal;
-            $statusStats[$status]['amount_due'] += $amountDue;
-
             $orderStatus = array_key_exists((string) $order->status, Order::STATUSES)
                 ? (string) $order->status
                 : Order::STATUS_NEW;
-            $orderStatusStats[$orderStatus]['count']++;
-            $orderStatusStats[$orderStatus]['total_cost'] += $totalCost;
-            $orderStatusStats[$orderStatus]['payments_total'] += $paymentsTotal;
-            $orderStatusStats[$orderStatus]['amount_due'] += $amountDue;
+
+            if ($orderStatus !== Order::STATUS_CANCELLED) {
+                $statusStats[$status]['count']++;
+                $statusStats[$status]['total_cost'] += $totalCost;
+                $statusStats[$status]['payments_total'] += $paymentsTotal;
+                $statusStats[$status]['amount_due'] += $amountDue;
+            }
+
+            $isMergedSourceOrder = $orderStatus === Order::STATUS_CANCELLED
+                && is_array($order->items)
+                && $order->items === []
+                && abs($totalCost) < 0.005
+                && abs($paymentsTotal) < 0.005
+                && abs($amountDue) < 0.005;
+
+            if (! $isMergedSourceOrder) {
+                $orderStatusStats[$orderStatus]['count']++;
+                $orderStatusStats[$orderStatus]['total_cost'] += $totalCost;
+                $orderStatusStats[$orderStatus]['payments_total'] += $paymentsTotal;
+                $orderStatusStats[$orderStatus]['amount_due'] += $amountDue;
+            }
 
             return [
                 'public_id' => $order->public_id,
@@ -798,25 +830,35 @@ class DashboardController extends Controller
                     ? 'id:'.$order->client_id
                     : 'name:'.mb_strtolower(trim((string) $order->customer_name), 'UTF-8'),
                 'customer' => $order->client?->name ?: ($order->customer_name ?: '—'),
-                'user' => $order->lastEditedBy?->name ?? '—',
+                'user' => $order->createdBy?->name ?? '—',
                 'updated_at' => $order->updated_at,
                 'total_cost' => $totalCost,
                 'payments_total' => $paymentsTotal,
                 'amount_due' => $amountDue,
                 'status' => $status,
+                'is_debtor' => in_array($status, ['unpaid', 'partial'], true) && $amountDue > 0,
                 'status_label' => $statusStats[$status]['label'],
                 'status_class' => $statusStats[$status]['className'],
                 'order_status' => $orderStatus,
                 'order_status_label' => $orderStatusStats[$orderStatus]['label'],
                 'order_status_class' => $orderStatusStats[$orderStatus]['className'],
+                'is_merged_source_order' => $isMergedSourceOrder,
             ];
         });
+
+        $ordersForPeriodList = $analyticsOrders
+            ->reject(static fn (array $order): bool => $order['order_status'] === Order::STATUS_CANCELLED)
+            ->values();
+        $ordersForPaymentStatusDetails = $ordersForPeriodList;
+        $ordersForStatusDetails = $analyticsOrders
+            ->reject(static fn (array $order): bool => $order['is_merged_source_order'])
+            ->values();
 
         $orderCount = $analyticsOrders->count();
         $totalCost = $analyticsOrders->sum('total_cost');
         $paymentsTotal = $analyticsOrders->sum('payments_total');
-        $debtorClients = $analyticsOrders
-            ->filter(static fn (array $order): bool => (float) $order['amount_due'] > 0)
+        $debtorClients = $ordersForPeriodList
+            ->filter(static fn (array $order): bool => $order['is_debtor'])
             ->groupBy('client_key')
             ->map(function ($clientOrders): array {
                 $firstOrder = $clientOrders->first();
@@ -895,7 +937,9 @@ class DashboardController extends Controller
             )),
             'debtorClients' => $debtorClients,
             'investorClients' => $investorClients,
-            'analyticsOrders' => $analyticsOrders->take(100)->values(),
+            'analyticsOrders' => $ordersForPeriodList->take(100)->values(),
+            'paymentStatusAnalyticsOrders' => $ordersForPaymentStatusDetails,
+            'orderStatusAnalyticsOrders' => $ordersForStatusDetails,
             'dashboardPermissions' => [
                 'show_kpi' => $permissions->can($user, 'analytics_orders_show_kpi'),
                 'show_charts' => $permissions->can($user, 'analytics_orders_show_charts'),

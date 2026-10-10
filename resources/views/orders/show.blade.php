@@ -83,8 +83,9 @@
                             style="width: 158px; min-width: 158px; box-sizing: border-box;"
                             role="listbox"
                         >
-                            @foreach(\App\Models\Order::STATUSES as $statusValue => $statusLabel)
+                            @foreach(\App\Models\Order::selectableStatuses() as $statusValue => $statusLabel)
                                 <button
+                                    data-order-status-option="{{ $statusValue }}"
                                     type="button"
                                     role="option"
                                     @click="chooseStatus(@js($statusValue))"
@@ -159,9 +160,16 @@
                             x-cloak
                             class="absolute right-0 top-full z-40 mt-1 w-full overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-lg"
                         >
-                            <a href="{{ route('orders.edit', $order) }}" class="block px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100">
+                            <button
+                                type="button"
+                                data-edit-url="{{ route('orders.edit', $order) }}"
+                                @click="window.location.assign($el.dataset.editUrl)"
+                                :disabled="selectedStatus === 'blocked' || selectedStatus === 'completed'"
+                                :title="selectedStatus === 'blocked' || selectedStatus === 'completed' ? 'Редагування недоступне для заблокованого або виконаного замовлення' : 'Редагувати замовлення'"
+                                class="block w-full px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                            >
                                 Редагувати
-                            </a>
+                            </button>
                             @if($orderPermissions['merge'] ?? false)
                                 <button data-order-merge-option type="button" @click="openMergeModal()" class="block w-full px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100">
                                     Об'єднати
@@ -271,7 +279,7 @@
                     </div>
                     <div class="space-y-2 text-left w-max shrink-0">
                         <div><span class="font-semibold">Дата створення:</span> {{ $formatOrderDate($order->created_at) }}</div>
-                        <div><span class="font-semibold">Користувач:</span> {{ $order->lastEditedBy?->name ?? '—' }}</div>
+                        <div><span class="font-semibold">Користувач:</span> {{ $order->createdBy?->name ?? '—' }}</div>
                     </div>
                 </div>
             </div>
@@ -293,7 +301,7 @@
                             <tr>
                                 <td class="px-3 py-2 border text-center align-middle font-semibold">{{ $loop->iteration }}</td>
                                 <td class="px-3 py-2 border align-top whitespace-pre-wrap break-words">{{ trim((string) ($item['nomenclature'] ?? '—')) }}</td>
-                                <td class="px-3 py-2 border align-top whitespace-pre-wrap break-words">{{ trim((string) ($item['description'] ?? '')) ?: '—' }}</td>
+                                <td class="px-3 py-2 border align-middle whitespace-pre-wrap break-words">{{ trim((string) ($item['description'] ?? '')) ?: '—' }}</td>
                                 <td class="px-3 py-2 border text-right align-middle">{{ $formatOrderMoney($item['quantity'] ?? 0) }}</td>
                                 <td class="px-3 py-2 border text-right align-middle">{{ $formatOrderMoney($item['unit_cost'] ?? 0) }}</td>
                                 <td class="px-3 py-2 border text-right align-middle font-semibold">{{ $formatOrderMoney($item['sum'] ?? 0) }}</td>
@@ -386,7 +394,7 @@
                             </button>
                         </div>
 
-                        <fieldset :disabled="isReadOnlyPayment || (paymentsBlocked && !isEditing)">
+                        <fieldset :disabled="isReadOnlyPayment">
 
                         <div class="mt-4 grid grid-cols-1 gap-4" :class="isForeignCurrency() ? 'md:grid-cols-5' : 'md:grid-cols-4'">
                             <div>
@@ -435,17 +443,17 @@
                         </fieldset>
 
                         <div class="mt-4 flex flex-wrap items-center gap-3">
-                            <p x-show="paymentsBlocked && !isEditing" x-cloak class="mr-auto text-sm font-semibold text-amber-600">
-                                Внесення платежів недоступне для заблокованих замовлень. Розблокуйте замовлення
+                            <p x-show="paymentsBlocked && canSpendOverpayment && !isEditing" x-cloak class="mr-auto text-sm font-semibold text-amber-600">
+                                Списання з переплати недоступне для заблокованих замовлень. Розблокуйте замовлення
                             </p>
                             <div class="ml-auto flex flex-wrap justify-end gap-3">
                             <button x-show="isEditing" x-cloak type="button" @click="resetForm()" :disabled="isSaving" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50" x-text="isReadOnlyPayment ? 'Повернутися до платежів' : 'Скасувати редагування'"></button>
                             @if($canSpendOrderOverpayment)
-                            <button x-show="!isEditing && overpaymentTotal > 0" x-cloak type="button" @click="submitPayment(true)" :disabled="paymentsBlocked || isSaving || isOverpaymentSpendAmountInvalid()" class="rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50">
+                            <button x-show="!isEditing && overpaymentTotal > 0" x-cloak type="button" @click="submitPayment(true)" :disabled="paymentsBlocked || isSaving || isOverpaymentSpendAmountInvalid()" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
                                 Списати з переплати
                             </button>
                             @endif
-                            <button x-show="!isReadOnlyPayment" x-cloak type="button" @click="submitPayment(isEditing ? null : false)" :disabled="paymentsBlocked || isSaving" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+                            <button x-show="!isReadOnlyPayment" x-cloak type="button" @click="submitPayment(isEditing ? null : false)" :disabled="isSaving || (!isEditing && !canAddPayment)" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
                                 <span x-text="isSaving ? 'Збереження...' : (isEditing ? 'Зберегти зміни' : 'Внести платіж')"></span>
                             </button>
                             </div>
@@ -786,7 +794,7 @@
 
                 handleOrderStatusChanged(status) {
                     this.paymentsBlocked = status === 'blocked';
-                    this.canAddPayment = status === 'new' && this.paymentBalanceAllowsNew;
+                    this.canAddPayment = ['new', 'blocked'].includes(status) && this.paymentBalanceAllowsNew;
                     if (status === 'cancelled') {
                         this.closeModal();
                     }
@@ -874,14 +882,6 @@
                     if (this.isSaving) {
                         return;
                     }
-                    if (!this.isEditing && this.paymentsBlocked) {
-                        this.paymentError = 'Внесення платежів недоступне для заблокованих замовлень. Розблокуйте замовлення';
-                        return;
-                    }
-                    if (!this.isEditing && !this.canAddPayment) {
-                        this.paymentError = 'Новий платіж недоступний: замовлення вже сплачено або має переплату.';
-                        return;
-                    }
 
                     if (!this.isEditing && typeof fromOverpayment === 'boolean') {
                         if (fromOverpayment && !this.canSpendOverpayment) {
@@ -889,6 +889,14 @@
                             return;
                         }
                         this.form.fromOverpayment = fromOverpayment;
+                    }
+                    if (!this.isEditing && this.form.fromOverpayment && this.paymentsBlocked) {
+                        this.paymentError = 'Списання з переплати недоступне для заблокованих замовлень. Розблокуйте замовлення';
+                        return;
+                    }
+                    if (!this.isEditing && !this.canAddPayment) {
+                        this.paymentError = 'Новий платіж недоступний: замовлення вже сплачено або має переплату.';
+                        return;
                     }
 
                     this.paymentError = this.validate();

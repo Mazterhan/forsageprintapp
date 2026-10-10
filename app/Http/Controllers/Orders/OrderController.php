@@ -29,6 +29,17 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrderController extends Controller
 {
+    private const TABLE_COLUMNS = [
+        'date' => 'Дата',
+        'status' => 'Статус',
+        'number' => 'Номер замовлення',
+        'payment' => 'Оплата',
+        'customer' => "Ім'я замовника",
+        'user' => 'Користувач',
+        'amount_due' => 'До сплати',
+        'total_cost' => 'Вартість',
+    ];
+
     public function index(Request $request, PermissionService $permissions)
     {
         $canAccessOrders = $permissions->can($request->user(), 'orders_access');
@@ -99,8 +110,8 @@ class OrderController extends Controller
             ->get(['id', 'name']);
         $availableUsers = User::query()
             ->whereIn('id', (clone $availableOrdersQuery)
-                ->whereNotNull('orders.last_edited_by')
-                ->select('orders.last_edited_by'))
+                ->whereNotNull('orders.created_by')
+                ->select('orders.created_by'))
             ->orderBy('name')
             ->get(['id', 'name']);
         $existingOrderStatuses = (clone $availableOrdersQuery)
@@ -121,13 +132,13 @@ class OrderController extends Controller
         $availablePaymentStatuses = array_intersect_key($paymentStatusLabels, array_flip($availablePaymentStatusKeys));
 
         $query = Order::query()
-            ->leftJoin('users', 'users.id', '=', 'orders.last_edited_by')
+            ->leftJoin('users', 'users.id', '=', 'orders.created_by')
             ->leftJoinSub($paymentTotals, 'order_payment_totals', function ($join): void {
                 $join->on('order_payment_totals.order_id', '=', 'orders.id');
             })
             ->select('orders.*')
             ->addSelect(DB::raw('COALESCE(order_payment_totals.total, 0) as linked_payments_total'))
-            ->with(['lastEditedBy:id,name', 'client:id,public_id,name']);
+            ->with(['createdBy:id,name', 'client:id,public_id,name']);
 
         $applyOrderScope($query);
 
@@ -138,7 +149,7 @@ class OrderController extends Controller
             $query->whereIn('orders.client_id', $selectedClientIds);
         }
         if ($selectedUserIds !== []) {
-            $query->whereIn('orders.last_edited_by', $selectedUserIds);
+            $query->whereIn('orders.created_by', $selectedUserIds);
         }
         if ($selectedOrderStatuses !== []) {
             $query->whereIn('orders.status', $selectedOrderStatuses);
@@ -167,6 +178,14 @@ class OrderController extends Controller
             default => 20,
         };
 
+        $savedTableColumns = $request->user()?->orders_table_columns;
+        $orderTableColumns = is_array($savedTableColumns)
+            ? array_values(array_intersect($savedTableColumns, array_keys(self::TABLE_COLUMNS)))
+            : array_keys(self::TABLE_COLUMNS);
+        if ($orderTableColumns === []) {
+            $orderTableColumns = array_keys(self::TABLE_COLUMNS);
+        }
+
         return view('orders.index', [
             'orders' => $query->paginate($perPage)->withQueryString(),
             'sort' => $sort,
@@ -182,6 +201,8 @@ class OrderController extends Controller
             'availableClients' => $availableClients,
             'availableUsers' => $availableUsers,
             'availableOrderStatuses' => $availableOrderStatuses,
+            'orderTableColumnDefinitions' => self::TABLE_COLUMNS,
+            'orderTableColumns' => $orderTableColumns,
             'ordersPermissions' => [
                 'calculation' => $permissions->can($request->user(), 'orders_calculation'),
                 'proposals' => $permissions->can($request->user(), 'orders_proposals'),
@@ -191,9 +212,36 @@ class OrderController extends Controller
         ]);
     }
 
+    public function updateTableColumns(Request $request, PermissionService $permissions): JsonResponse
+    {
+        abort_unless($permissions->can($request->user(), 'orders_access'), 403);
+
+        $data = $request->validate([
+            'columns' => ['required', 'array', 'min:1', 'max:'.count(self::TABLE_COLUMNS)],
+            'columns.*' => ['required', 'string', 'distinct', 'in:'.implode(',', array_keys(self::TABLE_COLUMNS))],
+        ]);
+
+        $columns = array_values($data['columns']);
+        $request->user()->forceFill(['orders_table_columns' => $columns])->save();
+
+        return response()->json([
+            'ok' => true,
+            'columns' => $columns,
+        ]);
+    }
+
     public function create(Request $request, PermissionService $permissions)
     {
         abort_unless($permissions->can($request->user(), 'orders_access'), 403);
+
+        $selectedClient = null;
+        $selectedClientPublicId = trim((string) $request->query('client', ''));
+        if ($selectedClientPublicId !== '') {
+            $selectedClient = Client::query()
+                ->where('public_id', $selectedClientPublicId)
+                ->where('status', 'active')
+                ->first(['id', 'name']);
+        }
 
         $clients = Client::query()
             ->where('status', 'active')
@@ -202,6 +250,7 @@ class OrderController extends Controller
 
         return view('orders.create', [
             'clients' => $clients,
+            'selectedClient' => $selectedClient,
         ]);
     }
 
@@ -243,7 +292,7 @@ class OrderController extends Controller
 
         $data = $request->validate([
             'items' => ['required', 'array', 'min:1'],
-            'items.*.nomenclature' => ['required', 'string', 'max:500'],
+            'items.*.nomenclature' => ['required', 'string', 'max:2000'],
             'items.*.description' => ['nullable', 'string', 'max:200'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_cost' => ['required', 'integer', 'min:1'],
@@ -306,7 +355,7 @@ class OrderController extends Controller
             'customer_name' => ['required', 'string', 'max:255'],
             'create_client' => ['nullable', 'boolean'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.nomenclature' => ['required', 'string', 'max:500'],
+            'items.*.nomenclature' => ['required', 'string', 'max:2000'],
             'items.*.description' => ['nullable', 'string', 'max:200'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_cost' => ['required', 'integer', 'min:1'],
@@ -403,7 +452,7 @@ class OrderController extends Controller
 
         $order->load([
             'client:id,public_id,name',
-            'lastEditedBy:id,name',
+            'createdBy:id,name',
         ]);
 
         if ($canManageOrderPayments) {
@@ -452,7 +501,8 @@ class OrderController extends Controller
             : 0;
         $orderPaymentsTotal = (float) $order->payments()->sum('amount_uah');
         $orderPaymentBalanceAllowsNew = $orderPaymentsTotal <= 0 || $orderPaymentsTotal < (float) $order->total_cost;
-        $canAddOrderPayment = $order->status === Order::STATUS_NEW && $orderPaymentBalanceAllowsNew;
+        $canAddOrderPayment = in_array($order->status, [Order::STATUS_NEW, Order::STATUS_BLOCKED], true)
+            && $orderPaymentBalanceAllowsNew;
         $canMergeOrder = $canUpdateOrder
             && $order->client_id
             && $order->status === Order::STATUS_NEW
@@ -604,7 +654,7 @@ class OrderController extends Controller
         abort_unless($permissions->can($request->user(), 'orders_update'), 403);
 
         $data = $request->validate([
-            'status' => ['required', 'string', 'in:'.implode(',', array_keys(Order::STATUSES))],
+            'status' => ['required', 'string', 'in:'.implode(',', array_keys(Order::selectableStatuses()))],
         ]);
         $newStatus = (string) $data['status'];
         $oldStatus = (string) ($order->status ?: Order::STATUS_NEW);
@@ -792,6 +842,11 @@ class OrderController extends Controller
     {
         $this->authorizeOrderAccess($request, $permissions, $order);
         abort_unless($permissions->can($request->user(), 'orders_update'), 403);
+        abort_if(
+            in_array($order->status, [Order::STATUS_BLOCKED, Order::STATUS_COMPLETED], true),
+            409,
+            'Редагування заблокованого або виконаного замовлення недоступне.'
+        );
 
         $order->ensureItemIds();
 
@@ -816,6 +871,11 @@ class OrderController extends Controller
     {
         $this->authorizeOrderAccess($request, $permissions, $order);
         abort_unless($permissions->can($request->user(), 'orders_update'), 403);
+        abort_if(
+            in_array($order->status, [Order::STATUS_BLOCKED, Order::STATUS_COMPLETED], true),
+            409,
+            'Редагування заблокованого або виконаного замовлення недоступне.'
+        );
 
         $order->ensureItemIds();
 
@@ -823,10 +883,10 @@ class OrderController extends Controller
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'customer_name' => ['required', 'string', 'max:255'],
             'create_client' => ['nullable', 'boolean'],
-            'status' => ['sometimes', 'required', 'string', 'in:'.implode(',', array_keys(Order::STATUSES))],
+            'status' => ['sometimes', 'required', 'string', 'in:'.implode(',', array_keys(Order::selectableStatuses()))],
             'items' => ['required', 'array', 'min:1'],
             'items.*.item_id' => ['nullable', 'string', 'max:100'],
-            'items.*.nomenclature' => ['required', 'string', 'max:500'],
+            'items.*.nomenclature' => ['required', 'string', 'max:2000'],
             'items.*.description' => ['nullable', 'string', 'max:200'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_cost' => ['required', 'integer', 'min:1'],
@@ -1192,14 +1252,22 @@ class OrderController extends Controller
             ->map(fn ($value) => round((float) ($value ?? 0), 2))
             ->toArray();
 
-        $specialFlmCodes = DB::table('special_flm_set_items')
+        $specialFlmRows = DB::table('special_flm_set_items')
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->pluck('internal_code')
-            ->map(fn ($code) => trim((string) $code))
-            ->filter(fn ($code) => $code !== '')
+            ->get(['internal_code', 'has_lamination'])
+            ->filter(fn ($row) => trim((string) $row->internal_code) !== '')
             ->values()
             ->all();
+
+        $specialFlmCodes = collect($specialFlmRows)
+            ->map(fn ($row) => trim((string) $row->internal_code))
+            ->values()
+            ->all();
+
+        $specialFlmLaminationByCode = collect($specialFlmRows)
+            ->mapWithKeys(fn ($row) => [trim((string) $row->internal_code) => (bool) $row->has_lamination])
+            ->toArray();
 
         $typeCategoryMatrix = ProductTypeCategoryRule::query()
             ->with(['productType:id', 'productCategory:id,name'])
@@ -1212,6 +1280,22 @@ class OrderController extends Controller
                     ->toArray();
             })
             ->toArray();
+
+        $initialState = $proposal?->payload;
+        if (is_array($initialState) && isset($initialState['products']) && is_array($initialState['products'])) {
+            foreach ($initialState['products'] as &$product) {
+                if (! is_array($product)) {
+                    continue;
+                }
+
+                $material = trim((string) ($product['material'] ?? ''));
+                $currentThicknessOptions = $thicknessByMaterial[$material] ?? [];
+                if (count($currentThicknessOptions) === 1) {
+                    $product['thickness'] = (string) $currentThicknessOptions[0];
+                }
+            }
+            unset($product);
+        }
 
         return view('orders.calculation', [
             'clients' => $clients,
@@ -1227,9 +1311,10 @@ class OrderController extends Controller
             'servicePriceByCode' => $servicePriceByCode,
             'servicePurchasePriceByCode' => $servicePurchasePriceByCode,
             'specialFlmCodes' => $specialFlmCodes,
+            'specialFlmLaminationByCode' => $specialFlmLaminationByCode,
             'typeCategoryMatrix' => $typeCategoryMatrix,
             'proposalId' => $proposal?->id,
-            'initialState' => $proposal?->payload,
+            'initialState' => $initialState,
             'editLockToken' => isset($editToken) ? $editToken : null,
             'editLockHeartbeatUrl' => $proposal ? route('orders.proposals.edit-lock.heartbeat', $proposal) : null,
             'editLockReleaseUrl' => $proposal ? route('orders.proposals.edit-lock.release', $proposal) : null,

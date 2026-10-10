@@ -50,4 +50,9 @@ class PriceItem extends Model
     {
         return $this->hasMany(PriceItemHistory::class)->latest('created_at');
     }
+
+    public function changeHistories(): HasMany
+    {
+        return $this->hasMany(PriceItemChangeHistory::class)->latest('created_at');
+    }
 }

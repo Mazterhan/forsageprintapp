@@ -1,12 +1,15 @@
 <x-app-layout>
     @php
         $order = $order ?? null;
+        $selectedClient = $selectedClient ?? null;
         $isEdit = $order !== null;
         $pageTitle = $isEdit
             ? __('Редагування замовлення :number', ['number' => $order->order_number])
             : __('Створити замовлення для');
         $saveUrl = $isEdit ? route('orders.update', $order) : route('orders.store');
         $backUrl = $isEdit ? route('orders.show', $order) : route('orders.index');
+        $initialClientId = $isEdit ? $order->client_id : ($selectedClient?->id);
+        $initialClientName = $isEdit ? ($order->customer_name ?? '') : ($selectedClient?->name ?? '');
 
         if ($isEdit && (float) $order->payments_total > (float) $order->total_cost) {
             $initialPaymentStatus = ['label' => 'Є переплата', 'className' => 'border-blue-400 bg-teal-100 text-blue-800'];
@@ -33,7 +36,11 @@
             @else
                 <div
                     id="order-create-client-picker"
-                    x-data="orderCreateForm({ clients: @js($clients) })"
+                    x-data="orderCreateForm({
+                        clients: @js($clients),
+                        initialClientId: @js($initialClientId),
+                        initialClientName: @js($initialClientName),
+                    })"
                     class="flex min-w-0 flex-1 flex-wrap items-center gap-4"
                 >
                     <h2 class="shrink-0 font-semibold text-xl text-gray-800 leading-tight">
@@ -108,8 +115,8 @@
                 appendCandidateUrl: @js($isEdit ? '' : route('orders.append-candidate')),
                 saveMethod: @js($isEdit ? 'PATCH' : 'POST'),
                 isEdit: @js($isEdit),
-                initialClientId: @js($order?->client_id),
-                initialClientName: @js($order?->customer_name ?? ''),
+                initialClientId: @js($initialClientId),
+                initialClientName: @js($initialClientName),
                 initialItems: @js($order?->items ?? []),
                 initialOrderStatus: @js($order?->status ?? \App\Models\Order::STATUS_NEW),
                 paymentsTotal: @js((float) ($order?->payments_total ?? 0)),
@@ -196,7 +203,7 @@
                             class="block h-[42px] w-full appearance-none rounded-md border px-2 py-2 text-center text-sm font-semibold shadow-sm focus:ring-1"
                             style="appearance: none; background-image: none;"
                         >
-                            @foreach(\App\Models\Order::STATUSES as $statusValue => $statusLabel)
+                            @foreach(\App\Models\Order::selectableStatuses() as $statusValue => $statusLabel)
                                 <option value="{{ $statusValue }}">{{ $statusLabel }}</option>
                             @endforeach
                         </select>
@@ -272,13 +279,13 @@
                                                 data-order-nomenclature
                                                 :name="`items[${itemIndex}][nomenclature]`"
                                                 @input="onNomenclatureInput(item, $event)"
-                                                maxlength="500"
+                                                maxlength="2000"
                                                 rows="1"
                                                 placeholder="Введіть номенклатуру"
                                                 class="block min-h-[42px] w-full resize-none overflow-hidden rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                             ></textarea>
                                         </td>
-                                        <td class="w-[220px] border-b border-r border-gray-200 p-2 align-top">
+                                        <td class="w-[220px] border-b border-r border-gray-200 p-2 align-middle">
                                             <textarea
                                                 x-model="item.description"
                                                 data-order-description
@@ -528,7 +535,7 @@
                 },
 
                 onNomenclatureInput(item, event) {
-                    item.nomenclature = String(event.currentTarget.value || '').slice(0, 500);
+                    item.nomenclature = String(event.currentTarget.value || '').slice(0, 2000);
                     event.currentTarget.value = item.nomenclature;
                     this.resizeItemTextarea(event.currentTarget);
                     this.ensureBlankOrderItem();

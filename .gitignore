@@ -22,3 +22,4 @@ yarn-error.log
 /.vscode
 /.zed
 git_commits_by_branch.csv
+test-output.txt

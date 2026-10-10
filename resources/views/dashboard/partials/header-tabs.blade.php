@@ -51,8 +51,13 @@
         content: '';
         position: absolute;
         z-index: 0;
-        inset: 2px 1px 1px;
-        clip-path: polygon(22px 0, calc(100% - 22px) 0, 100% 100%, 0 100%);
+        inset: 0;
+        clip-path: polygon(
+            25.25px 2px,
+            calc(100% - 25.25px) 2px,
+            calc(100% - 2.65px) calc(100% - 1px),
+            2.65px calc(100% - 1px)
+        );
         background: var(--analytics-tab-fill);
         transition: background-color 0.15s ease;
     }
@@ -108,18 +113,6 @@
     <h2 class="shrink-0 font-semibold text-xl text-gray-800 leading-tight">Аналітика</h2>
 
     <form method="GET" action="{{ route('dashboard') }}" class="analytics-tab-list" role="tablist" aria-label="Розділи аналітики">
-        @if($canViewProposalsAnalytics)
-            <button
-                type="{{ $activeTab === 'proposals' ? 'button' : 'submit' }}"
-                name="tab"
-                value="proposals"
-                role="tab"
-                aria-selected="{{ $activeTab === 'proposals' ? 'true' : 'false' }}"
-                @class(['analytics-tab', 'is-active' => $activeTab === 'proposals'])
-            >
-                <span class="analytics-tab-label">Заявки</span>
-            </button>
-        @endif
         @if($canViewOrdersAnalytics)
             <button
                 type="{{ $activeTab === 'orders' ? 'button' : 'submit' }}"
@@ -130,6 +123,18 @@
                 @class(['analytics-tab', 'is-active' => $activeTab === 'orders'])
             >
                 <span class="analytics-tab-label">Замовлення</span>
+            </button>
+        @endif
+        @if($canViewProposalsAnalytics)
+            <button
+                type="{{ $activeTab === 'proposals' ? 'button' : 'submit' }}"
+                name="tab"
+                value="proposals"
+                role="tab"
+                aria-selected="{{ $activeTab === 'proposals' ? 'true' : 'false' }}"
+                @class(['analytics-tab', 'is-active' => $activeTab === 'proposals'])
+            >
+                <span class="analytics-tab-label">Заявки</span>
             </button>
         @endif
     </form>

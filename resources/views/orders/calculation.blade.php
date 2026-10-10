@@ -44,6 +44,7 @@
                     servicePriceByCode: @js($servicePriceByCode),
                     servicePurchasePriceByCode: @js($servicePurchasePriceByCode),
                     specialFlmCodes: @js($specialFlmCodes ?? []),
+                    specialFlmLaminationByCode: @js($specialFlmLaminationByCode ?? []),
                     typeCategoryMatrix: @js($typeCategoryMatrix),
                     proposalId: @js($proposalId ?? null),
                     initialState: @js($initialState ?? null),
@@ -234,17 +235,17 @@
                                     <div class="flex flex-wrap items-end gap-4">
                                         <div class="text-sm font-semibold text-gray-700">Ширина(м)</div>
                                         <div class="w-[140px]">
-                                            <input :disabled="!product.material" x-model="position.width" @focus="clearDefaultZero($event, 'decimal')" @blur="restoreDefaultOnBlur(position, 'width', '0', $event)" @input="sanitizeDecimalInObject(position, 'width', $event)" type="text" inputmode="decimal" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500" />
+                                            <input :disabled="!product.material" x-model="position.width" @focus="clearDefaultZero($event, 'decimal')" @blur="restoreDefaultOnBlur(position, 'width', '0', $event)" @input="sanitizeDecimalInObject(position, 'width', $event); syncAutoCuttingPerimeter(product)" type="text" inputmode="decimal" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500" />
                                         </div>
 
                                         <div class="ml-4 text-sm font-semibold text-gray-700">Висота(м)</div>
                                         <div class="w-[140px]">
-                                            <input :disabled="!product.material" x-model="position.height" @focus="clearDefaultZero($event, 'decimal')" @blur="restoreDefaultOnBlur(position, 'height', '0', $event)" @input="sanitizeDecimalInObject(position, 'height', $event)" type="text" inputmode="decimal" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500" />
+                                            <input :disabled="!product.material" x-model="position.height" @focus="clearDefaultZero($event, 'decimal')" @blur="restoreDefaultOnBlur(position, 'height', '0', $event)" @input="sanitizeDecimalInObject(position, 'height', $event); syncAutoCuttingPerimeter(product)" type="text" inputmode="decimal" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500" />
                                         </div>
 
                                         <div class="ml-4 text-sm font-semibold text-gray-700">Кількісь(шт)</div>
                                         <div class="w-[120px]">
-                                            <input :disabled="!product.material" x-model="position.qty" @focus="clearDefaultZero($event, 'integer')" @blur="restoreDefaultOnBlur(position, 'qty', '0', $event)" @input="sanitizeIntegerInObject(position, 'qty', $event)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500" />
+                                            <input :disabled="!product.material" x-model="position.qty" @focus="clearDefaultZero($event, 'integer')" @blur="restoreDefaultOnBlur(position, 'qty', '0', $event)" @input="sanitizeIntegerInObject(position, 'qty', $event); syncAutoCuttingPerimeter(product)" type="text" inputmode="numeric" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full disabled:bg-gray-100 disabled:text-gray-500" />
                                         </div>
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
                                             @if($showPurchaseFields)
@@ -309,38 +310,10 @@
                             </div>
 
                             <div x-show="product.material && product.servicesEnabledRaw === '1'" class="mt-4 space-y-3">
-                                <div x-show="isServiceBlockVisible(product, 'lamination')" class="border border-gray-200 rounded-md p-3 space-y-2">
-                                    <div class="flex flex-wrap items-center gap-3">
-                                        <div class="font-medium text-gray-700">Ламінування</div>
-                                        <select x-model="product.services.lamination" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
-                                            <option value="Без">Без</option>
-                                            <option value="Одностороннє">Одностороннє</option>
-                                            <option value="Двостороннє">Двостороннє</option>
-                                        </select>
-                                    </div>
-                                    <div x-show="product.services.lamination !== 'Без'" class="flex flex-wrap items-end gap-3">
-                                        <div class="text-sm text-gray-700">Ширина(м)</div>
-                                        <input type="text" :value="getFirstPositionValue(product, 'width', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
-                                        <div class="text-sm text-gray-700">Висота(м)</div>
-                                        <input type="text" :value="getFirstPositionValue(product, 'height', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
-                                        <div class="text-sm text-gray-700">Кількість(шт)</div>
-                                        <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
-                                        <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
-                                            @if($showPurchaseFields)
-                                                <span class="text-sm text-gray-700">Собівартість:</span>
-                                                <input type="text" :value="getLaminationPurchaseCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700" title="Собівартість">
-                                                <span class="text-sm text-gray-700">Вартість:</span>
-                                            @endif
-                                            <input type="text" :value="getLaminationCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
-                                            <span class="text-sm text-gray-700">грн</span>
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <div x-show="isServiceBlockVisible(product, 'cutting')" class="border border-gray-200 rounded-md p-3 space-y-2">
                                     <div class="flex flex-wrap items-center gap-3">
                                         <div class="font-medium text-gray-700">Порізка</div>
-                                        <select :value="String(product?.services?.cutting || 'Без порізки')" @change="product.services.cutting = $event.target.value" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                                        <select :value="String(product?.services?.cutting || 'Без порізки')" @change="onCuttingModeChanged(product, $event.target.value)" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
                                             <option value="Без порізки" :selected="normalizeForCompare(product?.services?.cutting || 'Без порізки') === normalizeForCompare('Без порізки')">Без порізки</option>
                                             <template x-for="option in getCuttingOptions(product)" :key="option">
                                                 <option :value="option" :selected="normalizeForCompare(product?.services?.cutting || '') === normalizeForCompare(option)" x-text="option"></option>
@@ -416,6 +389,18 @@
                                             inputmode="numeric"
                                             class="w-[110px] border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
                                         />
+                                        <label
+                                            x-show="isAutoCuttingPerimeterAvailable(product)"
+                                            class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 whitespace-nowrap"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                x-model="product.services.cuttingAutoPerimeter"
+                                                @change="syncAutoCuttingPerimeter(product)"
+                                                class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                            >
+                                            <span>Автопериметр виробу</span>
+                                        </label>
                                         <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
                                             <span
                                                 x-show="isCuttingMinimumApplied(product)"
@@ -874,6 +859,34 @@
                                     </div>
                                 </div>
 
+                                <div x-show="isServiceBlockVisible(product, 'lamination')" class="border border-gray-200 rounded-md p-3 space-y-2">
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <div class="font-medium text-gray-700">Ламінування</div>
+                                        <select x-model="product.services.lamination" class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                                            <option value="Без">Без</option>
+                                            <option value="Одностороннє">Одностороннє</option>
+                                            <option value="Двостороннє">Двостороннє</option>
+                                        </select>
+                                    </div>
+                                    <div x-show="product.services.lamination !== 'Без'" class="flex flex-wrap items-end gap-3">
+                                        <div class="text-sm text-gray-700">Ширина(м)</div>
+                                        <input type="text" :value="getFirstPositionValue(product, 'width', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="text-sm text-gray-700">Висота(м)</div>
+                                        <input type="text" :value="getFirstPositionValue(product, 'height', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="text-sm text-gray-700">Кількість(шт)</div>
+                                        <input type="text" :value="getFirstPositionValue(product, 'qty', '0')" disabled class="w-[90px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                        <div class="ml-auto mr-1 flex items-center gap-2 shrink-0">
+                                            @if($showPurchaseFields)
+                                                <span class="text-sm text-gray-700">Собівартість:</span>
+                                                <input type="text" :value="getLaminationPurchaseCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700" title="Собівартість">
+                                                <span class="text-sm text-gray-700">Вартість:</span>
+                                            @endif
+                                            <input type="text" :value="getLaminationCostDisplay(product)" disabled class="w-[110px] border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-700">
+                                            <span class="text-sm text-gray-700">грн</span>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div x-show="isServiceBlockVisible(product, 'eyelets_soldering')" class="border border-gray-200 rounded-md p-3 space-y-2">
                                     <div class="flex flex-wrap items-center gap-3">
                                         <div class="font-medium text-gray-700">Люверси</div>
@@ -1123,6 +1136,7 @@
                 servicePriceByCode: config.servicePriceByCode || {},
                 servicePurchasePriceByCode: config.servicePurchasePriceByCode || {},
                 specialFlmCodes: (config.specialFlmCodes || []).map((item) => (item || '').toString().trim().toUpperCase()).filter((item) => item !== ''),
+                specialFlmLaminationByCode: Object.fromEntries(Object.entries(config.specialFlmLaminationByCode || {}).map(([code, value]) => [(code || '').toString().trim().toUpperCase(), Boolean(value)])),
                 typeCategoryMatrix: config.typeCategoryMatrix || {},
                 proposalId: config.proposalId || null,
                 initialState: config.initialState || null,
@@ -1201,6 +1215,7 @@
                             lamination: 'Без',
                             cutting: 'Без порізки',
                             cuttingLength: '0',
+                            cuttingAutoPerimeter: false,
                             weedingPrice: '0',
                             weedingPurchaseCost: '0',
                             weedingPriceTouched: false,
@@ -1321,6 +1336,7 @@
                             cutting: String(item?.services?.cutting ?? baseProduct.services.cutting).trim() || baseProduct.services.cutting,
                             eyeletsMode: String(item?.services?.eyeletsMode ?? baseProduct.services.eyeletsMode).trim() || baseProduct.services.eyeletsMode,
                             cuttingLength: String(item?.services?.cuttingLength ?? baseProduct.services.cuttingLength),
+                            cuttingAutoPerimeter: [true, 1, '1', 'true'].includes(item?.services?.cuttingAutoPerimeter),
                             weedingPrice: String(item?.services?.weedingPrice ?? baseProduct.services.weedingPrice),
                             weedingPurchaseCost: String(item?.services?.weedingPurchaseCost ?? baseProduct.services.weedingPurchaseCost),
                             rollingIp1Width: String(item?.services?.rollingIp1Width ?? baseProduct.services.rollingIp1Width),
@@ -1340,6 +1356,7 @@
                         };
 
                         this.applySavedCuttingValue(product, item?.services?.cutting);
+                        this.syncAutoCuttingPerimeter(product);
                         this.ensureRollingMaterials(product);
                         return product;
                     });
@@ -1591,6 +1608,7 @@
                                 lamination: String(product?.services?.lamination ?? ''),
                                 cutting: String(product?.services?.cutting ?? ''),
                                 cuttingLength: String(product?.services?.cuttingLength ?? '0'),
+                                cuttingAutoPerimeter: Boolean(product?.services?.cuttingAutoPerimeter),
                                 weedingPrice: String(product?.services?.weedingPrice ?? '0'),
                                 weedingPurchaseCost: String(product?.services?.weedingPurchaseCost ?? '0'),
                                 montage: String(product?.services?.montage ?? '0'),
@@ -3321,6 +3339,11 @@
                     return (this.specialFlmCodes || []).includes(code);
                 },
 
+                hasSpecialFlmLamination(material) {
+                    const code = this.normalizeCode(this.getMaterialCode(material));
+                    return Boolean((this.specialFlmLaminationByCode || {})[code]);
+                },
+
                 isFilmMaterialRestrictedByType(material) {
                     return this.isSpecialFlmMaterial(material);
                 },
@@ -3462,6 +3485,46 @@
                     if (!options.includes(product.services.cutting)) {
                         product.services.cutting = 'Без порізки';
                     }
+
+                    if (!this.isAutoCuttingPerimeterAvailable(product)) {
+                        product.services.cuttingAutoPerimeter = false;
+                    }
+                },
+
+                onCuttingModeChanged(product, cuttingMode) {
+                    product.services.cutting = cuttingMode;
+                    if (!this.isAutoCuttingPerimeterAvailable(product)) {
+                        product.services.cuttingAutoPerimeter = false;
+                        return;
+                    }
+
+                    this.syncAutoCuttingPerimeter(product);
+                },
+
+                isAutoCuttingPerimeterAvailable(product) {
+                    const cuttingMode = String(product?.services?.cutting || '').trim();
+                    return ['Лазер', 'Фреза', 'Лазер (картон)', 'Фреза (композит)'].includes(cuttingMode);
+                },
+
+                syncAutoCuttingPerimeter(product) {
+                    if (
+                        !product?.services?.cuttingAutoPerimeter
+                        || !this.isAutoCuttingPerimeterAvailable(product)
+                        || !Array.isArray(product.positions)
+                        || product.positions.length !== 1
+                    ) {
+                        return;
+                    }
+
+                    const position = product.positions[0];
+                    const width = this.toNumber(position?.width);
+                    const height = this.toNumber(position?.height);
+                    const qty = this.toNumber(position?.qty);
+                    const safeWidth = Number.isFinite(width) ? width : 0;
+                    const safeHeight = Number.isFinite(height) ? height : 0;
+                    const safeQty = Number.isFinite(qty) ? qty : 0;
+
+                    product.services.cuttingLength = String(Math.round((safeWidth + safeHeight) * 2 * safeQty));
                 },
 
                 applySavedCuttingValue(product, savedCutting) {
@@ -4278,6 +4341,10 @@
                 resolveCuttingServiceCode(product) {
                     const cuttingMode = String(product?.services?.cutting || '').trim();
                     if (cuttingMode === 'Плотер') {
+                        if (this.isSpecialFlmMaterial(product.material)) {
+                            return this.hasSpecialFlmLamination(product.material) ? 'SERV-008' : 'SERV-007';
+                        }
+
                         const laminationMode = String(product?.services?.lamination || '').trim();
                         const isLaminated = laminationMode === 'Одностороннє' || laminationMode === 'Двостороннє';
 

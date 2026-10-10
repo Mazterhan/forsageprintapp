@@ -63,6 +63,7 @@
                             <thead class="bg-[#FCEEDF]">
                                 <tr>
                                     <th class="px-4 py-3 border-b text-left font-semibold text-gray-800">{{ __('Назва позиції') }}</th>
+                                    <th class="w-[140px] px-4 py-3 border-b text-center font-semibold text-gray-800">{{ __('З ламінацією') }}</th>
                                     <th class="w-[430px] px-4 py-3 border-b text-right font-semibold text-gray-800">{{ __('Код позиції') }}</th>
                                     <th class="w-[130px] px-4 py-3 border-b text-right font-semibold text-gray-800">{{ __('Дія') }}</th>
                                 </tr>
@@ -79,9 +80,19 @@
                                                 class="set-flm-name block w-full rounded-md border-gray-300 bg-gray-100 text-gray-700 shadow-sm"
                                             >
                                         </td>
+                                        <td class="px-4 py-3 border-b text-center">
+                                            <input type="hidden" name="has_lamination[]" class="set-flm-lamination-value" value="{{ !empty($row['has_lamination']) ? '1' : '0' }}">
+                                            <input
+                                                type="checkbox"
+                                                class="set-flm-lamination-checkbox rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                                @checked(!empty($row['has_lamination']))
+                                                disabled
+                                            >
+                                        </td>
                                         <td class="px-4 py-3 border-b">
                                             <div class="flex justify-end">
-                                            <select name="price_item_ids[]" class="set-flm-code block rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" style="width: 400px; min-width: 400px; max-width: 400px;">
+                                            <input type="hidden" name="price_item_ids[]" class="set-flm-code-value" value="{{ $row['price_item_id'] ?? '' }}">
+                                            <select disabled class="set-flm-code block rounded-md border-gray-300 bg-gray-100 text-sm text-gray-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-80" style="width: 400px; min-width: 400px; max-width: 400px;">
                                                 <option value="">{{ __('Оберіть код') }}</option>
                                                 @foreach ($priceItems as $item)
                                                     <option value="{{ $item['id'] }}" data-code="{{ $item['code'] }}" data-name="{{ $item['name'] }}" @selected((string) ($row['price_item_id'] ?? '') === (string) $item['id'] || (string) ($row['code'] ?? '') === (string) $item['code'])>
@@ -106,6 +117,13 @@
                                             readonly
                                             disabled
                                             class="set-flm-name block w-full rounded-md border-gray-300 bg-gray-100 text-gray-700 shadow-sm"
+                                        >
+                                    </td>
+                                    <td class="px-4 py-3 border-b text-center">
+                                        <input type="hidden" name="has_lamination[]" class="set-flm-lamination-value" value="0">
+                                        <input
+                                            type="checkbox"
+                                            class="set-flm-lamination-checkbox rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
                                         >
                                     </td>
                                     <td class="px-4 py-3 border-b">
@@ -203,13 +221,31 @@
                 const row = sourceRow.cloneNode(true);
                 const input = row.querySelector('.set-flm-name');
                 const select = row.querySelector('.set-flm-code');
+                const codeValue = row.querySelector('.set-flm-code-value');
+                const laminationValue = row.querySelector('.set-flm-lamination-value');
+                const laminationCheckbox = row.querySelector('.set-flm-lamination-checkbox');
                 const button = row.querySelector('.remove-set-flm-row');
                 if (input instanceof HTMLInputElement) {
                     input.value = '';
                 }
+                if (codeValue instanceof HTMLInputElement) {
+                    codeValue.remove();
+                }
                 if (select instanceof HTMLSelectElement) {
+                    select.name = 'price_item_ids[]';
                     select.value = '';
+                    select.disabled = false;
+                    select.classList.remove('bg-gray-100', 'text-gray-700', 'disabled:cursor-not-allowed', 'disabled:opacity-80');
+                    select.classList.add('focus:border-indigo-500', 'focus:ring-indigo-500');
                     bindSelect(select);
+                }
+                if (laminationValue instanceof HTMLInputElement) {
+                    laminationValue.value = '0';
+                }
+                if (laminationCheckbox instanceof HTMLInputElement) {
+                    laminationCheckbox.checked = false;
+                    laminationCheckbox.disabled = false;
+                    bindLaminationCheckbox(laminationCheckbox);
                 }
                 if (button instanceof HTMLButtonElement) {
                     button.style.display = 'none';
@@ -232,6 +268,7 @@
                     const select = row.querySelector('.set-flm-code');
                     const button = row.querySelector('.remove-set-flm-row');
                     const nameInput = row.querySelector('.set-flm-name');
+                    const laminationCheckbox = row.querySelector('.set-flm-lamination-checkbox');
                     if (!(select instanceof HTMLSelectElement) || !(button instanceof HTMLButtonElement)) {
                         return;
                     }
@@ -240,10 +277,24 @@
                         || (nameInput instanceof HTMLInputElement && nameInput.value.trim() !== '');
                     button.style.display = hasSelectedPosition ? 'inline-flex' : 'none';
                     button.disabled = !hasSelectedPosition;
+                    if (laminationCheckbox instanceof HTMLInputElement && !laminationCheckbox.disabled) {
+                        laminationCheckbox.disabled = !hasSelectedPosition;
+                    }
+                });
+            };
+
+            const bindLaminationCheckbox = (checkbox) => {
+                checkbox.addEventListener('change', () => {
+                    const row = checkbox.closest('.set-flm-row');
+                    const valueInput = row?.querySelector('.set-flm-lamination-value');
+                    if (valueInput instanceof HTMLInputElement) {
+                        valueInput.value = checkbox.checked ? '1' : '0';
+                    }
                 });
             };
 
             rowsContainer.querySelectorAll('.set-flm-code').forEach(bindSelect);
+            rowsContainer.querySelectorAll('.set-flm-lamination-checkbox').forEach(bindLaminationCheckbox);
 
             rowsContainer.addEventListener('click', (event) => {
                 const target = event.target;
@@ -258,6 +309,8 @@
 
                 const nameInput = row.querySelector('.set-flm-name');
                 const select = row.querySelector('.set-flm-code');
+                const laminationValue = row.querySelector('.set-flm-lamination-value');
+                const laminationCheckbox = row.querySelector('.set-flm-lamination-checkbox');
                 const positionName = nameInput instanceof HTMLInputElement && nameInput.value.trim() !== ''
                     ? nameInput.value.trim()
                     : 'обрану позицію';
@@ -275,6 +328,12 @@
                     }
                     if (select instanceof HTMLSelectElement) {
                         select.value = '';
+                    }
+                    if (laminationValue instanceof HTMLInputElement) {
+                        laminationValue.value = '0';
+                    }
+                    if (laminationCheckbox instanceof HTMLInputElement && !laminationCheckbox.disabled) {
+                        laminationCheckbox.checked = false;
                     }
                     return;
                 }

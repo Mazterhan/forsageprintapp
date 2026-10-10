@@ -28,9 +28,11 @@ class OrderIndexTest extends TestCase
     public function test_orders_page_displays_order_table_and_create_link(): void
     {
         $user = $this->createUserWithRole(['can_orders' => true]);
+        $creator = User::factory()->create(['name' => 'Автор замовлення']);
         $editor = User::factory()->create(['name' => 'Останній редактор']);
         $order = Order::factory()->create([
             'customer_name' => 'Тестовий замовник',
+            'created_by' => $creator->id,
             'last_edited_by' => $editor->id,
             'amount_due' => 650.25,
             'total_cost' => 1000.50,
@@ -49,13 +51,94 @@ class OrderIndexTest extends TestCase
             ->assertSee('Вартість')
             ->assertSee($order->order_number)
             ->assertSee('Тестовий замовник')
-            ->assertSee('Останній редактор')
+            ->assertSee('Автор замовлення')
+            ->assertDontSee('Останній редактор')
             ->assertSee('650.25')
             ->assertSee('1 000.50');
 
         $this->actingAs($user)
             ->get(route('orders.index'))
             ->assertDontSee('data-page-back-link', false);
+    }
+
+    public function test_user_can_choose_and_reorder_orders_table_columns(): void
+    {
+        $user = $this->createUserWithRole(['can_orders' => true]);
+
+        $this->actingAs($user)
+            ->get(route('orders.index'))
+            ->assertOk()
+            ->assertSee('Редагувати відображення таблиці')
+            ->assertSee('Редагування відображення таблиці')
+            ->assertSeeInOrder(['Доступно', 'Вибрано'])
+            ->assertSee('Застосувати')
+            ->assertSee('Скасувати')
+            ->assertViewHas('orderTableColumns', [
+                'date',
+                'status',
+                'number',
+                'payment',
+                'customer',
+                'user',
+                'amount_due',
+                'total_cost',
+            ]);
+
+        $this->actingAs($user)
+            ->patchJson(route('orders.table-columns.update'), [
+                'columns' => ['number', 'date', 'total_cost'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('columns', ['number', 'date', 'total_cost']);
+
+        $this->assertSame(
+            ['number', 'date', 'total_cost'],
+            $user->fresh()->orders_table_columns
+        );
+
+        $this->actingAs($user)
+            ->get(route('orders.index'))
+            ->assertOk()
+            ->assertViewHas('orderTableColumns', ['number', 'date', 'total_cost'])
+            ->assertSeeInOrder([
+                'data-order-column="number"',
+                'data-order-column="date"',
+                'data-order-column="total_cost"',
+            ], false)
+            ->assertDontSee('data-order-column="payment"', false);
+
+        $this->post(route('logout'))
+            ->assertRedirect('/');
+        $this->assertGuest();
+
+        $this->post(route('login'), [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard', absolute: false));
+
+        $this->get(route('orders.index'))
+            ->assertOk()
+            ->assertViewHas('orderTableColumns', ['number', 'date', 'total_cost']);
+
+        $otherUser = $this->createUserWithRole(['can_orders' => true]);
+        $this->actingAs($otherUser)
+            ->get(route('orders.index'))
+            ->assertOk()
+            ->assertViewHas('orderTableColumns', [
+                'date',
+                'status',
+                'number',
+                'payment',
+                'customer',
+                'user',
+                'amount_due',
+                'total_cost',
+            ]);
+
+        $this->actingAs($user)
+            ->patchJson(route('orders.table-columns.update'), ['columns' => []])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('columns');
     }
 
     public function test_order_customer_names_link_to_client_card_when_client_access_is_available(): void
@@ -162,6 +245,7 @@ class OrderIndexTest extends TestCase
             'client_id' => $firstClient->id,
             'customer_name' => $firstClient->name,
             'last_edited_by' => $firstEditor->id,
+            'created_by' => $firstEditor->id,
             'status' => Order::STATUS_NEW,
             'total_cost' => 1000,
         ]);
@@ -169,6 +253,7 @@ class OrderIndexTest extends TestCase
             'client_id' => $secondClient->id,
             'customer_name' => $secondClient->name,
             'last_edited_by' => $secondEditor->id,
+            'created_by' => $secondEditor->id,
             'status' => Order::STATUS_BLOCKED,
             'total_cost' => 1000,
         ]);
@@ -176,6 +261,7 @@ class OrderIndexTest extends TestCase
             'client_id' => $firstClient->id,
             'customer_name' => $firstClient->name,
             'last_edited_by' => $firstEditor->id,
+            'created_by' => $firstEditor->id,
             'status' => Order::STATUS_COMPLETED,
             'total_cost' => 1000,
         ]);
@@ -270,6 +356,7 @@ class OrderIndexTest extends TestCase
             ->assertDontSee('>Платежі<', false)
             ->assertSee('Номенклатура')
             ->assertSee('Опис')
+            ->assertSee('w-[220px] border-b border-r border-gray-200 p-2 align-middle', false)
             ->assertSee('Кількість')
             ->assertSee('Вартість за одн.')
             ->assertSee('Сума з ПДВ')
@@ -289,7 +376,7 @@ class OrderIndexTest extends TestCase
             ->assertSee('x-show="hasNomenclatureItem() && (isEdit || hasCustomerName())"', false)
             ->assertSee('Додати до існуючого замовлення')
             ->assertSee(str_replace('/', '\\/', route('orders.append-candidate')), false)
-            ->assertSee('maxlength="500"', false)
+            ->assertSee('maxlength="2000"', false)
             ->assertSee('data-order-description', false)
             ->assertSee('maxlength="200"', false)
             ->assertDontSee('placeholder="Введіть опис"', false)
@@ -647,6 +734,7 @@ class OrderIndexTest extends TestCase
         $order = Order::factory()->create([
             'client_id' => $client->id,
             'customer_name' => 'Замовник для перегляду',
+            'created_by' => $editor->id,
             'last_edited_by' => $editor->id,
             'items' => [
                 [
@@ -687,6 +775,7 @@ class OrderIndexTest extends TestCase
             ->assertSee('Замовлення '.$order->order_number)
             ->assertSee('Замовник для перегляду')
             ->assertSee('Тестова номенклатура')
+            ->assertSee('border align-middle whitespace-pre-wrap break-words', false)
             ->assertSee('Редактор замовлення')
             ->assertSee('Дата створення:')
             ->assertSee('Нове')
@@ -744,9 +833,57 @@ class OrderIndexTest extends TestCase
         $this->assertSame(['value' => 'Заблоковано'], $history->after_value);
 
         $this->actingAs($user)
+            ->get(route('orders.show', $order))
+            ->assertOk()
+            ->assertSee(":disabled=\"selectedStatus === 'blocked' || selectedStatus === 'completed'\"", false)
+            ->assertSee('Редагування недоступне для заблокованого або виконаного замовлення');
+
+        $this->actingAs($user)
+            ->get(route('orders.edit', $order))
+            ->assertStatus(409);
+
+        $this->actingAs($user)
+            ->patchJson(route('orders.update', $order), [])
+            ->assertStatus(409);
+
+        $this->actingAs($user)
             ->patchJson(route('orders.status.update', $order), ['status' => 'unknown'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('status');
+
+        $this->actingAs($user)
+            ->patchJson(route('orders.status.update', $order), ['status' => Order::STATUS_COMPLETED])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
+    }
+
+    public function test_existing_completed_order_is_preserved_but_cannot_be_selected_or_edited(): void
+    {
+        $user = $this->createUserWithRole([
+            'can_orders' => true,
+            'orders_update' => true,
+        ]);
+        $order = Order::factory()->create([
+            'status' => Order::STATUS_COMPLETED,
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('orders.show', $order))
+            ->assertOk()
+            ->assertSee("initialStatus: 'completed'", false)
+            ->assertDontSee('data-order-status-option="completed"', false)
+            ->assertSee(":disabled=\"selectedStatus === 'blocked' || selectedStatus === 'completed'\"", false);
+
+        $this->actingAs($user)
+            ->get(route('orders.edit', $order))
+            ->assertStatus(409);
+
+        $this->actingAs($user)
+            ->patchJson(route('orders.update', $order), [])
+            ->assertStatus(409);
+
+        $this->assertSame(Order::STATUS_COMPLETED, $order->fresh()->status);
     }
 
     public function test_edited_order_displays_change_history_without_autosave_label(): void
@@ -986,6 +1123,7 @@ class OrderIndexTest extends TestCase
     public function test_order_can_be_edited_in_place_and_item_changes_are_recorded(): void
     {
         $user = $this->createUserWithRole(['can_orders' => true]);
+        $creator = User::factory()->create(['name' => 'Незмінний автор замовлення']);
         $client = Client::query()->create([
             'code' => 'FP-000020',
             'name' => 'Замовник редагування',
@@ -993,7 +1131,8 @@ class OrderIndexTest extends TestCase
         ]);
         $order = Order::factory()->create([
             'client_id' => $client->id,
-            'status' => Order::STATUS_BLOCKED,
+            'created_by' => $creator->id,
+            'status' => Order::STATUS_NEW,
             'customer_name' => $client->name,
             'last_edited_by' => $user->id,
             'items' => [[
@@ -1025,7 +1164,7 @@ class OrderIndexTest extends TestCase
             ->assertSee("initialClientId: {$client->id}", false)
             ->assertSee("saveMethod: 'PATCH'", false)
             ->assertSee('initialOrderStatus:', false)
-            ->assertSee("initialOrderStatus: 'blocked'", false)
+            ->assertSee("initialOrderStatus: 'new'", false)
             ->assertSee('x-model="orderStatus"', false)
             ->assertSee('warnAboutUnsavedStatus($event)', false)
             ->assertSee('status: this.orderStatus', false)
@@ -1039,8 +1178,9 @@ class OrderIndexTest extends TestCase
         $this->actingAs($user)
             ->patchJson(route('orders.update', $order), [
                 'client_id' => $client->id,
+                'created_by' => $user->id,
                 'customer_name' => $client->name,
-                'status' => Order::STATUS_COMPLETED,
+                'status' => Order::STATUS_CANCELLED,
                 'items' => [
                     [
                         'item_id' => 'existing-item',
@@ -1063,15 +1203,16 @@ class OrderIndexTest extends TestCase
         $this->assertDatabaseCount('orders', 1);
         $this->assertSame('500.00', $order->total_cost);
         $this->assertSame('480.00', $order->amount_due);
-        $this->assertSame(Order::STATUS_COMPLETED, $order->status);
+        $this->assertSame(Order::STATUS_CANCELLED, $order->status);
+        $this->assertSame($creator->id, $order->created_by);
         $this->assertSame($user->id, $order->last_edited_by);
         $this->assertSame('Змінена позиція', $order->items[0]['nomenclature']);
         $this->assertNotEmpty($order->items[1]['item_id']);
         $this->assertTrue($order->histories()->where('operation_type', 'item_updated')->exists());
         $this->assertTrue($order->histories()->where('operation_type', 'item_created')->exists());
         $statusHistory = $order->histories()->where('field_name', 'status')->sole();
-        $this->assertSame(['value' => 'Заблоковано'], $statusHistory->before_value);
-        $this->assertSame(['value' => 'Виконане'], $statusHistory->after_value);
+        $this->assertSame(['value' => 'Нове'], $statusHistory->before_value);
+        $this->assertSame(['value' => 'Скасовано'], $statusHistory->after_value);
 
         $newItem = $order->items[1];
         $this->actingAs($user)
@@ -1092,6 +1233,7 @@ class OrderIndexTest extends TestCase
         $this->actingAs($user)
             ->get(route('orders.show', $order))
             ->assertOk()
+            ->assertSee('Незмінний автор замовлення')
             ->assertSee('Історія змін замовлення')
             ->assertDontSee('Видалення')
             ->assertViewHas('order', fn (Order $loadedOrder): bool => ! $loadedOrder->relationLoaded('histories'));

@@ -97,6 +97,7 @@
                 };
             };
         </script>
+        {{--
         @auth
             @php
                 $unfinishedAutosaves = collect();
@@ -150,6 +151,7 @@
                 </div>
             @endif
         @endauth
+        --}}
         <div class="min-h-screen bg-gray-100">
             @include('layouts.navigation')
 

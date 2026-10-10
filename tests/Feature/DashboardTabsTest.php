@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\ClientPayment;
 use App\Models\Order;
 use App\Models\OrderProposal;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesRoles;
 use Tests\TestCase;
@@ -15,7 +16,7 @@ class DashboardTabsTest extends TestCase
     use CreatesRoles;
     use RefreshDatabase;
 
-    public function test_dashboard_defaults_to_proposals_tab_and_keeps_its_filters_scoped(): void
+    public function test_dashboard_defaults_to_orders_tab_and_keeps_its_filters_scoped(): void
     {
         $user = $this->analyticsUser();
 
@@ -25,11 +26,94 @@ class DashboardTabsTest extends TestCase
             ->assertSee('Аналітика')
             ->assertSee('Заявки')
             ->assertSee('Замовлення')
-            ->assertSee('value="proposals"', false)
+            ->assertSeeInOrder(['value="orders"', 'value="proposals"'], false)
             ->assertSee('aria-selected="true"', false)
-            ->assertSee('<input type="hidden" name="tab" value="proposals">', false)
-            ->assertSee(route('dashboard', ['tab' => 'proposals']), false)
-            ->assertSee('Кількість заявок');
+            ->assertSee('<input type="hidden" name="tab" value="orders">', false)
+            ->assertSee(route('dashboard', ['tab' => 'orders']), false)
+            ->assertSee('Кількість замовлень')
+            ->assertViewIs('dashboard-orders')
+            ->assertViewHas('activeTab', 'orders')
+            ->assertViewHas('filters', fn (array $filters): bool => $filters['period'] === 'ytd');
+    }
+
+    public function test_both_dashboard_tabs_offer_and_calculate_the_new_period_presets(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-07 12:34:00', 'Europe/Kiev'));
+
+        try {
+            $user = $this->analyticsUser();
+            $presetLabels = [
+                'З початку поточного тижня',
+                'З початку поточного місяця',
+                'З початку поточного кварталу',
+                'З початку поточного року',
+                'За останні 90 днів',
+                'За останні 180 днів',
+                'За весь період',
+                'Кастомний період',
+            ];
+            $expectedRanges = [
+                'last_90_days' => ['2026-05-10', '2026-08-07'],
+                'last_180_days' => ['2026-02-09', '2026-08-07'],
+                'qtd' => ['2026-07-01', '2026-08-07'],
+            ];
+
+            foreach (['orders', 'proposals'] as $tab) {
+                $expectedTitle = $tab === 'orders'
+                    ? 'Аналітика — Замовлення'
+                    : 'Аналітика — Заявки';
+
+                $this->actingAs($user)
+                    ->get(route('dashboard', ['tab' => $tab]))
+                    ->assertOk()
+                    ->assertSee('<title>'.$expectedTitle.'</title>', false)
+                    ->assertSee('data-dashboard-period-block', false)
+                    ->assertSee('data-auto-submit-period', false)
+                    ->assertSee('data-auto-submit-custom-period', false)
+                    ->assertSee('data-custom-period-error', false)
+                    ->assertSee('class="grid grid-cols-2 gap-3"', false)
+                    ->assertSeeInOrder($presetLabels)
+                    ->assertViewHas('filters', fn (array $filters): bool => $filters['period'] === 'ytd');
+
+                foreach ($expectedRanges as $period => [$from, $to]) {
+                    $this->actingAs($user)
+                        ->get(route('dashboard', ['tab' => $tab, 'period' => $period]))
+                        ->assertOk()
+                        ->assertViewHas('filters', fn (array $filters): bool => $filters['period'] === $period
+                            && $filters['from'] === $from
+                            && $filters['to'] === $to);
+                }
+            }
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_incomplete_custom_period_is_blocked_in_browser_and_has_an_accurate_server_fallback(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-09 12:00:00', 'Europe/Kiev'));
+
+        try {
+            $user = $this->analyticsUser();
+
+            foreach (['orders', 'proposals'] as $tab) {
+                $this->actingAs($user)
+                    ->get(route('dashboard', [
+                        'tab' => $tab,
+                        'period' => 'custom',
+                        'from' => '2026-09-01',
+                        'to' => '',
+                    ]))
+                    ->assertOk()
+                    ->assertSee('Для кастомного періоду потрібно вказати обидві дати:', false)
+                    ->assertSee('Кастомний період не застосовано. Показано дані з початку поточного року.', false)
+                    ->assertViewHas('filters', fn (array $filters): bool => $filters['period'] === 'ytd'
+                        && $filters['from'] === '2026-01-01'
+                        && $filters['to'] === '2026-09-09');
+            }
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_analytics_page_can_be_opened_without_exposing_tabs_or_filters(): void
@@ -160,8 +244,15 @@ class DashboardTabsTest extends TestCase
             ->assertSee('Замовлення у вибраному періоді')
             ->assertDontSee($proposal->proposal_number);
         $response
-            ->assertViewHas('debtorClients', fn ($debtors): bool => $debtors->count() === 2
-                && (float) $debtors->sum('debt_total') === 1800.0)
+            ->assertViewHas('debtorClients', function ($debtors) use ($client): bool {
+                $partialPaymentDebtor = $debtors->firstWhere('client_name', $client->name);
+
+                return $debtors->count() === 2
+                    && (float) $debtors->sum('debt_total') === 1800.0
+                    && (int) ($partialPaymentDebtor['orders_count'] ?? 0) === 1
+                    && (float) ($partialPaymentDebtor['payments_total'] ?? 0) === 200.0
+                    && (float) ($partialPaymentDebtor['debt_total'] ?? 0) === 800.0;
+            })
             ->assertViewHas('investorClients', fn ($investors): bool => $investors->count() === 1
                 && (float) $investors->first()['overpayment_total'] === 1200.0)
             ->assertViewHas('kpi', fn (array $kpi): bool => $kpi['debtor_clients'] === 2
@@ -172,6 +263,102 @@ class DashboardTabsTest extends TestCase
         foreach ($orders as $order) {
             $response->assertSee($order->order_number);
         }
+    }
+
+    public function test_cancelled_orders_are_excluded_from_payment_status_analytics_debtors_and_period_list_while_merged_sources_are_excluded_from_order_status_summary(): void
+    {
+        $user = $this->analyticsUser();
+        $client = Client::factory()->create(['name' => 'Клієнт скасованих замовлень']);
+        $activeOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'last_edited_by' => $user->id,
+            'status' => Order::STATUS_NEW,
+            'total_cost' => 1000,
+            'payments_total' => 0,
+            'amount_due' => 1000,
+        ]);
+        $cancelledOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'last_edited_by' => $user->id,
+            'status' => Order::STATUS_CANCELLED,
+            'total_cost' => 500,
+            'payments_total' => 0,
+            'amount_due' => 500,
+        ]);
+        $mergedSourceOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'last_edited_by' => $user->id,
+            'status' => Order::STATUS_CANCELLED,
+            'items' => [],
+            'total_cost' => 0,
+            'payments_total' => 0,
+            'amount_due' => 0,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->get(route('dashboard', ['tab' => 'orders', 'period' => 'all']))
+            ->assertOk();
+
+        $response
+            ->assertViewHas('analyticsOrders', fn ($orders): bool => $orders->pluck('number')->all() === [$activeOrder->order_number])
+            ->assertViewHas('debtorClients', fn ($debtors): bool => $debtors->count() === 1
+                && (float) $debtors->first()['debt_total'] === 1000.0)
+            ->assertViewHas('paymentStatusAnalyticsOrders', fn ($orders): bool => $orders->pluck('number')->all() === [$activeOrder->order_number])
+            ->assertViewHas('statusStats', function (array $statuses): bool {
+                $unpaid = collect($statuses)->firstWhere('key', 'unpaid');
+
+                return (int) ($unpaid['count'] ?? 0) === 1
+                    && (float) ($unpaid['total_cost'] ?? 0) === 1000.0
+                    && (float) ($unpaid['amount_due'] ?? 0) === 1000.0;
+            })
+            ->assertViewHas('orderStatusAnalyticsOrders', fn ($orders): bool => $orders->pluck('number')->sort()->values()->all() === collect([
+                $activeOrder->order_number,
+                $cancelledOrder->order_number,
+            ])->sort()->values()->all())
+            ->assertViewHas('orderStatusStats', function (array $statuses): bool {
+                $cancelled = collect($statuses)->firstWhere('key', Order::STATUS_CANCELLED);
+
+                return (int) ($cancelled['count'] ?? 0) === 1
+                    && (float) ($cancelled['total_cost'] ?? 0) === 500.0
+                    && (float) ($cancelled['amount_due'] ?? 0) === 500.0;
+            });
+
+        $this->assertNotSame($cancelledOrder->order_number, $activeOrder->order_number);
+        $this->assertNotSame($mergedSourceOrder->order_number, $activeOrder->order_number);
+    }
+
+    public function test_hidden_cancelled_orders_are_excluded_from_all_order_dashboard_analytics(): void
+    {
+        $user = $this->analyticsUser();
+        $client = Client::factory()->create(['name' => 'Клієнт прихованого замовлення']);
+        $visibleOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'created_by' => $user->id,
+            'status' => Order::STATUS_NEW,
+            'total_cost' => 1000,
+        ]);
+        $hiddenCancelledOrder = Order::factory()->create([
+            'client_id' => $client->id,
+            'customer_name' => $client->name,
+            'created_by' => $user->id,
+            'status' => Order::STATUS_CANCELLED,
+            'total_cost' => 500,
+            'hidden_at' => now(),
+            'hidden_by' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('dashboard', ['tab' => 'orders', 'period' => 'all']))
+            ->assertOk()
+            ->assertViewHas('analyticsOrders', fn ($orders): bool => $orders->pluck('number')->all() === [$visibleOrder->order_number])
+            ->assertViewHas('paymentStatusAnalyticsOrders', fn ($orders): bool => $orders->pluck('number')->all() === [$visibleOrder->order_number])
+            ->assertViewHas('orderStatusAnalyticsOrders', fn ($orders): bool => $orders->pluck('number')->all() === [$visibleOrder->order_number]);
+
+        $this->assertNotNull(Order::withoutGlobalScopes()->findOrFail($hiddenCancelledOrder->id)->hidden_at);
     }
 
     public function test_orders_tables_show_top_ten_and_only_actual_clickable_statuses(): void
@@ -233,8 +420,8 @@ class DashboardTabsTest extends TestCase
         $this->actingAs($user)
             ->get(route('dashboard', ['tab' => 'unsupported']))
             ->assertOk()
-            ->assertSee('Кількість заявок')
-            ->assertDontSee('Кількість замовлень');
+            ->assertSee('Кількість замовлень')
+            ->assertDontSee('Кількість заявок');
     }
 
     public function test_orders_analytics_respects_own_order_scope_in_all_server_data(): void

@@ -9,6 +9,8 @@
         $canManageClientOverpayments = (bool) ($clientPermissions['overpayments'] ?? false);
         $canEditClientPayments = (bool) ($clientPermissions['payments_edit'] ?? false);
         $canAccessClientOrders = (bool) ($clientPermissions['orders'] ?? false);
+        $canHideCancelledOrders = (bool) ($canHideCancelledOrders ?? false);
+        $hasVisibleCancelledOrders = (bool) ($hasVisibleCancelledOrders ?? false);
         $clientOverpaymentTotal = (float) $client->payments
             ->where('payment_type', 'prepayment')
             ->sum('amount_uah') - (float) $client->payments
@@ -157,6 +159,7 @@
                 overpaymentTotal: @js((int) $clientOverpaymentTotal),
                 canManageOverpayments: @js($canManageClientOverpayments),
                 canEditPayments: @js($canEditClientPayments),
+                canHideCancelledOrders: @js($canHideCancelledOrders),
                 payments: @js($paymentModalData),
             })"
             @keydown.escape.window="closePaymentModal()"
@@ -230,7 +233,7 @@
                                             <button
                                                 type="button"
                                                 @click="openOverpaymentPayment()"
-                                                class="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 shadow-sm hover:bg-blue-100"
+                                                class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
                                             >
                                                 Списати з переплати
                                             </button>
@@ -329,17 +332,44 @@
                                 x-cloak
                                 class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
                             >
-                                <h3 class="mb-4 text-sm font-semibold uppercase text-gray-700">Замовлення</h3>
+                                <div class="mb-4 flex items-center justify-between gap-4">
+                                    <h3 class="text-sm font-semibold uppercase text-gray-700">Список замовлень</h3>
+                                    <div class="flex items-center gap-3">
+                                        @if($hasVisibleCancelledOrders)
+                                            <button
+                                                type="button"
+                                                @click="hideCancelledOrders()"
+                                                :disabled="selectingCancelledOrders && selectedCancelledOrderIds.length === 0"
+                                                class="inline-flex items-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                Видалити
+                                            </button>
+                                        @endif
+                                        <a
+                                            href="{{ route('orders.create', ['client' => $client->public_id]) }}"
+                                            class="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                        >
+                                            Створити
+                                        </a>
+                                    </div>
+                                </div>
+                                @if($hasVisibleCancelledOrders)
+                                    <p x-show="selectingCancelledOrders" x-cloak class="mb-3 text-sm text-red-700">
+                                        Оберіть скасовані замовлення та натисніть «Видалити» ще раз.
+                                    </p>
+                                @endif
                                 <div class="overflow-x-auto">
                                     <table class="client-orders-table min-w-full border border-gray-200 text-sm">
                                         <thead>
                                             <tr>
+                                                @if($hasVisibleCancelledOrders)
+                                                    <th x-show="selectingCancelledOrders" x-cloak class="w-12 border-b px-4 py-3 text-center">#</th>
+                                                @endif
                                                 @foreach([
                                                     'date' => 'Дата',
                                                     'status' => 'Статус',
                                                     'number' => 'Номер замовлення',
                                                     'payment' => 'Оплата',
-                                                    'customer' => "Ім'я замовника",
                                                     'user' => 'Користувач',
                                                     'amount_due' => 'До сплати',
                                                     'total_cost' => 'Вартість',
@@ -361,6 +391,19 @@
                                             @forelse($clientOrders as $clientOrder)
                                                 @php([$orderPaymentStatusLabel, $orderPaymentStatusClass] = $orderPaymentStatus($clientOrder))
                                                 <tr class="client-order-row {{ $loop->odd ? 'row-alt' : 'row-base' }}" tabindex="0">
+                                                    @if($hasVisibleCancelledOrders)
+                                                        <td x-show="selectingCancelledOrders" x-cloak class="border-b px-4 py-3 text-center">
+                                                            @if($clientOrder->status === \App\Models\Order::STATUS_CANCELLED)
+                                                                <input
+                                                                    type="checkbox"
+                                                                    value="{{ $clientOrder->public_id }}"
+                                                                    x-model="selectedCancelledOrderIds"
+                                                                    class="rounded border-gray-300 text-red-600 shadow-sm focus:ring-red-500"
+                                                                    aria-label="Вибрати скасоване замовлення {{ $clientOrder->order_number }}"
+                                                                >
+                                                            @endif
+                                                        </td>
+                                                    @endif
                                                     <td class="border-b px-4 py-3">{{ $formatOrderDate($clientOrder->updated_at) }}</td>
                                                     <td class="border-b px-4 py-3">
                                                         <span class="inline-flex whitespace-nowrap rounded-md border px-3 py-1 text-sm font-semibold {{ \App\Models\Order::statusStyle($clientOrder->status) }}">
@@ -377,14 +420,13 @@
                                                             {{ $orderPaymentStatusLabel }}
                                                         </span>
                                                     </td>
-                                                    <td class="border-b px-4 py-3">{{ $clientOrder->customer_name ?: '—' }}</td>
-                                                    <td class="border-b px-4 py-3">{{ $clientOrder->lastEditedBy?->name ?? '—' }}</td>
+                                                    <td class="border-b px-4 py-3">{{ $clientOrder->createdBy?->name ?? '—' }}</td>
                                                     <td class="border-b px-4 py-3 text-right">{{ $formatOrderMoney($clientOrder->amount_due) }}</td>
                                                     <td class="border-b px-4 py-3 text-right font-bold">{{ $formatOrderMoney($clientOrder->total_cost) }}</td>
                                                 </tr>
                                             @empty
                                                 <tr>
-                                                    <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                                                    <td :colspan="selectingCancelledOrders ? 8 : 7" class="px-4 py-8 text-center text-gray-500">
                                                         Замовлення ще не створено.
                                                     </td>
                                                 </tr>
@@ -409,6 +451,15 @@
                             @endunless
                         </div>
                     </form>
+                    @if($hasVisibleCancelledOrders)
+                        <form id="hide-cancelled-orders-form" method="POST" action="{{ route('orders.clients.hide-cancelled-orders', $client) }}">
+                            @csrf
+                            @method('PATCH')
+                            <template x-for="orderPublicId in selectedCancelledOrderIds" :key="orderPublicId">
+                                <input type="hidden" name="order_public_ids[]" :value="orderPublicId">
+                            </template>
+                        </form>
+                    @endif
                 </div>
             </div>
 
@@ -667,6 +718,9 @@
                 overpaymentTotal: Number(config.overpaymentTotal) || 0,
                 canManageOverpayments: Boolean(config.canManageOverpayments),
                 canEditPayments: Boolean(config.canEditPayments),
+                canHideCancelledOrders: Boolean(config.canHideCancelledOrders),
+                selectingCancelledOrders: false,
+                selectedCancelledOrderIds: [],
                 today: config.today || '',
                 showPaymentCodes: false,
                 availablePaymentOrders: [],
@@ -686,6 +740,21 @@
                 paymentRatesError: '',
                 paymentForm: emptyPayment(),
                 activePaymentHistories: [],
+
+                hideCancelledOrders() {
+                    if (!this.canHideCancelledOrders) {
+                        return;
+                    }
+
+                    if (!this.selectingCancelledOrders) {
+                        this.selectingCancelledOrders = true;
+                        return;
+                    }
+
+                    if (this.selectedCancelledOrderIds.length > 0) {
+                        document.getElementById('hide-cancelled-orders-form')?.submit();
+                    }
+                },
 
                 openCreatePayment() {
                     this.isEditingPayment = false;
@@ -1038,7 +1107,9 @@
 
                     this.isLoadingPaymentOrders = true;
                     try {
-                        const response = await fetch(this.paymentOrdersUrl, {
+                        const ordersUrl = new URL(this.paymentOrdersUrl, window.location.origin);
+                        ordersUrl.searchParams.set('payment_source', this.paymentForm.fromOverpayment ? 'overpayment' : 'direct');
+                        const response = await fetch(ordersUrl.toString(), {
                             method: 'GET',
                             headers: {
                                 'Accept': 'application/json',

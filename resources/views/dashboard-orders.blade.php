@@ -6,7 +6,7 @@
     </x-slot>
 
     @php
-        $period = $filters['period'] ?? 'mtd';
+        $period = $filters['period'] ?? 'ytd';
         $selectedClientIds = collect($filters['client_id'] ?? [])->map(static fn ($value) => (int) $value)->all();
         $selectedClientNames = $clients
             ->filter(fn ($client) => in_array((int) $client->id, $selectedClientIds, true))
@@ -23,6 +23,8 @@
             ? $value->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i')
             : '—';
         $orderCount = max(1, (int) ($kpi['order_count'] ?? 0));
+        $paymentStatusAnalyticsOrders = $paymentStatusAnalyticsOrders ?? $analyticsOrders;
+        $orderStatusAnalyticsOrders = $orderStatusAnalyticsOrders ?? $analyticsOrders;
 
         $kpiCards = [
             ['label' => 'Кількість замовлень', 'value' => number_format((int) ($kpi['order_count'] ?? 0), 0, '.', ' ')],
@@ -68,7 +70,8 @@
 
             return $result;
         })->values();
-        $modalOrders = $analyticsOrders->map(function (array $row) use ($showFinance, $canOpenOrder, $canOpenClient): array {
+        $buildModalOrders = static function ($orders) use ($showFinance, $canOpenOrder, $canOpenClient) {
+            return $orders->map(function (array $row) use ($showFinance, $canOpenOrder, $canOpenClient): array {
             $result = [
                 'updated_at' => $row['updated_at']?->timestamp ?? 0,
                 'updated_at_label' => $row['updated_at']?->copy()->timezone('Europe/Kiev')->format('d.m.Y H:i') ?? '—',
@@ -93,7 +96,10 @@
             }
 
             return $result;
-        })->values();
+            })->values();
+        };
+        $modalPaymentOrders = $buildModalOrders($paymentStatusAnalyticsOrders);
+        $modalOrderStatusOrders = $buildModalOrders($orderStatusAnalyticsOrders);
     @endphp
 
     <style>
@@ -118,7 +124,11 @@
             transition: transform 0.18s ease, box-shadow 0.18s ease;
         }
 
-        .orders-analytics-panel:hover {
+        .orders-analytics-filters {
+            transition: none;
+        }
+
+        .orders-analytics-panel:not(.orders-analytics-filters):hover {
             transform: translateY(-2px);
             box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
         }
@@ -200,12 +210,13 @@
             .orders-analytics-shell {
                 flex-direction: row;
                 align-items: flex-start;
+                margin-left: -40px;
             }
 
             .orders-analytics-filters {
                 position: sticky;
                 top: 1.5rem;
-                width: 242px;
+                width: 340px;
             }
 
             .orders-analytics-content {
@@ -219,6 +230,12 @@
             }
         }
 
+        @media (min-width: 1800px) {
+            .orders-analytics-shell {
+                margin-left: max(-98px, calc(860px - 50vw));
+            }
+        }
+
     </style>
 
     <div class="py-8">
@@ -228,26 +245,37 @@
                     <form method="GET" action="{{ route('dashboard') }}" class="space-y-4">
                         <input type="hidden" name="tab" value="orders">
 
-                        <div>
-                            <label for="ordersAnalyticsPeriod" class="mb-1 block text-sm font-medium text-gray-700">Період</label>
-                            <select id="ordersAnalyticsPeriod" name="period" class="w-full rounded-md border-gray-300 text-sm shadow-sm">
-                                <option value="all" @selected($period === 'all')>За весь період</option>
-                                <option value="ytd" @selected($period === 'ytd')>З початку поточного року</option>
-                                <option value="mtd" @selected($period === 'mtd')>З початку поточного місяця</option>
-                                <option value="wtd" @selected($period === 'wtd')>З початку поточного тижня</option>
-                                <option value="custom" @selected($period === 'custom')>Кастомний період</option>
-                            </select>
-                        </div>
+                        <div data-dashboard-period-block class="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                            <div>
+                                <label for="ordersAnalyticsPeriod" class="mb-1 block text-sm font-medium text-gray-700">Період</label>
+                                <select id="ordersAnalyticsPeriod" name="period" data-auto-submit-period class="w-full rounded-md border-gray-300 text-sm shadow-sm">
+                                    <option value="wtd" @selected($period === 'wtd')>З початку поточного тижня</option>
+                                    <option value="mtd" @selected($period === 'mtd')>З початку поточного місяця</option>
+                                    <option value="qtd" @selected($period === 'qtd')>З початку поточного кварталу</option>
+                                    <option value="ytd" @selected($period === 'ytd')>З початку поточного року</option>
+                                    <option value="last_90_days" @selected($period === 'last_90_days')>За останні 90 днів</option>
+                                    <option value="last_180_days" @selected($period === 'last_180_days')>За останні 180 днів</option>
+                                    <option value="all" @selected($period === 'all')>За весь період</option>
+                                    <option value="custom" @selected($period === 'custom')>Кастомний період</option>
+                                </select>
+                            </div>
 
-                        <div class="grid grid-cols-1 gap-3">
-                            <div>
-                                <label for="ordersAnalyticsFrom" class="mb-1 block text-sm font-medium text-gray-700">Від</label>
-                                <input id="ordersAnalyticsFrom" type="date" name="from" value="{{ $filters['from'] ?? '' }}" class="w-full rounded-md border-gray-300 text-sm shadow-sm">
+                            <div data-auto-submit-custom-period class="grid grid-cols-2 gap-3">
+                                <div class="min-w-0">
+                                    <label for="ordersAnalyticsFrom" class="mb-1 block text-sm font-medium text-gray-700">Від</label>
+                                    <input id="ordersAnalyticsFrom" type="date" name="from" value="{{ $filters['from'] ?? '' }}" class="w-full min-w-0 rounded-md border-gray-300 text-sm shadow-sm">
+                                </div>
+                                <div class="min-w-0">
+                                    <label for="ordersAnalyticsTo" class="mb-1 block text-sm font-medium text-gray-700">До</label>
+                                    <input id="ordersAnalyticsTo" type="date" name="to" value="{{ $filters['to'] ?? '' }}" class="w-full min-w-0 rounded-md border-gray-300 text-sm shadow-sm">
+                                </div>
                             </div>
-                            <div>
-                                <label for="ordersAnalyticsTo" class="mb-1 block text-sm font-medium text-gray-700">До</label>
-                                <input id="ordersAnalyticsTo" type="date" name="to" value="{{ $filters['to'] ?? '' }}" class="w-full rounded-md border-gray-300 text-sm shadow-sm">
-                            </div>
+
+                            <div
+                                id="ordersAnalyticsCustomPeriodError"
+                                data-custom-period-error
+                                class="text-xs text-red-600 {{ empty($periodError) ? 'hidden' : '' }}"
+                            >{{ $periodError ?? '' }}</div>
                         </div>
 
                         <div>
@@ -276,10 +304,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        @if(!empty($periodError))
-                            <div class="text-xs text-red-600">{{ $periodError }}</div>
-                        @endif
 
                         <div class="flex items-center gap-2 pt-2">
                             <button type="submit" class="inline-flex items-center rounded-md border border-transparent bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700">Застосувати</button>
@@ -552,6 +576,8 @@
             const periodSelect = document.getElementById('ordersAnalyticsPeriod');
             const fromInput = document.getElementById('ordersAnalyticsFrom');
             const toInput = document.getElementById('ordersAnalyticsTo');
+            const periodForm = periodSelect?.form;
+            const customPeriodError = document.getElementById('ordersAnalyticsCustomPeriodError');
             const clientDropdown = document.getElementById('ordersAnalyticsClientDropdown');
             const clientToggle = document.getElementById('ordersAnalyticsClientToggle');
             const clientLabel = document.getElementById('ordersAnalyticsClientLabel');
@@ -562,6 +588,45 @@
             function syncCustomPeriod() {
                 if (periodSelect && ((fromInput && fromInput.value) || (toInput && toInput.value))) {
                     periodSelect.value = 'custom';
+                }
+            }
+
+            function setCustomPeriodError(visible) {
+                [fromInput, toInput].forEach((input) => {
+                    const invalid = visible && !input?.value;
+                    input?.classList.toggle('border-red-500', invalid);
+                    input?.setAttribute('aria-invalid', invalid ? 'true' : 'false');
+                });
+
+                if (!customPeriodError) return;
+                customPeriodError.textContent = visible
+                    ? 'Для кастомного періоду потрібно вказати обидві дати: "Від" і "До".'
+                    : '';
+                customPeriodError.classList.toggle('hidden', !visible);
+            }
+
+            function validateCustomPeriod() {
+                const invalid = periodSelect?.value === 'custom' && (!fromInput?.value || !toInput?.value);
+                setCustomPeriodError(invalid);
+
+                if (invalid) {
+                    (!fromInput?.value ? fromInput : toInput)?.focus();
+                }
+
+                return !invalid;
+            }
+
+            function applyCustomPeriodWhenReady() {
+                syncCustomPeriod();
+
+                if (periodSelect?.value === 'custom' && fromInput?.value && toInput?.value) {
+                    setCustomPeriodError(false);
+                    periodForm?.requestSubmit();
+                    return;
+                }
+
+                if (!customPeriodError?.classList.contains('hidden')) {
+                    validateCustomPeriod();
                 }
             }
 
@@ -577,9 +642,20 @@
                 }
             }
 
-            fromInput?.addEventListener('change', syncCustomPeriod);
+            periodSelect?.addEventListener('change', () => {
+                if (periodSelect.value !== 'custom') {
+                    setCustomPeriodError(false);
+                    periodSelect.form?.requestSubmit();
+                }
+            });
+            periodForm?.addEventListener('submit', (event) => {
+                if (!validateCustomPeriod()) {
+                    event.preventDefault();
+                }
+            });
+            fromInput?.addEventListener('change', applyCustomPeriodWhenReady);
             fromInput?.addEventListener('input', syncCustomPeriod);
-            toInput?.addEventListener('change', syncCustomPeriod);
+            toInput?.addEventListener('change', applyCustomPeriodWhenReady);
             toInput?.addEventListener('input', syncCustomPeriod);
             clientToggle?.addEventListener('click', () => clientDropdown?.classList.toggle('is-open'));
             clientCheckboxes.forEach((checkbox) => checkbox.addEventListener('change', syncClientLabel));
@@ -634,7 +710,8 @@
             const analyticsData = {
                 debtors: @json($showTables ? $modalDebtors : []),
                 investors: @json($showTables ? $modalInvestors : []),
-                orders: @json($showTables ? $modalOrders : []),
+                paymentStatusOrders: @json($showTables ? $modalPaymentOrders : []),
+                orderStatusOrders: @json($showTables ? $modalOrderStatusOrders : []),
             };
             const showFinance = @json($showFinance);
             const modal = document.getElementById('ordersAnalyticsModal');
@@ -769,7 +846,8 @@
                     const byPayment = type === 'payment-status';
                     const statusKey = byPayment ? 'payment_status' : 'order_status';
                     const labelKey = byPayment ? 'payment_status_label' : 'order_status_label';
-                    modalRows = analyticsData.orders.filter((row) => row[statusKey] === status);
+                    const orders = byPayment ? analyticsData.paymentStatusOrders : analyticsData.orderStatusOrders;
+                    modalRows = orders.filter((row) => row[statusKey] === status);
                     modalColumns = orderColumns;
                     modalTitle.textContent = `${byPayment ? 'Замовлення зі статусом оплати' : 'Замовлення зі статусом'} «${modalRows[0]?.[labelKey] || status}»`;
                     sortKey = 'updated_at';

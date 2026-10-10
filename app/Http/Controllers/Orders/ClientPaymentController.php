@@ -44,6 +44,11 @@ class ClientPaymentController extends Controller
     {
         abort_unless($permissions->can($request->user(), 'orders_clients_payments'), 403);
 
+        $data = $request->validate([
+            'payment_source' => ['nullable', 'string', 'in:direct,overpayment'],
+        ]);
+        $paymentSource = $data['payment_source'] ?? 'direct';
+
         $paymentTotals = DB::table('client_payments')
             ->selectRaw('order_id, SUM(amount_uah) as total')
             ->whereNotNull('order_id')
@@ -60,7 +65,12 @@ class ClientPaymentController extends Controller
                             ->whereColumn('selectable_order_payment_totals.total', '<', 'orders.total_cost');
                     });
             })
-            ->where('orders.status', Order::STATUS_NEW)
+            ->whereIn(
+                'orders.status',
+                $paymentSource === 'overpayment'
+                    ? [Order::STATUS_NEW]
+                    : [Order::STATUS_NEW, Order::STATUS_BLOCKED]
+            )
             ->latest('created_at')
             ->get([
                 'orders.public_id',
@@ -101,7 +111,7 @@ class ClientPaymentController extends Controller
 
         [$payment, $automaticOverpayment] = DB::transaction(function () use ($request, $client, $data, $order): array {
             $this->ensureValidOverpaymentBalance($client, $data);
-            $this->ensureOrderCanAcceptNewPayment($order);
+            $this->ensureOrderCanAcceptNewPayment($order, (bool) $data['is_from_overpayment']);
 
             [$data, $automaticOverpaymentAmount] = $this->splitOrderOverpayment($data, $order);
 
@@ -121,7 +131,7 @@ class ClientPaymentController extends Controller
                 $request->user()?->id
             );
 
-            $this->syncOrderPaymentTotals($order);
+            $this->syncOrderPaymentTotals($order, $request->user()?->id);
 
             return [$payment, $automaticOverpayment];
         });
@@ -266,7 +276,7 @@ class ClientPaymentController extends Controller
                 ]);
 
                 $payments->push($payment);
-                $this->syncOrderPaymentTotals($order);
+                $this->syncOrderPaymentTotals($order, $request->user()?->id);
             }
 
             return [$payments, $total];
@@ -322,7 +332,7 @@ class ClientPaymentController extends Controller
         DB::transaction(function () use ($request, $clientPayment, $data, $order, $previousOrder): void {
             $this->ensureValidOverpaymentBalance($clientPayment->client, $data, $clientPayment);
             if ((int) $previousOrder?->id !== (int) $order?->id) {
-                $this->ensureOrderCanAcceptNewPayment($order);
+                $this->ensureOrderCanAcceptNewPayment($order, (bool) $data['is_from_overpayment']);
             }
 
             [$data, $automaticOverpaymentAmount] = $this->splitOrderOverpayment($data, $order, $clientPayment);
@@ -383,9 +393,9 @@ class ClientPaymentController extends Controller
                 $request->user()?->id
             );
 
-            $this->syncOrderPaymentTotals($previousOrder);
+            $this->syncOrderPaymentTotals($previousOrder, $request->user()?->id);
             if ((int) $previousOrder?->id !== (int) $order?->id) {
-                $this->syncOrderPaymentTotals($order);
+                $this->syncOrderPaymentTotals($order, $request->user()?->id);
             }
         });
 
@@ -673,7 +683,7 @@ class ClientPaymentController extends Controller
         ]);
     }
 
-    private function syncOrderPaymentTotals(?Order $order): void
+    private function syncOrderPaymentTotals(?Order $order, ?int $userId = null): void
     {
         if (! $order) {
             return;
@@ -683,10 +693,29 @@ class ClientPaymentController extends Controller
             ->where('order_id', $order->id)
             ->sum('amount_uah');
 
+        $oldStatus = (string) ($order->status ?: Order::STATUS_NEW);
+        $isPaid = abs($paymentsTotal - (float) $order->total_cost) < 0.005;
+        $newStatus = $isPaid && $oldStatus === Order::STATUS_NEW
+            ? Order::STATUS_BLOCKED
+            : $oldStatus;
+
         $order->forceFill([
             'payments_total' => $paymentsTotal,
             'amount_due' => (float) $order->total_cost - $paymentsTotal,
+            'status' => $newStatus,
+            ...($newStatus !== $oldStatus ? ['last_edited_by' => $userId] : []),
         ])->saveQuietly();
+
+        if ($newStatus !== $oldStatus) {
+            $order->histories()->create([
+                'user_id' => $userId,
+                'operation_type' => 'order_updated',
+                'field_name' => 'status',
+                'description' => 'Статус замовлення',
+                'before_value' => ['value' => Order::STATUSES[$oldStatus] ?? $oldStatus],
+                'after_value' => ['value' => Order::STATUSES[$newStatus] ?? $newStatus],
+            ]);
+        }
     }
 
     /**
@@ -839,15 +868,21 @@ class ClientPaymentController extends Controller
         return max(0, $prepaymentTotal - $usedOverpaymentTotal);
     }
 
-    private function ensureOrderCanAcceptNewPayment(?Order $order): void
+    private function ensureOrderCanAcceptNewPayment(?Order $order, bool $isFromOverpayment): void
     {
         if (! $order) {
             return;
         }
 
-        if ($order->status !== Order::STATUS_NEW) {
+        $allowedStatuses = $isFromOverpayment
+            ? [Order::STATUS_NEW]
+            : [Order::STATUS_NEW, Order::STATUS_BLOCKED];
+
+        if (! in_array($order->status, $allowedStatuses, true)) {
             throw ValidationException::withMessages([
-                'order_public_id' => 'Внесення платежів доступне лише для замовлень зі статусом «Нове».',
+                'order_public_id' => $isFromOverpayment
+                    ? 'Списання з переплати доступне лише для замовлень зі статусом «Нове».'
+                    : 'Внесення платежів доступне лише для замовлень зі статусом «Нове» або для заблокованих замовлень із залишком до сплати.',
             ]);
         }
 
