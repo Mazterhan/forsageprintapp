@@ -992,8 +992,9 @@
                                         @click="product.isExpanded = !product.isExpanded"
                                         class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-sm text-white"
                                         style="background-color: #698DE3;"
-                                        x-text="product.isExpanded ? `Згорнути деталі виробу #${displayProductNumber(productIndex)}` : `Розгорнути деталі виробу #${displayProductNumber(productIndex)}`"
-                                    ></button>
+                                    >
+                                        <span><span x-text="product.isExpanded ? 'Згорнути' : 'Розгорнути'"></span> <span x-text="`деталі виробу #${displayProductNumber(productIndex)}`"></span></span>
+                                    </button>
                                     <button
                                         x-show="products.length > 1"
                                         type="button"
